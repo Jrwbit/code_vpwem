@@ -9,7 +9,10 @@ from cleandiffuser.nn_condition import BaseNNCondition
 from cleandiffuser.nn_diffusion import BaseNNDiffusion
 from cleandiffuser.nn_diffusion.chitransformer import ChiTransformer
 from cleandiffuser.nn_diffusion.chitransformerptp import ChiTransformerPTP
-from cleandiffuser.nn_diffusion.mail import MaIL
+try:
+    from cleandiffuser.nn_diffusion.mail import MaIL
+except ModuleNotFoundError:
+    MaIL = None
 from cleandiffuser.utils import (
     at_least_ndim,
     cosine_beta_schedule,
@@ -77,7 +80,7 @@ class DDPM(DiffusionModel):
         elif isinstance(nn_diffusion, ChiTransformer):
             self.action_steps = nn_diffusion.T
             self.obs_steps = nn_diffusion.To
-        elif isinstance(nn_diffusion, MaIL):
+        elif MaIL is not None and isinstance(nn_diffusion, MaIL):
             self.action_steps = nn_diffusion.action_steps
             self.obs_steps = nn_diffusion.obs_steps
         self.use_condition_cache = (self.obs_steps > self.action_steps)

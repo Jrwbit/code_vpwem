@@ -10,8 +10,12 @@ from cleandiffuser.nn_condition import BaseNNCondition, IdentityCondition
 from cleandiffuser.nn_diffusion import BaseNNDiffusion
 from cleandiffuser.nn_diffusion.chitransformer import ChiTransformer
 from cleandiffuser.nn_diffusion.chitransformerptp import ChiTransformerPTP
-from cleandiffuser.nn_diffusion.mail import MaIL
-from cleandiffuser.nn_diffusion.longmem_mail import LongMemMaIL
+try:
+    from cleandiffuser.nn_diffusion.mail import MaIL
+    from cleandiffuser.nn_diffusion.longmem_mail import LongMemMaIL
+except ModuleNotFoundError:
+    MaIL = None
+    LongMemMaIL = None
 from cleandiffuser.nn_memory.base_nn_memory import BaseNNMemory
 from cleandiffuser.nn_memory.random_memory import RandomMemory
 from cleandiffuser.nn_memory.kmeans_memory import KMeansMemory
@@ -132,10 +136,10 @@ class LongMemDDPM(DiffusionModel):
         elif isinstance(nn_diffusion, ChiTransformer):
             self.action_steps = nn_diffusion.T
             self.obs_steps = nn_diffusion.To
-        elif isinstance(nn_diffusion, LongMemMaIL):
+        elif LongMemMaIL is not None and isinstance(nn_diffusion, LongMemMaIL):
             self.action_steps = nn_diffusion.action_steps
             self.obs_steps = nn_diffusion.obs_steps
-        elif isinstance(nn_diffusion, MaIL):
+        elif MaIL is not None and isinstance(nn_diffusion, MaIL):
             self.action_steps = nn_diffusion.action_steps
             self.obs_steps = nn_diffusion.obs_steps
         
@@ -150,7 +154,8 @@ class LongMemDDPM(DiffusionModel):
             self.dataset_action_pred_ratio = np.load(args_dict.dataset_action_pred_ratio_path).item()
             self.action_dim = x_max.shape[-1]
             self.dataset_action_pred_mlp = MLP(self.action_dim, 512, self.action_dim).to(device)
-            dataset_action_pred_mlp_sd = torch.load(args_dict.dataset_action_pred_mlp_path, map_location=self.device)
+            dataset_action_pred_mlp_sd = torch.load(
+                args_dict.dataset_action_pred_mlp_path, map_location=self.device, weights_only=False)
             self.dataset_action_pred_mlp.load_state_dict(dataset_action_pred_mlp_sd)
             self.dataset_action_pred_mlp.eval()
             for name, param in self.dataset_action_pred_mlp.state_dict().items():

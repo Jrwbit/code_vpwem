@@ -437,7 +437,7 @@ def write_pybullet_state(filename, pybullet_state, task, actions=None):
 def read_pybullet_state(filename):
     """Deserialize pybullet state from json file."""
     import torch
-    data = torch.load(filename)
+    data = torch.load(filename, weights_only=False)
 
     assert isinstance(data, dict)
 

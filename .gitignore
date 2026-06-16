@@ -150,6 +150,7 @@ cython_debug/
 
 # Data directories
 # You might want to comment some of these lines, depending on your project.
+data/
 *.h5
 *.hdf5
 *.pkl

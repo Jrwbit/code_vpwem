@@ -176,11 +176,18 @@ def main(args):
     else:
         raise NotImplementedError
     
-    condition_model_path = "PATH_TO_CKPT_MODEL"
-    if os.path.exists(condition_model_path):
-        agent.load(condition_model_path)
+    condition_model_path = os.path.expanduser(args.model_path)
+    if not os.path.exists(condition_model_path):
+        raise FileNotFoundError(f"Checkpoint not found: {condition_model_path}")
+    agent.load(condition_model_path)
     
-    _convert_h5_to_embeddings(os.path.expanduser(args.dataset_path), agent.model_ema.condition, args.shape_meta.obs, dataset.normalizer, batch_size=args.batch_size, device="cuda:3")
+    _convert_h5_to_embeddings(
+        os.path.expanduser(args.dataset_path),
+        agent.model_ema.condition,
+        args.shape_meta.obs,
+        dataset.normalizer,
+        batch_size=args.batch_size,
+        device=args.device)
     print("Done converting!")
 
 if __name__ == "__main__":

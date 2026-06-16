@@ -100,7 +100,7 @@ class DiffusionModel:
         }, path)
 
     def load(self, path: str):
-        checkpoint = torch.load(path, map_location=self.device)
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
         msg = self.model.load_state_dict(checkpoint["model"])
         print(f"Model loaded with message: {msg}")
         msg = self.model_ema.load_state_dict(checkpoint["model_ema"])
@@ -108,5 +108,4 @@ class DiffusionModel:
         msg = self.optimizer.load_state_dict(checkpoint["optimizer"])
         print(f"Optimizer loaded with message: {msg}")
         
-
 

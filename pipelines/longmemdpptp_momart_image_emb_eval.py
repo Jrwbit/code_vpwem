@@ -468,7 +468,7 @@ def pipeline(args):
     
 
     condition_model_path = f"PATH_TO_SHORT_CONTEXT_POLICY_CKPT_MODEL"
-    condition_ckpt = torch.load(condition_model_path)
+    condition_ckpt = torch.load(condition_model_path, weights_only=False)
     keys_to_remove = [k for k in condition_ckpt['model'].keys() if k.startswith("diffusion")]
     for k in keys_to_remove:
         del condition_ckpt['model'][k]
@@ -482,7 +482,7 @@ def pipeline(args):
     print(ckpt)
     
     diffusion_model_path = os.path.join(args.work_dir, f"models/model_{ckpt}.pt")
-    diffusion_ckpt = torch.load(diffusion_model_path)
+    diffusion_ckpt = torch.load(diffusion_model_path, weights_only=False)
     
     msg = agent.model.load_state_dict(diffusion_ckpt["model"], strict=False)
     print(f"Diffusion Model loaded with message: {msg}")
@@ -510,4 +510,3 @@ if __name__ == "__main__":
 
 
     
-

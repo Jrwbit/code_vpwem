@@ -1,0 +1,70 @@
+pipeline_name: longmemdpptp_real_zarr
+
+# dataset
+dataset_path: /home/wjr/code/vpwem/data/real_zarr/20260408wjryou_right_zarr
+mode: train
+shape_meta:
+  action:
+    shape:
+      - 8
+  obs:
+    dp_emb:
+      shape:
+        - 256
+      type: low_dim
+
+action_dim: 8
+obs_steps: 2
+action_steps: 8
+inference_action_steps: 8
+horizon: 9
+
+# train
+device: cuda:0
+seed: 100
+gradient_steps: 160000
+batch_size: 128
+num_workers: 4
+nn: chi_transformer
+diffusion: ddpm
+sample_steps: 50
+temperature: 1.0
+lr: 0.0001
+
+# dropout
+short_cond_dropout: 0.3
+long_cond_dropout: 0.3
+p_drop_emb: 0.0
+p_drop_attn: 0.3
+
+# action predictability regularization
+pred_reg_coeff: 0
+
+# long memory
+mem_compress_method: qformer
+mem_compress_length: 4
+dataset_memory_type: random_from_full
+dataset_memory_subsample_ratio: 20
+maximum_memory_length: 64
+memory_pos_emb: sin_pos
+qformer_emb_dim: 256
+qformer_num_layers: 1
+qformer_cache_compress: adjsim
+qformer_cache_max_length: 8
+
+# log
+exp_name: block_2cam/obs_${obs_steps}_act_${action_steps}/${dataset_memory_subsample_ratio}_${mem_compress_method}_${mem_compress_length}_${memory_pos_emb}_${qformer_num_layers}_${qformer_cache_compress}_${qformer_cache_max_length}_${lr}
+save_path: /home/wjr/code/vpwem/outputs
+project: CleanDiffuser
+group: longmemdpptp_real_zarr
+wandb_mode: online
+log_freq: 80
+save_freq: 8000
+save_top_k: 3
+work_dir: ${save_path}/real_zarr/longmemdpptp/${exp_name}/${seed}
+
+hydra:
+  run:
+    dir: ${work_dir}
+  job:
+    chdir: false

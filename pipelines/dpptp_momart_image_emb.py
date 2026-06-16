@@ -171,7 +171,9 @@ def pipeline(args):
         if os.path.exists(last_saved_model_path):
             agent.load(last_saved_model_path)
             n_gradient_step = g_step + 1
-            lr_sd = torch.load(args.work_dir +  f'/models/scheduler_{str(g_step)}.pt', map_location=args.device)
+            lr_sd = torch.load(
+                args.work_dir +  f'/models/scheduler_{str(g_step)}.pt',
+                map_location=args.device, weights_only=False)
             lr_scheduler = CosineAnnealingLR(agent.optimizer, T_max=args.gradient_steps, last_epoch=lr_sd["last_epoch"])
             lr_scheduler.load_state_dict(lr_sd)
             break
@@ -242,4 +244,3 @@ if __name__ == "__main__":
 
 
     
-

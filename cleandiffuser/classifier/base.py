@@ -85,7 +85,6 @@ class BaseClassifier:
         }, path)
 
     def load(self, path):
-        checkpoint = torch.load(path, map_location=self.device)
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
         self.model.load_state_dict(checkpoint["model"])
         self.model_ema.load_state_dict(checkpoint["model_ema"])
-

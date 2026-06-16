@@ -85,7 +85,7 @@ class MlpInvDynamic:
         torch.save(self.mlp.state_dict(), path)
 
     def load(self, path):
-        self.mlp.load_state_dict(torch.load(path, self.device))
+        self.mlp.load_state_dict(torch.load(path, map_location=self.device, weights_only=False))
 
 
 class FancyMlpInvDynamic:
@@ -170,7 +170,7 @@ class FancyMlpInvDynamic:
         torch.save(self.model.state_dict(), path)
 
     def load(self, path):
-        self.model.load_state_dict(torch.load(path, self.device))
+        self.model.load_state_dict(torch.load(path, map_location=self.device, weights_only=False))
 
 
 class EnsembleMlpInvDynamic(MlpInvDynamic):
@@ -290,4 +290,4 @@ class ResInvDynamic:
         torch.save(self.model.state_dict(), path)
 
     def load(self, path):
-        self.model.load_state_dict(torch.load(path, self.device))
+        self.model.load_state_dict(torch.load(path, map_location=self.device, weights_only=False))

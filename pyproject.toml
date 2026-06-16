@@ -10,7 +10,7 @@ dependencies = [
     "einops",
     "zarr>=2.16.1",
     "av>=12.2.0",
-    "dill>=0.3.8",
+    "dill>=0.3.0,<0.3.7",
     "numba<0.60.0",
     "matplotlib<=3.7.5",
     "six",

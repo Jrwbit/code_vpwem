@@ -253,7 +253,7 @@ def sample_random_image_crops(images, crop_height, crop_width, num_crops, pos_en
     if pos_enc:
         # spatial encoding [y, x] in [0, 1]
         h, w = source_im.shape[-2:]
-        pos_y, pos_x = torch.meshgrid(torch.arange(h), torch.arange(w))
+        pos_y, pos_x = torch.meshgrid(torch.arange(h), torch.arange(w), indexing="ij")
         pos_y = pos_y.float().to(device) / float(h)
         pos_x = pos_x.float().to(device) / float(w)
         position_enc = torch.stack((pos_y, pos_x))  # shape [C, H, W]
