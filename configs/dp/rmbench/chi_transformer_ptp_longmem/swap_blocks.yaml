@@ -1,0 +1,77 @@
+pipeline_name: longmemdpptp_rmbench_image
+env_name: swap_blocks
+dataset_path: /home/wjr/code/rmbench/data/swap_blocks/demo_clean
+mode: train
+shape_meta:
+  action:
+    shape:
+      - 14
+  obs:
+    head_cam:
+      shape:
+        - 3
+        - 240
+        - 320
+      type: rgb
+      source: observation/head_camera/rgb
+    agent_pos:
+      shape:
+        - 14
+      type: low_dim
+      source: joint_action/vector
+action_dim: 14
+obs_steps: 2
+action_steps: 8
+inference_action_steps: 8
+horizon: 9
+rgb_model: resnet18
+resize_shape: null
+crop_shape:
+  - 76
+  - 76
+random_crop: true
+use_group_norm: true
+use_seq: true
+device: cuda:0
+seed: 100
+gradient_steps: 10
+batch_size: 1
+num_workers: 0
+nn: chi_transformer
+diffusion: ddpm
+sample_steps: 50
+short_cond_dropout: 0.3
+long_cond_dropout: 0.3
+p_drop_emb: 0.0
+p_drop_attn: 0.3
+pred_reg_coeff: 0
+dataset_action_pred_ratio_path: ${save_path}/rmbench/${env_name}_action_predict_ratio.npy
+dataset_action_pred_mlp_path: ${save_path}/rmbench/${env_name}_action_predict_model.pth
+mem_compress_method: random
+mem_compress_length: 2
+dataset_memory_type: random_from_full
+memory_pos_emb: sin_pos
+qformer_emb_dim: 256
+qformer_num_layers: 1
+qformer_cache_compress: fifo
+qformer_cache_max_length: 8
+dataset_memory_subsample_ratio: 20
+lr: 0.0001
+log_freq: 1
+save_freq: 10
+save_on_exit: true
+resume: false
+resume_step: null
+resume_model_path: null
+resume_scheduler_path: null
+save_path: /home/wjr/code/vpwem/outputs/rmbench
+project: CleanDiffuser
+group: dp_rmbench
+wandb_mode: offline
+exp_name: ${env_name}/obs_${obs_steps}_act_${action_steps}/smoke_raw_image
+work_dir: ${save_path}/${pipeline_name}/${mode}/${env_name}/smoke/${seed}
+hydra:
+  run:
+    dir: ${work_dir}
+  job:
+    chdir: false
