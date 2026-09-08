@@ -1,0 +1,47 @@
+defaults:
+  - shell_game_touch
+  - _self_
+
+# Stage-1 NCM adaptation. Q-Former, decoder depth, memory-token count,
+# horizon, batch size, and observation/action interfaces are inherited from
+# the reproduced ShellGameTouch VPWEM configuration above.
+gradient_steps: 10000
+save_freq: 10000
+log_freq: 500
+lr: 0.00001
+num_workers: 8
+conversion_n_workers: 4
+conversion_max_inflight_tasks: 20
+keep_checkpoints: 1
+inference_action_steps: 1
+diffusion_num_layers: 8
+eval_seed_start: 20260807
+diffusion_seed: 20260807
+ncm_decision_step: 6
+ncm_intervention_steps: 8
+ncm_num_branches: 3
+ncm_commit_threshold: 0.12
+result_path: ${work_dir}/ncm_eval.npy
+offline_seed: 20260807
+offline_mc_samples: 4
+offline_max_batches: -1
+offline_result_path: ${work_dir}/ncm_offline_gap.json
+
+# Pair feasibility fix: use the physically re-collected neutral-prefix dataset.
+# The released demonstrations have no clean two-frame post-cue window. A
+# virtual one-frame hold (steps=1) is permitted only for a pipeline smoke test.
+shellgame_hold_step: 5
+shellgame_hold_steps: 0
+ncm_pair_manifest_path: null
+ncm_pairing_seed: 100
+normalizer_dataset_path: null
+
+# VPWEM: mode=none, coeff=0. Random/Unmatched/Matched use the same coefficient,
+# margin, probability, batches, and base checkpoint.
+counterfactual_negative_mode: none
+counterfactual_memory_coeff: 0.0
+counterfactual_memory_margin: 0.1
+counterfactual_memory_probability: 1.0
+memory_aux_coeff: 0.0
+init_model_path: null
+pairing_checkpoint_path: null

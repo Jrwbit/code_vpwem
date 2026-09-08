@@ -8,6 +8,7 @@ import gym
 import pathlib
 import time
 import collections
+import copy
 import numpy as np
 import torch
 import torch.nn as nn
@@ -20,7 +21,8 @@ from cleandiffuser.env.robomimic.robomimic_image_wrapper import RobomimicImageWr
 from cleandiffuser.env.wrapper import VideoRecordingWrapper, MultiStepWrapper
 from cleandiffuser.env.async_vector_env import AsyncVectorEnv
 from cleandiffuser.env.utils import VideoRecorder
-from cleandiffuser.dataset.robomimic_dataset_longmem import LongMemRobomimicImageDataset
+from cleandiffuser.dataset.robomimic_dataset_longmem import (
+    LongMemRobomimicImageDataset, RobomimicEvalNormalizer)
 from cleandiffuser.dataset.dataset_utils import loop_dataloader
 from cleandiffuser.utils.utils import report_parameters, dict_apply 
 from cleandiffuser.utils.mlp_correlation import batch_mlp_corr
@@ -149,8 +151,17 @@ def make_async_envs(args):
     envs.seed(args.seed)
     return envs, env_init_fn_dills
 
-def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
+def inference(
+        args, envs, dataset, agent, logger, env_init_fn_dills,
+        memory_intervention="none"):
     """Evaluate a trained agent and optionally save a video."""
+    # Re-seed before every variant so memory ablations see the same initial
+    # environment sequence instead of whichever resets happen to come next.
+    envs.seed(args.seed)
+    diffusion_seed = int(getattr(args, "diffusion_seed", args.seed))
+    torch.manual_seed(diffusion_seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(diffusion_seed)
     # ---------------- Start Rollout ----------------
     episode_rewards = []
     episode_steps = []
@@ -158,6 +169,7 @@ def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
     predictability_ratio = []
     avg_infer_times = []
     all_all_actions = []
+    retention_traces = []
     
     if args.diffusion == "ddpm":
         solver = None
@@ -208,7 +220,17 @@ def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
                 condition = obs_dict
                 # run sampling (num_envs, horizon, action_dim)
                 prior = torch.zeros((args.num_envs, args.horizon, args.action_dim), device=args.device)
-                naction, _ = agent.sample(prior=prior, n_samples=args.num_envs, sample_steps=args.sample_steps, solver=solver, condition_cfg=condition, w_cfg=1.0, temperature=args.temperature, use_ema=True)
+                naction, _ = agent.sample(
+                    prior=prior,
+                    n_samples=args.num_envs,
+                    sample_steps=args.sample_steps,
+                    solver=solver,
+                    condition_cfg=condition,
+                    memory_intervention=memory_intervention,
+                    w_cfg=1.0,
+                    temperature=args.temperature,
+                    use_ema=True,
+                )
                 
             # unnormalize prediction
             naction = naction.detach() # .to('cpu').numpy()  # (num_envs, horizon, action_dim)
@@ -247,15 +269,38 @@ def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
         episode_rewards.extend(ep_reward)
         episode_success.extend(success)
         episode_steps.extend([t] * args.num_envs)
+        memory_module = agent.model_ema["memory"]
+        if hasattr(memory_module, "get_retention_trace"):
+            retention_traces.append([
+                step.numpy() for step in memory_module.get_retention_trace()
+            ])
     
     all_all_actions = np.concatenate(all_all_actions, axis=0)
     predictability_ratio.append(batch_mlp_corr(all_all_actions))
+    retention_trace_array = np.empty(len(retention_traces), dtype=object)
+    retention_trace_array[:] = retention_traces
 
     log_dict = {'mean_step': np.nanmean(episode_steps), 
                 'mean_reward': np.nanmean(episode_rewards), 
                 'mean_success': np.nanmean(episode_success),
                 "mlp_corr_pred_actions_full_traj_online_fixed": np.nanmean(predictability_ratio),
                 "avg_infer_time": np.nanmean(avg_infer_times),
+                # Preserve paired outcomes for confidence intervals and
+                # McNemar tests under a shared deterministic evaluation seed.
+                "eval_seed": int(args.seed),
+                "diffusion_seed": int(getattr(
+                    args, "diffusion_seed", args.seed)),
+                "retention_seed": int(getattr(
+                    args, "retention_seed", args.seed)),
+                "retention_trace": retention_trace_array,
+                "episode_id": np.arange(
+                    len(episode_success), dtype=np.int64),
+                "episode_reward": np.asarray(
+                    episode_rewards, dtype=np.float32),
+                "episode_success": np.asarray(
+                    episode_success, dtype=np.int8),
+                "episode_steps": np.asarray(
+                    episode_steps, dtype=np.int32),
                 }
     print(log_dict, flush=True)
     return log_dict
@@ -271,12 +316,21 @@ def pipeline(args):
         
     # ---------------- Create Dataset ----------------
     dataset_path = os.path.expanduser(args.dataset_path)
-    dataset = LongMemRobomimicImageDataset(dataset_path, horizon=args.horizon, shape_meta=args.shape_meta,
-                                    n_obs_steps=args.obs_steps, pad_before=args.obs_steps-1,
-                                    pad_after=args.action_steps-1, abs_action=args.abs_action,
-                                    dataset_memory_type=args.dataset_memory_type,
-                                    subsample_ratio=args.dataset_memory_subsample_ratio,
-                                    device=args.device,)
+    if bool(getattr(args, "eval_normalizer_only", False)):
+        dataset = RobomimicEvalNormalizer(
+            dataset_path=dataset_path,
+            shape_meta=args.shape_meta,
+            abs_action=args.abs_action,
+            device=args.device)
+    else:
+        dataset = LongMemRobomimicImageDataset(dataset_path, horizon=args.horizon, shape_meta=args.shape_meta,
+                                        n_obs_steps=args.obs_steps, pad_before=args.obs_steps-1,
+                                        pad_after=args.action_steps-1, abs_action=args.abs_action,
+                                        dataset_memory_type=args.dataset_memory_type,
+                                        subsample_ratio=args.dataset_memory_subsample_ratio,
+                                        maximum_memory_length=int(getattr(
+                                            args, "dataset_maximum_memory_length", 16)),
+                                        device=args.device,)
     print(dataset)
     
     if args.nn == "chi_transformer":
@@ -290,7 +344,7 @@ def pipeline(args):
         nn_diffusion = LongMemChiTransformerPTP(
             args.action_dim, 256, args.horizon, args.obs_steps, 
             args.mem_compress_length,
-            d_model=256, nhead=4, num_layers=4,
+            d_model=256, nhead=4, num_layers=args.diffusion_num_layers,
             timestep_emb_type="positional").to(args.device)
     else:
         raise ValueError(f"Invalid nn type {args.nn}")
@@ -299,8 +353,19 @@ def pipeline(args):
     from cleandiffuser.nn_memory.kmeans_memory import KMeansMemory
     from cleandiffuser.nn_memory.adjsim_memory import AdjSimMemory
     from cleandiffuser.nn_memory.qformer_memory import QFormerMemory
+    from cleandiffuser.nn_memory.per_memory import PERMemory
+    from cleandiffuser.nn_memory.learned_retention_memory import LearnedRetentionMemory
+    from cleandiffuser.nn_memory.recent_memory import RecentMemory
+    from cleandiffuser.nn_memory.anchor_recent_memory import AnchorRecentMemory
     if args.mem_compress_method == "random":
-        nn_memory = RandomMemory(mem_compress_length=args.mem_compress_length).to(args.device)
+        nn_memory = RandomMemory(
+            mem_compress_length=args.mem_compress_length,
+            retention_seed=int(getattr(args, "retention_seed", args.seed)),
+        ).to(args.device)
+    elif args.mem_compress_method == "recent":
+        nn_memory = RecentMemory(mem_compress_length=args.mem_compress_length).to(args.device)
+    elif args.mem_compress_method == "anchor_recent":
+        nn_memory = AnchorRecentMemory(mem_compress_length=args.mem_compress_length).to(args.device)
     elif args.mem_compress_method == "kmeans":
         nn_memory = KMeansMemory(mem_compress_length=args.mem_compress_length).to(args.device)
     elif args.mem_compress_method == "adjsim":
@@ -314,6 +379,36 @@ def pipeline(args):
                                         use_pos_emb=args.memory_pos_emb,
                                         subsample_ratio=args.dataset_memory_subsample_ratio,
                                         ).to(args.device)
+    elif args.mem_compress_method == "per":
+        nn_memory = PERMemory(
+            mem_compress_length=args.mem_compress_length,
+            evidence_length=int(getattr(args, "per_evidence_length", 1)),
+            emb_dim=args.qformer_emb_dim,
+            num_layers=args.qformer_num_layers,
+            num_heads=int(getattr(args, "qformer_num_heads", 8)),
+            bank_size=args.qformer_cache_max_length,
+            event_score_mode=str(getattr(args, "per_event_score", "delta")),
+            event_threshold=float(getattr(args, "per_event_threshold", 0.05)),
+            max_write_interval=int(getattr(
+                args, "per_max_write_interval",
+                args.dataset_memory_subsample_ratio)),
+            merge_similarity=float(getattr(
+                args, "per_merge_similarity", 0.98)),
+            score_decay=float(getattr(args, "per_score_decay", 0.995)),
+            pos_emb_scale=float(getattr(args, "per_pos_emb_scale", 0.1)),
+            subsample_ratio=args.dataset_memory_subsample_ratio,
+        ).to(args.device)
+    elif args.mem_compress_method == "learned_retention":
+        nn_memory = LearnedRetentionMemory(
+            mem_compress_length=args.mem_compress_length,
+            emb_dim=args.qformer_emb_dim,
+            num_layers=args.qformer_num_layers,
+            num_heads=int(getattr(args, "qformer_num_heads", 8)),
+            bank_size=args.qformer_cache_max_length,
+            subsample_ratio=args.dataset_memory_subsample_ratio,
+            pos_emb_scale=float(getattr(args, "retention_pos_emb_scale", 1.0)),
+            retention_head_path=str(getattr(args, "retention_head_path", "")),
+        ).to(args.device)
     else:
         raise ValueError(f"Invalid memory method {args.mem_compress_method}")
     
@@ -351,7 +446,11 @@ def pipeline(args):
     # else:
     #     raise NotImplementedError
     
-    condition_model_path = "/home/wjr/code/vpwem/outputs/robomimic/dpptp/square_ph/obs_2_act_8/100/models/model_1000000.pt"
+    condition_model_path = os.path.expanduser(getattr(
+        args,
+        "context_model_path",
+        "/home/wjr/code/vpwem/outputs/robomimic/dpptp/square_ph/obs_2_act_8/100/models/model_1000000.pt",
+    ))
 
     
     condition_ckpt = torch.load(condition_model_path, weights_only=False)
@@ -364,10 +463,14 @@ def pipeline(args):
     msg = agent.model_ema.load_state_dict(condition_ckpt["model_ema"], strict=False)
     print(f"Condition Model EMA loaded with message: {msg}")
 
-    ckpt = 1000000
+    ckpt = int(getattr(args, "ckpt", 1000000))
     print(ckpt)
     
-    diffusion_model_path = os.path.join(args.work_dir, f"models/model_{ckpt}.pt")
+    configured_model_path = os.path.expanduser(str(args.model_path))
+    if configured_model_path != "path/to/model":
+        diffusion_model_path = configured_model_path
+    else:
+        diffusion_model_path = os.path.join(args.work_dir, f"models/model_{ckpt}.pt")
     diffusion_ckpt = torch.load(diffusion_model_path, weights_only=False)
     msg = agent.model.load_state_dict(diffusion_ckpt["model"], strict=False)
     print(f"Diffusion Model loaded with message: {msg}")
@@ -377,10 +480,62 @@ def pipeline(args):
     agent.model.eval()
     agent.model_ema.eval()
 
-    result = inference(args, envs, dataset, agent, logger, env_init_fn_dills)
-    # save results
-    result_path = os.path.join(args.work_dir, f"result_{ckpt}.npy")
-    np.save(result_path, result)
+    interventions = list(getattr(
+        args, "memory_interventions",
+        [getattr(args, "memory_intervention", "none")]))
+    for intervention in interventions:
+        print(f"Evaluating memory intervention: {intervention}", flush=True)
+        result = inference(
+            args, envs, dataset, agent, logger, env_init_fn_dills,
+            memory_intervention=str(intervention))
+        result["memory_intervention"] = str(intervention)
+        result_path = os.path.join(
+            args.work_dir, f"result_{ckpt}_memory-{intervention}.npy")
+        np.save(result_path, result)
+
+    # A controlled zero-shot test of the event writer: keep the pretrained
+    # Q-Former and policy fixed, and replace only FIFO history retention with
+    # PER's bounded event bank. This avoids retraining confounds.
+    if bool(getattr(args, "evaluate_per_transfer", False)):
+        if not hasattr(agent.model["memory"], "qformer"):
+            raise ValueError(
+                "evaluate_per_transfer requires a Q-Former checkpoint")
+        per_kwargs = dict(
+            mem_compress_length=args.mem_compress_length,
+            evidence_length=0,
+            emb_dim=args.qformer_emb_dim,
+            num_layers=args.qformer_num_layers,
+            num_heads=int(getattr(args, "qformer_num_heads", 8)),
+            bank_size=args.qformer_cache_max_length,
+            event_score_mode=str(getattr(args, "per_event_score", "delta")),
+            event_threshold=float(getattr(args, "per_event_threshold", 0.05)),
+            max_write_interval=int(getattr(
+                args, "per_max_write_interval",
+                args.dataset_memory_subsample_ratio)),
+            merge_similarity=float(getattr(
+                args, "per_merge_similarity", 0.98)),
+            score_decay=float(getattr(args, "per_score_decay", 0.995)),
+            pos_emb_scale=float(getattr(args, "per_pos_emb_scale", 1.0)),
+            subsample_ratio=args.dataset_memory_subsample_ratio,
+        )
+        per_model = PERMemory(**per_kwargs).to(args.device)
+        per_model.qformer.load_state_dict(
+            agent.model["memory"].qformer.state_dict())
+        per_model_ema = copy.deepcopy(per_model)
+        per_model_ema.qformer.load_state_dict(
+            agent.model_ema["memory"].qformer.state_dict())
+        agent.model["memory"] = per_model.eval()
+        agent.model_ema["memory"] = per_model_ema.eval()
+
+        variant = "per-delta-transfer"
+        print(f"Evaluating memory variant: {variant}", flush=True)
+        result = inference(
+            args, envs, dataset, agent, logger, env_init_fn_dills,
+            memory_intervention="none")
+        result["memory_variant"] = variant
+        result_path = os.path.join(
+            args.work_dir, f"result_{ckpt}_variant-{variant}.npy")
+        np.save(result_path, result)
         
 
 

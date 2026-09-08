@@ -182,7 +182,7 @@ class LongSquareWrapper(RobomimicImageWrapper):
         obs, reward, done, info = self.env.step(action)
 
         # TODO change reward
-        peg_id = 0
+        peg_id = self.target_peg_id
         peg_pos = self.env.env.env.sim.data.body_xpos[self.env.env.env.obj_body_id['SquareNut']]
         on_peg = self.env.env.env.on_peg(peg_pos, peg_id)
 

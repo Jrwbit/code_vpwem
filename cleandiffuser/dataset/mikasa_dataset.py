@@ -33,6 +33,7 @@ class MikasaDataset(BaseDataset):
             horizon: int = 1,
             pad_before=0,
             pad_after=0,
+            use_full_episodes=False,
     ):
         super().__init__()
 
@@ -40,6 +41,7 @@ class MikasaDataset(BaseDataset):
             store=zarr.MemoryStore(),
             shape_meta=shape_meta,
             dataset_path=dataset_dir,
+            use_full_episodes=use_full_episodes,
             )
         
         rgb_keys = list()
@@ -134,6 +136,7 @@ class MikasaDataset(BaseDataset):
   
     
 def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
+                                 use_full_episodes=False,
                                  n_workers=None, max_inflight_tasks=None):
     """ Convert Mikasa-Robo dataset to ReplayBuffer
 
@@ -203,9 +206,15 @@ def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
             break
         try:
             ep_data = np.load(train_data_path)
-            success = ep_data['success']
-            first_success_idx = np.where(success == 1)
-            episode_length = first_success_idx[0][0] + 1 if len(first_success_idx[0]) > 0 else 0
+            if use_full_episodes:
+                # VPWEM trains long-context policies from the complete episode
+                # history. Preserve the released MIKASA trajectory length so
+                # the short-policy encoder sees the same 60-step distribution.
+                episode_length = len(ep_data['action'])
+            else:
+                success = ep_data['success']
+                first_success_idx = np.where(success == 1)
+                episode_length = first_success_idx[0][0] + 1 if len(first_success_idx[0]) > 0 else 0
             episode_end = prev_end + episode_length
             prev_end = episode_end
             episode_ends.append(episode_end)

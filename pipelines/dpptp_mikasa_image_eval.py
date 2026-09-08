@@ -46,7 +46,8 @@ def make_async_envs(args):
     env = FlattenRGBDObservationWrapper(env, rgb=True, joints=True)
     env = MultiStepWrapper(env, n_obs_steps=args.obs_steps,
                             n_action_steps=args.inference_action_steps,
-                            max_episode_steps=args.max_episode_steps)
+                            max_episode_steps=episode_timeout)
+    env.benchmark_episode_timeout = episode_timeout
     return env
     
 def inference(args, envs, normalizer, agent):
@@ -68,16 +69,21 @@ def inference(args, envs, normalizer, agent):
     elif args.diffusion == "edm":
         solver = "euler"
     
-    for i in range(args.eval_episodes // args.num_envs): 
+    for i in range(args.eval_episodes // args.num_envs):
 
-        ep_reward = [0.0] * args.num_envs
-        obs, _ = envs.reset(seed=args.seed)
+        ep_reward = np.zeros(args.num_envs, dtype=np.float32)
+        eval_seed_start = int(getattr(args, "eval_seed_start", 1))
+        # Gymnasium vector environments derive consecutive worker seeds from
+        # the reset seed, yielding the paper protocol seeds 1..100.
+        obs, _ = envs.reset(seed=eval_seed_start + i * args.num_envs)
         t = 0
         all_actions = []
         all_done = False
         success = [False] * args.num_envs
 
-        while t < args.max_episode_steps:
+        episode_timeout = int(getattr(
+            envs, "benchmark_episode_timeout", args.max_episode_steps))
+        while t < episode_timeout:
             
             t0 = time.time()
             obs_dict = {}
@@ -89,8 +95,11 @@ def inference(args, envs, normalizer, agent):
                 else:
                     obs_seq = obs_seq.to(args.device)
                 nobs = normalizer['obs'][k].normalize(obs_seq)
-                # nobs = obs_seq
-                obs_dict[k] = nobs # = torch.tensor(nobs, device=args.device, dtype=torch.float32)  # (num_envs, obs_steps, obs_dim)
+                # Some normalizers keep their own CPU device and may move a
+                # CUDA input back to CPU. The condition encoder is on
+                # args.device, so enforce the device at this boundary.
+                obs_dict[k] = torch.as_tensor(
+                    nobs, dtype=torch.float32, device=args.device)
             
             with torch.no_grad():
                 condition = obs_dict
@@ -109,7 +118,9 @@ def inference(args, envs, normalizer, agent):
 
             # get action
             start = args.obs_steps - 1
-            end = start + args.inference_action_steps
+            chunk_steps = min(
+                args.inference_action_steps, episode_timeout - t)
+            end = start + chunk_steps
             action = action_pred[:, start:end, :]
             all_actions.append(action)
 
@@ -121,16 +132,16 @@ def inference(args, envs, normalizer, agent):
             success = [success[j] or success_per_env[j] for j in range(args.num_envs)]
             
             ep_reward += reward
-            t += args.inference_action_steps
+            t += chunk_steps
+            if np.all(done):
+                break
 
         print(f"[Episode {1+i*(args.num_envs)}-{(i+1)*(args.num_envs)}] reward: {np.around(ep_reward, 2)} success:{success}")
-        episode_rewards.append(ep_reward)
-        episode_steps.append(t)
-        episode_success.append(success)
+        episode_rewards.extend(ep_reward.tolist())
+        episode_steps.extend([t] * args.num_envs)
+        episode_success.extend(success)
 
-        all_actions = np.transpose(all_actions, (1,0,2,3))
-        B, D1, D2, C = all_actions.shape  # Get dimensions dynamically
-        all_actions = all_actions.reshape(B, D1 * D2, C)
+        all_actions = np.concatenate(all_actions, axis=1)
         all_all_actions.append(all_actions)
     
     all_all_actions = np.concatenate(all_all_actions, axis=0)
@@ -167,7 +178,9 @@ def pipeline(args):
     dataset_path = os.path.expanduser(args.dataset_path)
     dataset = MikasaDataset(dataset_path, horizon=args.horizon, shape_meta=args.shape_meta,
                                     n_obs_steps=args.obs_steps, pad_before=args.obs_steps-1,
-                                    pad_after=args.action_steps-1)
+                                    pad_after=args.action_steps-1,
+                                    use_full_episodes=bool(getattr(
+                                        args, "dataset_use_full_episodes", False)))
     print(dataset)
     normalizer = dataset.normalizer
     
@@ -189,7 +202,7 @@ def pipeline(args):
             crop_shape=args.crop_shape, random_crop=args.random_crop, 
             use_group_norm=args.use_group_norm, use_seq=args.use_seq, keep_horizon_dims=True).to(args.device)
         nn_diffusion = ChiTransformerPTP(
-            args.action_dim, 256, args.horizon, args.obs_steps, d_model=256, nhead=4, num_layers=4,
+            args.action_dim, 256, args.horizon, args.obs_steps, d_model=256, nhead=4, num_layers=args.diffusion_num_layers,
             timestep_emb_type="positional").to(args.device)
     else:
         raise ValueError(f"Invalid nn type {args.nn}")
@@ -216,16 +229,26 @@ def pipeline(args):
     else:
         raise NotImplementedError
     
-    ckpt = 600000
+    ckpt = int(args.get("ckpt", 600000))
     print(ckpt)
-    model_path = os.path.join(args.work_dir, f"models/model_{ckpt}.pt")
+    configured_model_path = str(getattr(args, "model_path", ""))
+    if configured_model_path.lower() not in {"", "false", "none"}:
+        model_path = os.path.expanduser(configured_model_path)
+    else:
+        model_path = os.path.join(args.work_dir, f"models/model_{ckpt}.pt")
     agent.load(model_path)
     
     agent.model.eval()
     agent.model_ema.eval()
 
     result = inference(args, envs, normalizer, agent)
-    result_path = os.path.join(args.work_dir, f"result_{ckpt}_{args.inference_action_steps}.npy")
+    configured_result_path = str(getattr(args, "result_path", ""))
+    if configured_result_path.lower() not in {"", "false", "none"}:
+        result_path = os.path.expanduser(configured_result_path)
+    else:
+        result_path = os.path.join(
+            args.work_dir, f"result_{ckpt}_{args.inference_action_steps}.npy")
+    os.makedirs(os.path.dirname(result_path), exist_ok=True)
     np.save(result_path, result)
 
 

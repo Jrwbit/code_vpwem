@@ -60,6 +60,7 @@ class LongMemRobomimicImageDataset(BaseDataset):
                  dataset_memory_type='random_from_full',
                  subsample_ratio=10,
                  maximum_memory_length=16,
+                 preserve_episode_anchor=False,
                  device='cpu',
                  ):
         super().__init__()
@@ -98,6 +99,7 @@ class LongMemRobomimicImageDataset(BaseDataset):
             memory_type=dataset_memory_type,
             subsample_ratio=subsample_ratio,
             maximum_memory_length=maximum_memory_length,
+            preserve_episode_anchor=preserve_episode_anchor,
         )
         
         self.subsample_ratio = subsample_ratio
@@ -233,6 +235,69 @@ class LongMemRobomimicImageDataset(BaseDataset):
             uaction = uaction.reshape(*raw_shape[:-1], 14)
 
         return uaction
+
+
+class RobomimicEvalNormalizer:
+    """Load only statistics needed by image-policy rollout evaluation.
+
+    The regular training dataset materializes every RGB frame in a memory zarr
+    store. Rollouts already receive images from the environment, so doing that
+    work during evaluation is unnecessary and very expensive on large tasks.
+    """
+
+    def __init__(
+            self, dataset_path, shape_meta, abs_action=False,
+            rotation_rep="rotation_6d", device="cpu"):
+        self.rotation_transformer = RotationTransformer(
+            from_rep="axis_angle", to_rep=rotation_rep)
+        self.abs_action = abs_action
+        self.normalizer = defaultdict(dict)
+
+        lowdim_keys = [
+            key for key, attr in shape_meta["obs"].items()
+            if attr.get("type", "low_dim") == "low_dim"
+        ]
+        rgb_keys = [
+            key for key, attr in shape_meta["obs"].items()
+            if attr.get("type", "low_dim") == "rgb"
+        ]
+        lowdim_values = {key: [] for key in lowdim_keys}
+        actions = []
+        with h5py.File(dataset_path, "r") as dataset_file:
+            demo_keys = sorted(
+                dataset_file["data"].keys(),
+                key=lambda key: int(key.split("_")[-1]))
+            for demo_key in demo_keys:
+                demo = dataset_file["data"][demo_key]
+                actions.append(np.asarray(demo["actions"]))
+                for key in lowdim_keys:
+                    lowdim_values[key].append(
+                        np.asarray(demo["obs"][key]))
+
+        converted_actions = _convert_actions(
+            np.concatenate(actions, axis=0),
+            abs_action, self.rotation_transformer)
+        self.normalizer["action"] = MinMaxNormalizer(
+            converted_actions, device=device)
+        for key, values in lowdim_values.items():
+            self.normalizer["obs"][key] = MinMaxNormalizer(
+                np.concatenate(values, axis=0), device=device)
+        for key in rgb_keys:
+            self.normalizer["obs"][key] = ImageNormalizer(device=device)
+
+    def undo_transform_action(self, action):
+        raw_shape = action.shape
+        if raw_shape[-1] == 20:
+            action = action.reshape(-1, 2, 10)
+        d_rot = action.shape[-1] - 4
+        pos = action[..., :3]
+        rot = action[..., 3:3 + d_rot]
+        gripper = action[..., [-1]]
+        rot = self.rotation_transformer.inverse(rot)
+        action = np.concatenate([pos, rot, gripper], axis=-1)
+        if raw_shape[-1] == 20:
+            action = action.reshape(*raw_shape[:-1], 14)
+        return action
 
 
 def _convert_actions(raw_actions, abs_action, rotation_transformer):

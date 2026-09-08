@@ -277,7 +277,7 @@ def pipeline(args):
             crop_shape=args.crop_shape, random_crop=args.random_crop, 
             use_group_norm=args.use_group_norm, use_seq=args.use_seq, keep_horizon_dims=True).to(args.device)
         nn_diffusion = ChiTransformer(
-            args.action_dim, 256, args.action_steps, args.obs_steps, d_model=256, nhead=4, num_layers=4,
+            args.action_dim, 256, args.action_steps, args.obs_steps, d_model=256, nhead=4, num_layers=args.diffusion_num_layers,
             timestep_emb_type="positional").to(args.device)
     else:
         raise ValueError(f"Invalid nn type {args.nn}")

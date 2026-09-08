@@ -16,7 +16,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import pickle
-from utils import set_seed, parse_cfg, Logger
+from utils import (
+    set_seed, parse_cfg, Logger, auto_resume_training, prune_checkpoints)
 from torch.optim.lr_scheduler import CosineAnnealingLR
 import multiprocessing
 from collections import defaultdict
@@ -142,7 +143,7 @@ def pipeline(args):
         nn_diffusion = LongMemChiTransformerPTP(
             args.action_dim, 256, args.horizon, args.obs_steps, 
             args.mem_compress_length,
-            d_model=256, nhead=4, num_layers=4,
+            d_model=256, nhead=4, num_layers=args.diffusion_num_layers,
             p_drop_emb=args.p_drop_emb,
             p_drop_attn=args.p_drop_attn,
             timestep_emb_type="positional").to(args.device)
@@ -153,6 +154,7 @@ def pipeline(args):
     from cleandiffuser.nn_memory.kmeans_memory import KMeansMemory
     from cleandiffuser.nn_memory.adjsim_memory import AdjSimMemory
     from cleandiffuser.nn_memory.qformer_memory import QFormerMemory
+    from cleandiffuser.nn_memory.per_memory import PERMemory
     if args.mem_compress_method == "random":
         nn_memory = RandomMemory(mem_compress_length=args.mem_compress_length).to(args.device)
     elif args.mem_compress_method == "kmeans":
@@ -168,6 +170,22 @@ def pipeline(args):
                                         use_pos_emb=args.memory_pos_emb,
                                         subsample_ratio=args.dataset_memory_subsample_ratio,
                                         ).to(args.device)
+    elif args.mem_compress_method == "per":
+        nn_memory = PERMemory(
+            mem_compress_length=args.mem_compress_length,
+            evidence_length=int(getattr(args, "per_evidence_length", 0)),
+            emb_dim=args.qformer_emb_dim,
+            num_layers=args.qformer_num_layers,
+            num_heads=int(getattr(args, "qformer_num_heads", 8)),
+            bank_size=args.qformer_cache_max_length,
+            event_score_mode=str(getattr(args, "per_event_score", "delta")),
+            event_threshold=float(getattr(args, "per_event_threshold", 0.05)),
+            max_write_interval=int(getattr(args, "per_max_write_interval", 20)),
+            merge_similarity=float(getattr(args, "per_merge_similarity", 0.98)),
+            score_decay=float(getattr(args, "per_score_decay", 0.995)),
+            pos_emb_scale=float(getattr(args, "per_pos_emb_scale", 1.0)),
+            subsample_ratio=args.dataset_memory_subsample_ratio,
+        ).to(args.device)
     else:
         raise ValueError(f"Invalid memory method {args.mem_compress_method}")
 
@@ -197,8 +215,9 @@ def pipeline(args):
     print(f"===================================================================================")
     
     
-    n_gradient_step = 0
     lr_scheduler = CosineAnnealingLR(agent.optimizer, T_max=args.gradient_steps, last_epoch=-1)
+    n_gradient_step = auto_resume_training(
+        agent, lr_scheduler, args.work_dir, args.gradient_steps)
 
     if args.mode == "train":
         # ----------------- Training ----------------------
@@ -246,6 +265,8 @@ def pipeline(args):
             if n_gradient_step % args.save_freq == 0 and n_gradient_step > 0:
                 logger.save_agent(agent=agent, identifier=n_gradient_step)
                 torch.save(lr_scheduler.state_dict(), args.work_dir + f'/models/scheduler_{str(n_gradient_step)}.pt')
+                prune_checkpoints(
+                    args.work_dir, keep=int(args.get("keep_checkpoints", 3)))
             
             n_gradient_step += 1
             if n_gradient_step > args.gradient_steps:
@@ -269,4 +290,3 @@ if __name__ == "__main__":
 
 
     
-

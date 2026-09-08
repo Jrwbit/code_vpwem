@@ -41,11 +41,12 @@ use_group_norm: true
 use_seq: true
 # train
 device: cuda:0
-seed: 0
-gradient_steps: 200000
+seed: 100
+gradient_steps: 600000
 batch_size: 16
 horizon: 9
 nn: chi_transformer
+diffusion_num_layers: 8
 diffusion: ddpm
 sample_steps: 50
 temperature: 1.0
@@ -61,10 +62,10 @@ pred_reg_coeff: 0
 mem_compress_method: 'qformer' # random, kmeans, adjsim, qformer
 mem_compress_length: 2
 dataset_memory_type: 'random_from_full' # 'sliding_window'
-memory_pos_emb: 'learned_pos'
+memory_pos_emb: 'sin_pos'
 qformer_emb_dim: 256
-qformer_num_layers: 1
-qformer_cache_compress: 'adjsim'
+qformer_num_layers: 2
+qformer_cache_compress: 'fifo'
 qformer_cache_max_length: 8
 dataset_memory_subsample_ratio: 5
 # optimizer
@@ -90,4 +91,3 @@ hydra:
     dir: ${work_dir}
   job:
     chdir: false
-

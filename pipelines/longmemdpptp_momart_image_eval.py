@@ -403,7 +403,7 @@ def pipeline(args):
         nn_diffusion = LongMemChiTransformerPTP(
             args.action_dim, 256, args.horizon, args.obs_steps, 
             args.mem_compress_length,
-            d_model=256, nhead=4, num_layers=4,
+            d_model=256, nhead=4, num_layers=args.diffusion_num_layers,
             p_drop_emb=args.p_drop_emb,
             p_drop_attn=args.p_drop_attn,
             timestep_emb_type="positional").to(args.device)

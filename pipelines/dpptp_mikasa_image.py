@@ -41,15 +41,17 @@ def pipeline(args):
     dataset_path = os.path.expanduser(args.dataset_path)
     dataset = MikasaDataset(dataset_path, horizon=args.horizon, shape_meta=args.shape_meta,
                                     n_obs_steps=args.obs_steps, pad_before=args.obs_steps-1,
-                                    pad_after=args.action_steps-1)
+                                    pad_after=args.action_steps-1,
+                                    use_full_episodes=bool(getattr(
+                                        args, "dataset_use_full_episodes", False)))
     print(dataset)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=args.batch_size,
-        num_workers=8,
+        num_workers=int(getattr(args, "num_workers", 8)),
         shuffle=True,
         pin_memory=True,
-        persistent_workers=True
+        persistent_workers=int(getattr(args, "num_workers", 8)) > 0
     )
         
     if args.nn == "chi_transformer":
@@ -61,7 +63,7 @@ def pipeline(args):
             crop_shape=args.crop_shape, random_crop=args.random_crop, 
             use_group_norm=args.use_group_norm, use_seq=args.use_seq, keep_horizon_dims=True).to(args.device)
         nn_diffusion = ChiTransformerPTP(
-            args.action_dim, 256, args.horizon, args.obs_steps, d_model=256, nhead=4, num_layers=4,
+            args.action_dim, 256, args.horizon, args.obs_steps, d_model=256, nhead=4, num_layers=args.diffusion_num_layers,
             timestep_emb_type="positional").to(args.device)
     else:
         raise ValueError(f"Invalid nn type {args.nn}")

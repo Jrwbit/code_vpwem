@@ -11,7 +11,7 @@ import collections
 import numpy as np
 import torch
 import torch.nn as nn
-from utils import set_seed, parse_cfg, Logger
+from utils import set_seed, parse_cfg, Logger, auto_resume_training, prune_checkpoints
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from cleandiffuser.dataset.robomimic_dataset import RobomimicImageDataset
@@ -44,7 +44,7 @@ def pipeline(args):
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=args.batch_size,
-        num_workers=8,
+        num_workers=int(args.get("num_workers", 8)),
         shuffle=True,
         pin_memory=True,
         persistent_workers=True
@@ -59,7 +59,7 @@ def pipeline(args):
             crop_shape=args.crop_shape, random_crop=args.random_crop, 
             use_group_norm=args.use_group_norm, use_seq=args.use_seq, keep_horizon_dims=True).to(args.device)
         nn_diffusion = ChiTransformerPTP(
-            args.action_dim, 256, args.horizon, args.obs_steps, d_model=256, nhead=4, num_layers=4,
+            args.action_dim, 256, args.horizon, args.obs_steps, d_model=256, nhead=4, num_layers=args.diffusion_num_layers,
             timestep_emb_type="positional").to(args.device)
     else:
         raise ValueError(f"Invalid nn type {args.nn}")
@@ -93,10 +93,14 @@ def pipeline(args):
     report_parameters(nn_condition)
     print(f"===================================================================================")
     
-    n_gradient_step = 0
     lr_scheduler = CosineAnnealingLR(agent.optimizer, T_max=args.gradient_steps, last_epoch=-1)
+    n_gradient_step = auto_resume_training(agent, lr_scheduler, args.work_dir, args.gradient_steps)
     
     if args.mode == "train":
+        if n_gradient_step > args.gradient_steps:
+            print(f"Training already complete at step {n_gradient_step - 1}.", flush=True)
+            logger.finish()
+            return
         # ----------------- Training ----------------------
         diffusion_loss_list = []
         start_time = time.time()
@@ -125,6 +129,7 @@ def pipeline(args):
             if n_gradient_step % args.save_freq == 0 and n_gradient_step > 0:
                 logger.save_agent(agent=agent, identifier=n_gradient_step)
                 torch.save(lr_scheduler.state_dict(), args.work_dir + f'/models/scheduler_{str(n_gradient_step)}.pt')
+                prune_checkpoints(args.work_dir, keep=int(args.get("keep_checkpoints", 3)))
             
             n_gradient_step += 1
             if n_gradient_step > args.gradient_steps:

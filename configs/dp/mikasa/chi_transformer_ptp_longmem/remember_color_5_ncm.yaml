@@ -1,0 +1,41 @@
+defaults:
+  - remember_color_5
+  - _self_
+
+# Physical neutral prefix: the cue is visible through t=4, every method
+# executes the same hold through action t=9, and the first policy-controlled
+# decision is action t=10 from the full current window [obs9, obs10].
+inference_action_steps: 1
+diffusion_num_layers: 8
+ncm_decision_step: 10
+ncm_intervention_steps: 8
+ncm_num_branches: 5
+ncm_commit_threshold: 0.06
+eval_seed_start: 20260823
+diffusion_seed: 20260823
+result_path: ${work_dir}/ncm_eval.npy
+pairing_checkpoint_path: null
+normalizer_dataset_path: null
+offline_seed: 20260823
+offline_mc_samples: 4
+offline_max_batches: -1
+offline_result_path: ${work_dir}/offline_gap.json
+num_workers: 8
+conversion_n_workers: 4
+conversion_max_inflight_tasks: 20
+
+# Stage-1 training settings. The four comparison arms override only the mode
+# and coefficient while retaining the exact model, data order, and budget.
+gradient_steps: 20000
+save_freq: 5000
+lr: 0.00001
+keep_checkpoints: 4
+ncm_pair_manifest_path: null
+ncm_pairing_seed: 100
+ncm_pair_batch_fraction: 0.1
+counterfactual_negative_mode: none
+counterfactual_memory_coeff: 0.0
+counterfactual_memory_margin: 0.1
+counterfactual_memory_probability: 1.0
+memory_aux_coeff: 0.0
+init_model_path: null

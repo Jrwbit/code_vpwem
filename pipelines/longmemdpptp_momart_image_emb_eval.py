@@ -194,7 +194,7 @@ def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
         # initialize video stream
         # if args.save_video:
         #     logger.video_init(envs.env, enable=True, video_id=str(i))  # save videos
-        ep_reward = [0.0] * args.num_envs
+        ep_reward = np.zeros(args.num_envs, dtype=np.float32)
         obs, t = envs.reset(), 0
         all_actions = []
         all_done = False
@@ -259,16 +259,16 @@ def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
             success = [success[j] or success_per_env[j] for j in range(args.num_envs)]
             
             # print(info)
-            ep_reward += reward
+            ep_reward += np.asarray(reward, dtype=np.float32)
             t += args.inference_action_steps
         
         if args.save_video:
             _ = envs.render()
         
         print(f"[Episode {1+i*(args.num_envs)}-{(i+1)*(args.num_envs)}] reward: {np.around(ep_reward, 2)} success:{success}")
-        episode_rewards.append(ep_reward)
-        episode_steps.append(t)
-        episode_success.append(success)
+        episode_rewards.extend(ep_reward.tolist())
+        episode_steps.extend([t] * args.num_envs)
+        episode_success.extend(success)
 
         all_actions = np.transpose(all_actions, (1,0,2,3))
         B, D1, D2, C = all_actions.shape  # Get dimensions dynamically
@@ -283,6 +283,15 @@ def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
                 'mean_success': np.nanmean(episode_success),
                 "mlp_corr_pred_actions_full_traj_online_fixed": np.nanmean(predictability_ratio),
                 "avg_infer_time": np.mean(avg_infer_times),
+                "eval_seed": int(args.seed),
+                "episode_id": np.arange(
+                    len(episode_success), dtype=np.int64),
+                "episode_reward": np.asarray(
+                    episode_rewards, dtype=np.float32),
+                "episode_success": np.asarray(
+                    episode_success, dtype=np.int8),
+                "episode_steps": np.asarray(
+                    episode_steps, dtype=np.int32),
                 }
     print(log_dict, flush=True)
     return log_dict
@@ -409,7 +418,7 @@ def pipeline(args):
         nn_diffusion = LongMemChiTransformerPTP(
             args.action_dim, 256, args.horizon, args.obs_steps, 
             args.mem_compress_length,
-            d_model=256, nhead=4, num_layers=4,
+            d_model=256, nhead=4, num_layers=args.diffusion_num_layers,
             p_drop_emb=args.p_drop_emb,
             p_drop_attn=args.p_drop_attn,
             timestep_emb_type="positional").to(args.device)
@@ -421,6 +430,7 @@ def pipeline(args):
     from cleandiffuser.nn_memory.kmeans_memory import KMeansMemory
     from cleandiffuser.nn_memory.adjsim_memory import AdjSimMemory
     from cleandiffuser.nn_memory.qformer_memory import QFormerMemory
+    from cleandiffuser.nn_memory.per_memory import PERMemory
     if args.mem_compress_method == "random":
         nn_memory = RandomMemory(mem_compress_length=args.mem_compress_length).to(args.device)
     elif args.mem_compress_method == "kmeans":
@@ -436,6 +446,22 @@ def pipeline(args):
                                         use_pos_emb=args.memory_pos_emb,
                                         subsample_ratio=args.dataset_memory_subsample_ratio,
                                         ).to(args.device)
+    elif args.mem_compress_method == "per":
+        nn_memory = PERMemory(
+            mem_compress_length=args.mem_compress_length,
+            evidence_length=int(getattr(args, "per_evidence_length", 0)),
+            emb_dim=args.qformer_emb_dim,
+            num_layers=args.qformer_num_layers,
+            num_heads=int(getattr(args, "qformer_num_heads", 8)),
+            bank_size=args.qformer_cache_max_length,
+            event_score_mode=str(getattr(args, "per_event_score", "delta")),
+            event_threshold=float(getattr(args, "per_event_threshold", 0.05)),
+            max_write_interval=int(getattr(args, "per_max_write_interval", 20)),
+            merge_similarity=float(getattr(args, "per_merge_similarity", 0.98)),
+            score_decay=float(getattr(args, "per_score_decay", 0.995)),
+            pos_emb_scale=float(getattr(args, "per_pos_emb_scale", 1.0)),
+            subsample_ratio=args.dataset_memory_subsample_ratio,
+        ).to(args.device)
     else:
         raise ValueError(f"Invalid memory method {args.mem_compress_method}")
 
@@ -467,7 +493,8 @@ def pipeline(args):
     print(f"===================================================================================")
     
 
-    condition_model_path = f"PATH_TO_SHORT_CONTEXT_POLICY_CKPT_MODEL"
+    condition_model_path = os.path.expanduser(str(getattr(
+        args, "context_model_path", "PATH_TO_SHORT_CONTEXT_POLICY_CKPT_MODEL")))
     condition_ckpt = torch.load(condition_model_path, weights_only=False)
     keys_to_remove = [k for k in condition_ckpt['model'].keys() if k.startswith("diffusion")]
     for k in keys_to_remove:
@@ -478,10 +505,15 @@ def pipeline(args):
     msg = agent.model_ema.load_state_dict(condition_ckpt["model_ema"], strict=False)
     print(f"Condition Model EMA loaded with message: {msg}")
 
-    ckpt = 1000000
+    ckpt = int(getattr(args, "ckpt", 1000000))
     print(ckpt)
     
-    diffusion_model_path = os.path.join(args.work_dir, f"models/model_{ckpt}.pt")
+    configured_model_path = str(getattr(args, "model_path", ""))
+    if configured_model_path.lower() not in {"", "false", "none"}:
+        diffusion_model_path = os.path.expanduser(configured_model_path)
+    else:
+        diffusion_model_path = os.path.join(
+            args.work_dir, f"models/model_{ckpt}.pt")
     diffusion_ckpt = torch.load(diffusion_model_path, weights_only=False)
     
     msg = agent.model.load_state_dict(diffusion_ckpt["model"], strict=False)
@@ -494,7 +526,13 @@ def pipeline(args):
 
     result = inference(args, envs, dataset, agent, logger, env_init_fn_dills)
     # save results
-    result_path = os.path.join(args.work_dir, f"result_ckpt{ckpt}_{args.inference_action_steps}.npy")
+    configured_result_path = str(getattr(args, "result_path", ""))
+    if configured_result_path.lower() not in {"", "false", "none"}:
+        result_path = os.path.expanduser(configured_result_path)
+    else:
+        result_path = os.path.join(
+            args.work_dir, f"result_ckpt{ckpt}_{args.inference_action_steps}.npy")
+    os.makedirs(os.path.dirname(result_path), exist_ok=True)
     np.save(result_path, result)
 
 

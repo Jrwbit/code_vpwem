@@ -126,6 +126,36 @@ vpwem/
 - `*_emb.py`：使用短上下文策略预先计算好的观测 embedding，训练速度更快。
 - `*_eval.py` / `*_emb_eval.py`：评估脚本。
 
+### 建议的代码阅读顺序
+
+VPWEM 的主链可以概括为：
+
+```text
+配置 / pipeline
+  -> Dataset 将样本切成近期观测与更早历史
+  -> Condition Encoder 把多模态观测编码成 token
+  -> Memory Compressor 把可变长历史压成固定数量 token
+  -> LongMemChiTransformerPTP 根据两类 token 预测动作噪声
+  -> LongMemDDPM 计算 loss 或执行反向扩散采样
+```
+
+建议按下面顺序读，代码内已经补充了张量形状、训练/推理分支和 cache 生命周期注释：
+
+| 顺序 | 文件 | 重点 |
+| ---: | --- | --- |
+| 1 | `pipelines/longmemdpptp_mikasa_image.py` | 训练入口；看数据、网络和优化器如何装配 |
+| 2 | `cleandiffuser/dataset/dataset_utils.py` | `LongMemSequenceSampler` 如何切分 working memory 与历史 |
+| 3 | `cleandiffuser/dataset/mikasa_dataset_longmem.py` | MIKASA 样本的字段和形状契约 |
+| 4 | `cleandiffuser/nn_memory/qformer_memory.py` | VPWEM 最核心的可学习情景记忆压缩与在线 cache |
+| 5 | `cleandiffuser/nn_diffusion/longmem_chitransformerptp.py` | memory/observation token 怎样进入动作 Transformer |
+| 6 | `cleandiffuser/diffusion/longmem_ddpm.py` | 完整 loss、EMA、在线记忆更新和 DDPM 采样 |
+| 7 | `pipelines/longmemdpptp_mikasa_image_eval.py` | episode reset、在线写记忆与 action chunk 执行 |
+
+阅读时可统一使用以下形状记号：`B` 为 batch，`D` 为特征维度，`To` 为近期
+观测数，`T_history` 为压缩前历史长度，`Tm` 为压缩后的记忆 token 数，`Ta`
+为训练动作序列长度。最关键的接口是
+`[B, T_history, D] -> [B, Tm, D]`，它把随 episode 增长的历史变成固定预算。
+
 ### 预先计算观测 Embedding（可选）
 
 为了加速训练，可以先用训练好的短上下文策略给数据集写入观测 embedding。这个流程参考了 [Long-context Diffusion Policy](https://github.com/long-context-dp/ldp)。

@@ -7,6 +7,8 @@ import wandb
 import wandb.sdk.data_types.video as wv
 import numpy as np
 import torch
+import re
+from pathlib import Path
 from omegaconf import OmegaConf
 
 from cleandiffuser.env.wrapper import VideoRecordingWrapper
@@ -36,6 +38,61 @@ def set_seed(seed: int):
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
+
+
+def auto_resume_training(agent, lr_scheduler, work_dir, gradient_steps):
+    """Restore the newest complete model/scheduler pair and return the next step."""
+    models_dir = Path(work_dir) / "models"
+    if not models_dir.exists():
+        return 0
+    candidates = []
+    for model_path in models_dir.glob("model_*.pt"):
+        match = re.fullmatch(r"model_(\d+)\.pt", model_path.name)
+        if not match:
+            continue
+        step = int(match.group(1))
+        scheduler_path = models_dir / f"scheduler_{step}.pt"
+        if scheduler_path.is_file() and model_path.stat().st_size > 0:
+            candidates.append((step, model_path, scheduler_path))
+    if not candidates:
+        return 0
+    step, model_path, scheduler_path = max(candidates, key=lambda item: item[0])
+    agent.load(str(model_path))
+    lr_scheduler.load_state_dict(
+        torch.load(scheduler_path, map_location=agent.device, weights_only=False)
+    )
+    print(f"Auto-resumed from step {step}: {model_path}", flush=True)
+    return min(step + 1, int(gradient_steps) + 1)
+
+
+def prune_checkpoints(work_dir, keep=3):
+    """Keep only the newest complete model/scheduler checkpoint pairs."""
+    if keep < 1:
+        raise ValueError("keep must be at least 1")
+
+    models_dir = Path(work_dir) / "models"
+    if not models_dir.exists():
+        return []
+
+    checkpoints = []
+    for model_path in models_dir.glob("model_*.pt"):
+        match = re.fullmatch(r"model_(\d+)\.pt", model_path.name)
+        if not match or model_path.stat().st_size <= 0:
+            continue
+        step = int(match.group(1))
+        scheduler_path = models_dir / f"scheduler_{step}.pt"
+        if scheduler_path.is_file() and scheduler_path.stat().st_size > 0:
+            checkpoints.append((step, model_path, scheduler_path))
+
+    removed = []
+    for step, model_path, scheduler_path in sorted(checkpoints)[:-keep]:
+        model_path.unlink()
+        scheduler_path.unlink()
+        removed.append(step)
+
+    if removed:
+        print(f"Pruned checkpoint steps: {removed}; keeping newest {keep}", flush=True)
+    return removed
 
 
 class Timer:
@@ -84,7 +141,16 @@ class Logger:
     def log(self, d, category):
         assert category in ['train', 'inference']
         assert 'step' in d
-        print(f"[{d['step']}]", " / ".join(f"{k} {v:.2f}" for k, v in d.items()), flush=True)
+        def _format_log_value(key, value):
+            if key == "step":
+                return f"{int(value)}" if float(value).is_integer() else f"{value:.2f}"
+            if key == "lr":
+                return f"{value:.8e}"
+            if "loss" in key:
+                return f"{value:.6f}"
+            return f"{value:.2f}"
+
+        print(f"[{d['step']}]", " / ".join(f"{k} {_format_log_value(k, v)}" for k, v in d.items()), flush=True)
         with (self._log_dir / "metrics.jsonl").open("a") as f:
             f.write(json.dumps({"step": d['step'], **d}) + "\n")
         _d = dict()

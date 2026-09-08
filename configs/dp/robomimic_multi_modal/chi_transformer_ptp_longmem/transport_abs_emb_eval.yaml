@@ -60,6 +60,7 @@ gradient_steps: 1000000
 batch_size: 64
 horizon: 9
 nn: chi_transformer
+diffusion_num_layers: 8
 diffusion: ddpm
 sample_steps: 50
 temperature: 1.0
@@ -89,6 +90,7 @@ num_envs: 15
 eval_episodes: 30
 save_video: false
 eval_freq: 100000
+memory_interventions: [none]
 # log
 exp_name: ${env_name}_${env_type}/obs_${obs_steps}_act_${action_steps}/${dataset_memory_subsample_ratio}_${mem_compress_method}_${mem_compress_length}_${memory_pos_emb}_${qformer_num_layers}_${qformer_cache_compress}_${qformer_cache_max_length}_${lr}
 save_path: PATH_TO_SAVE_MODEL
@@ -106,6 +108,5 @@ hydra:
     dir: ${work_dir}
   job:
     chdir: false
-
 
 

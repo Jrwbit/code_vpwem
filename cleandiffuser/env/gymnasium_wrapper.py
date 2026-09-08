@@ -71,6 +71,10 @@ def stack_last_n_obs(all_obs, n_steps):
 
 
 class MultiStepWrapper(gym.Wrapper):
+    DIAGNOSTIC_INFO_KEYS = (
+        'success', 'oracle_info', 'obj_to_goal_pos', 'elapsed_steps',
+        'all_target_positions')
+
     def __init__(self, 
             env, 
             n_obs_steps, 
@@ -99,9 +103,7 @@ class MultiStepWrapper(gym.Wrapper):
         self.obs = deque([obs], maxlen=self.n_obs_steps+1)
         self.reward = list()
         self.done = list()
-        info = {'success': None}
-        for key in info.keys():
-            info[key] = raw_info[key].cpu().numpy()
+        info = self._select_info(raw_info)
         self.info = deque([info], maxlen=self.n_obs_steps+1)
 
         observation = self._get_obs(self.n_obs_steps)
@@ -124,6 +126,7 @@ class MultiStepWrapper(gym.Wrapper):
         actions: (n_action_steps,) + action_shape
         """
         action = action.transpose(1, 0, 2)
+        step_rewards = []
         for act in action:
             # if len(self.done) > 0 and self.done[-1]:
             #     # termination
@@ -132,12 +135,11 @@ class MultiStepWrapper(gym.Wrapper):
             reward = reward.cpu().numpy()
             terminated = terminated.cpu().numpy()
             truncated = truncated.cpu().numpy()
-            info = {'success': None}
-            for key in info.keys():
-                info[key] = raw_info[key].cpu().numpy()
+            info = self._select_info(raw_info)
 
             self.obs.append(observation)
             self.reward.append(reward)
+            step_rewards.append(reward)
             done = np.array([terminated[j] or truncated[j] for j in range(len(terminated))])
             # if (self.max_episode_steps is not None) \
             #     and (len(self.reward) >= self.max_episode_steps):
@@ -146,8 +148,16 @@ class MultiStepWrapper(gym.Wrapper):
             self.done.append(done)
             self.info.append(info)
 
+            # MIKASA vector environments share the registered time limit. Do
+            # not execute the remainder of an action chunk after all workers
+            # have reached termination/truncation.
+            if np.all(done):
+                break
+
         observation = self._get_obs(self.n_obs_steps)
-        reward = aggregate(self.reward, 'sum')
+        # Return reward for this action chunk only. Aggregating self.reward
+        # repeatedly makes rollout reward grow as a sum of cumulative sums.
+        reward = aggregate(step_rewards, 'sum')
         done = aggregate(self.done, 'max')
         information = self._get_info(self.n_obs_steps)
         
@@ -163,16 +173,41 @@ class MultiStepWrapper(gym.Wrapper):
         
         return observation, reward, done, information
 
+    def _select_info(self, raw_info):
+        """Keep policy-free rollout diagnostics separate from observations."""
+        info = {}
+        for key in self.DIAGNOSTIC_INFO_KEYS:
+            if key not in raw_info:
+                continue
+            value = raw_info[key]
+            if hasattr(value, 'detach'):
+                value = value.detach()
+            if hasattr(value, 'cpu'):
+                value = value.cpu()
+            info[key] = np.asarray(value)
+        if 'success' not in info:
+            raise KeyError("Environment info must contain 'success'")
+        return info
+
     def _get_obs(self, n_steps=1):
         """
         Output (n_steps,) + obs_shape
         """
         assert(len(self.obs) > 0)
-        if isinstance(self.observation_space, spaces.Box):
+        # ObservationWrapper chains can legitimately change depth between
+        # tasks (for example the eval-only RememberColor geometry wrapper).
+        # The old implementation selected keys from a brittle, fixed-depth
+        # ``observation_space`` chain, so it requested the pre-flattened
+        # ``state`` key even though the actual RGB observation only contained
+        # ``rgb``, ``rgb_wrist`` and ``joints``.  Stack the observations that
+        # were actually emitted instead; this also guarantees that diagnostic
+        # info wrappers cannot accidentally add policy inputs.
+        current_obs = self.obs[-1]
+        if isinstance(current_obs, np.ndarray):
             return stack_last_n_obs(self.obs, n_steps)
-        elif isinstance(self.observation_space, spaces.Dict):
+        elif isinstance(current_obs, dict):
             result = dict()
-            for key in self.observation_space.keys():
+            for key in current_obs.keys():
                 result[key] = stack_last_n_obs(
                     [obs[key] for obs in self.obs],
                     n_steps

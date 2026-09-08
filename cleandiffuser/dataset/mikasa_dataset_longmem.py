@@ -17,9 +17,25 @@ from cleandiffuser.dataset.dataset_utils import LongMemSequenceSampler, EmptyNor
 register_codecs()
 
 class LongMemMikasaDataset(BaseDataset):
-    """
-    LongMem version of MikasaDataset that supports memory-based sampling.
-    Based on LongMemRobomimicImageDataset structure.
+    """MIKASA 数据到 VPWEM 训练样本的适配层。
+
+    初始化阶段先把按 episode 保存的 ``train_data_*.npz`` 转成统一的
+    ``ReplayBuffer``，再由 ``LongMemSequenceSampler`` 同时构造当前窗口和
+    窗口之前的历史。``__getitem__`` 的主要输出契约是：
+
+    .. code-block:: text
+
+        {
+          "obs": {
+            k:       [To, ...],       # 近期观测 / working memory
+            k_mem:   [T_history, ...],# 更早历史，长度随决策时刻变化
+            ep_step: [T_history]
+          },
+          "action": [Ta, action_dim]
+        }
+
+    Dataset 不生成最终的 memory token；它只负责正确切分时间与保持多模态
+    历史对齐，压缩工作由 ``nn_memory`` 完成。
     """
 
     def __init__(
@@ -32,6 +48,17 @@ class LongMemMikasaDataset(BaseDataset):
             pad_after=0,
             dataset_memory_type='random_from_full',
             subsample_ratio=10,
+            maximum_memory_length=16,
+            preserve_episode_anchor=False,
+            include_action_memory=False,
+            ncm_pair_manifest_path=None,
+            ncm_pairing_seed=0,
+            ncm_pair_batch_fraction=1.0,
+            shellgame_hold_step=None,
+            shellgame_hold_steps=0,
+            conversion_n_workers=None,
+            conversion_max_inflight_tasks=None,
+            load_images=True,
             device='cpu',
     ):
         super().__init__()
@@ -40,6 +67,11 @@ class LongMemMikasaDataset(BaseDataset):
             store=zarr.MemoryStore(),
             shape_meta=shape_meta,
             dataset_path=dataset_dir,
+            shellgame_hold_step=shellgame_hold_step,
+            shellgame_hold_steps=shellgame_hold_steps,
+            n_workers=conversion_n_workers,
+            max_inflight_tasks=conversion_max_inflight_tasks,
+            load_images=load_images,
         )
         
         rgb_keys = list()
@@ -66,6 +98,9 @@ class LongMemMikasaDataset(BaseDataset):
             key_first_k=key_first_k,
             memory_type=dataset_memory_type,
             subsample_ratio=subsample_ratio,
+            maximum_memory_length=maximum_memory_length,
+            preserve_episode_anchor=preserve_episode_anchor,
+            include_action_memory=include_action_memory,
         )
         
         self.subsample_ratio = subsample_ratio
@@ -78,6 +113,13 @@ class LongMemMikasaDataset(BaseDataset):
         self.pad_after = pad_after
         self.n_obs_steps = n_obs_steps
         self.device = device
+        self.ncm_manifest = None
+        self.ncm_pairing_seed = int(ncm_pairing_seed)
+        self.ncm_pair_batch_fraction = float(ncm_pair_batch_fraction)
+        if ncm_pair_manifest_path:
+            from cleandiffuser.dataset.ncm_pairing import load_ncm_manifest
+            self.ncm_manifest = load_ncm_manifest(
+                ncm_pair_manifest_path, dataset_size=len(self.sampler))
 
         # Delay normalizer creation to avoid CUDA initialization in forked subprocess
         # Normalizer will be created lazily or set after DataLoader creation
@@ -113,6 +155,7 @@ class LongMemMikasaDataset(BaseDataset):
         return len(self.sampler)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+        """读取单个训练窗口，并保留 ``*_mem`` 作为独立的历史分支。"""
         sample = self.sampler.sample_sequence(idx)
 
         # obs
@@ -165,7 +208,42 @@ class LongMemMikasaDataset(BaseDataset):
             'obs': dict_apply(obs_dict, torch.tensor),
             'action': torch.tensor(action)
         }
+        if 'action_mem' in sample:
+            torch_data['memory_action'] = torch.tensor(
+                sample['action_mem'].astype(np.float32))
+        if self.ncm_manifest is not None:
+            torch_data['ncm'] = {
+                'sample_index': torch.tensor(idx, dtype=torch.int64),
+                'episode_id': torch.tensor(
+                    self.ncm_manifest['episode_id'][idx], dtype=torch.int64),
+                'decision_step': torch.tensor(
+                    self.ncm_manifest['decision_step'][idx], dtype=torch.int64),
+                'branch': torch.tensor(
+                    self.ncm_manifest['branch'][idx], dtype=torch.int64),
+                'matched_partner': torch.tensor(
+                    self.ncm_manifest['matched_partner'][idx], dtype=torch.int64),
+                'unmatched_partner': torch.tensor(
+                    self.ncm_manifest['unmatched_partner'][idx], dtype=torch.int64),
+                'alias_weight': torch.tensor(
+                    self.ncm_manifest['alias_weight'][idx], dtype=torch.float32),
+            }
         return torch_data
+
+    def get_ncm_batch_sampler(self):
+        if self.ncm_manifest is None:
+            return None
+        from cleandiffuser.dataset.ncm_pairing import (
+            NCMPairedBatchSampler, NCMHybridBatchSampler)
+        if self.ncm_pair_batch_fraction < 1.0:
+            return NCMHybridBatchSampler(
+                pair_batches=self.ncm_manifest['batches'],
+                dataset_size=len(self),
+                batch_size=int(self.ncm_manifest['batches'].shape[1]),
+                pair_fraction=self.ncm_pair_batch_fraction,
+                seed=self.ncm_pairing_seed,
+            )
+        return NCMPairedBatchSampler(
+            self.ncm_manifest['batches'], seed=self.ncm_pairing_seed)
     
     def get_dataset_sampler(self):
         """
@@ -181,7 +259,10 @@ class LongMemMikasaDataset(BaseDataset):
 
     
 def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
-                                 n_workers=None, max_inflight_tasks=None):
+                                 n_workers=None, max_inflight_tasks=None,
+                                 shellgame_hold_step=None,
+                                 shellgame_hold_steps=0,
+                                 load_images=True):
     """ Convert Mikasa-Robo dataset to ReplayBuffer
 
     A ReplayBuffer is a `zarr.Group` or Dict[str, dict] that contains the following keys:
@@ -208,6 +289,39 @@ def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
     """
 
     import multiprocessing
+    shellgame_hold_steps = int(shellgame_hold_steps)
+    if shellgame_hold_steps < 0:
+        raise ValueError("shellgame_hold_steps must be non-negative")
+    if shellgame_hold_steps and shellgame_hold_step is None:
+        raise ValueError(
+            "shellgame_hold_step is required when shellgame_hold_steps > 0")
+
+    def add_branch_neutral_hold(array, data_key):
+        """Insert an offline no-op transition before the first branch action.
+
+        ShellGame observations at index 5 are the last branch-neutral state.
+        Repeating that observation once while inserting a zero action creates a
+        valid two-frame current condition for obs_steps=2.  This transform is
+        opt-in and is applied identically to every experiment arm.
+        """
+        if shellgame_hold_steps == 0:
+            return array
+        step = int(shellgame_hold_step)
+        if step < 0 or step >= len(array):
+            raise ValueError(
+                f"Invalid shellgame_hold_step={step} for length {len(array)}")
+        if data_key in rgb_keys or data_key in lowdim_keys:
+            held = np.repeat(array[step:step + 1], shellgame_hold_steps, axis=0)
+            return np.concatenate([array[:step + 1], held, array[step + 1:]], axis=0)
+        if data_key == 'action':
+            neutral = np.zeros_like(array[step:step + 1])
+            if neutral.shape[-1] > 0 and step > 0:
+                neutral[..., -1] = array[step - 1:step, -1]
+            neutral = np.repeat(neutral, shellgame_hold_steps, axis=0)
+            return np.concatenate([array[:step], neutral, array[step:]], axis=0)
+        neutral = np.zeros_like(array[step:step + 1])
+        neutral = np.repeat(neutral, shellgame_hold_steps, axis=0)
+        return np.concatenate([array[:step], neutral, array[step:]], axis=0)
     if n_workers is None:
         n_workers = multiprocessing.cpu_count()
     if max_inflight_tasks is None:
@@ -240,7 +354,7 @@ def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
             break
         try:
             ep_data = np.load(train_data_path)
-            success = ep_data['success']
+            success = add_branch_neutral_hold(ep_data['success'], 'success')
             first_success_idx = np.where(success == 1)
             episode_length = first_success_idx[0][0] + 1 if len(first_success_idx[0]) > 0 else 0
             episode_length = min(episode_length + 8, 90) if episode_length > 0 else 0
@@ -273,7 +387,8 @@ def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
                 if data_key == 'action':
                     # Action always comes from train_data files
                     demo = np.load(f'{dataset_path}/train_data_{episode_idx}.npz')
-                    this_data.append(demo[data_key][:ep_len].astype(np.float32))
+                    data = add_branch_neutral_hold(demo[data_key], data_key)
+                    this_data.append(data[:ep_len].astype(np.float32))
                 elif use_emb_file:
                     # Keys ending with 'emb' come from emb files
                     emb_file_path = f'{dataset_path}/emb_{episode_idx}.npz'
@@ -284,10 +399,16 @@ def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
                             emb_data = demo[data_key]
                             if emb_data.ndim == 3 and emb_data.shape[0] == 1:
                                 # Shape: (1, T, dim) -> (T, dim)
-                                this_data.append(emb_data[0, :ep_len, :].astype(np.float32))
+                                emb_data = add_branch_neutral_hold(
+                                    emb_data[0], data_key)
+                                this_data.append(
+                                    emb_data[:ep_len, :].astype(np.float32))
                             else:
                                 # Shape: (T, dim) already
-                                this_data.append(emb_data[:ep_len, :].astype(np.float32))
+                                emb_data = add_branch_neutral_hold(
+                                    emb_data, data_key)
+                                this_data.append(
+                                    emb_data[:ep_len, :].astype(np.float32))
                         else:
                             raise KeyError(f"Key {data_key} not found in {emb_file_path}")
                     else:
@@ -295,7 +416,8 @@ def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
                 else:
                     # Regular lowdim keys come from train_data files
                     demo = np.load(f'{dataset_path}/train_data_{episode_idx}.npz')
-                    this_data.append(demo[data_key][:ep_len].astype(np.float32))
+                    data = add_branch_neutral_hold(demo[data_key], data_key)
+                    this_data.append(data[:ep_len].astype(np.float32))
             except (FileNotFoundError, KeyError) as e:
                 print(f"Warning: Failed to load {data_key} from episode {episode_idx}: {e}")
                 continue
@@ -330,7 +452,7 @@ def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
         except Exception as e:
             return False
 
-    if len(rgb_keys) > 0:
+    if load_images and len(rgb_keys) > 0:
         with tqdm(total=n_steps * len(rgb_keys), desc="Loading image data", mininterval=1.0) as pbar:
             # one chunk per thread, therefore no synchronization needed
             with concurrent.futures.ThreadPoolExecutor(max_workers=n_workers) as executor:
@@ -354,11 +476,16 @@ def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
                             try:
                                 demo = np.load(f'{dataset_path}/train_data_{episode_idx}.npz')
                                 if key == 'rgb':
-                                    hdf5_arr = demo['rgb'][:ep_len,:,:,:3]
+                                    rgb_data = add_branch_neutral_hold(
+                                        demo['rgb'], 'rgb')
+                                    hdf5_arr = rgb_data[:ep_len,:,:,:3]
                                 elif key == 'rgb_wrist':
-                                    hdf5_arr = demo['rgb'][:ep_len,:,:,3:]
+                                    rgb_data = add_branch_neutral_hold(
+                                        demo['rgb'], 'rgb_wrist')
+                                    hdf5_arr = rgb_data[:ep_len,:,:,3:]
                                 else:
-                                    hdf5_arr = demo[key][:ep_len]
+                                    data = add_branch_neutral_hold(demo[key], key)
+                                    hdf5_arr = data[:ep_len]
                                 
                                 for hdf5_idx in range(hdf5_arr.shape[0]):
                                     if len(futures) >= max_inflight_tasks:

@@ -170,12 +170,22 @@ def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
         
     for i in range(args.eval_episodes // args.num_envs): 
         if args.save_video:
-            this_global_slice = slice(i * args.num_envs, (i + 1) * args.num_envs)
-            this_init_fns = env_init_fn_dills[this_global_slice]
-            n_diff = args.num_envs - len(this_init_fns)
-            if n_diff > 0:
-                this_init_fns.extend([env_init_fn_dills[0]]*n_diff)
-            assert len(this_init_fns) == args.num_envs
+            # Give every rollout a stable, unique filename. The old slice-based
+            # logic exhausted env_init_fn_dills after the first vector batch and
+            # made later workers write to the same file.
+            this_init_fns = []
+            for env_idx in range(args.num_envs):
+                episode_idx = i * args.num_envs + env_idx
+
+                def init_fn(env, episode_idx=episode_idx):
+                    assert isinstance(env.env, VideoRecordingWrapper)
+                    env.env.video_recoder.stop()
+                    filename = pathlib.Path(args.work_dir).joinpath(
+                        "videos", f"episode_{episode_idx + 1:03d}.mp4")
+                    filename.parent.mkdir(parents=False, exist_ok=True)
+                    env.env.file_path = filename
+
+                this_init_fns.append(dill.dumps(init_fn))
             envs.call_each('run_dill_function', args_list=[(x,) for x in this_init_fns])
 
 
@@ -202,7 +212,17 @@ def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
                 condition = obs_dict
                 # run sampling (num_envs, horizon, action_dim)
                 prior = torch.zeros((args.num_envs, args.horizon, args.action_dim), device=args.device)
-                naction, _ = agent.sample(prior=prior, n_samples=args.num_envs, sample_steps=args.sample_steps, solver=solver, condition_cfg=condition, w_cfg=1.0, temperature=args.temperature, use_ema=True)
+                naction, _ = agent.sample(
+                    prior=prior,
+                    n_samples=args.num_envs,
+                    sample_steps=args.sample_steps,
+                    solver=solver,
+                    condition_cfg=condition,
+                    memory_intervention=getattr(args, "memory_intervention", "none"),
+                    w_cfg=1.0,
+                    temperature=args.temperature,
+                    use_ema=True,
+                )
                 
             # unnormalize prediction
             naction = naction.detach().to('cpu').numpy()  # (num_envs, horizon, action_dim)
@@ -235,6 +255,11 @@ def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
         episode_rewards.extend(ep_reward)
         episode_success.extend(success)
         episode_steps.extend([t] * args.num_envs)
+
+    # reset() closes and flushes the active VideoRecorder streams. Without this,
+    # the final vector batch can leave tiny, unplayable MP4 files at process exit.
+    if args.save_video:
+        envs.reset()
     
     all_all_actions = np.concatenate(all_all_actions, axis=0)
     predictability_ratio.append(batch_mlp_corr(all_all_actions))
@@ -275,7 +300,7 @@ def pipeline(args):
         nn_diffusion = LongMemChiTransformerPTP(
             args.action_dim, 256, args.horizon, args.obs_steps, 
             args.mem_compress_length,
-            d_model=256, nhead=4, num_layers=4,
+            d_model=256, nhead=4, num_layers=args.diffusion_num_layers,
             timestep_emb_type="positional").to(args.device)
     else:
         raise ValueError(f"Invalid nn type {args.nn}")
@@ -284,6 +309,7 @@ def pipeline(args):
     from cleandiffuser.nn_memory.kmeans_memory import KMeansMemory
     from cleandiffuser.nn_memory.adjsim_memory import AdjSimMemory
     from cleandiffuser.nn_memory.qformer_memory import QFormerMemory
+    from cleandiffuser.nn_memory.per_memory import PERMemory
     if args.mem_compress_method == "random":
         nn_memory = RandomMemory(mem_compress_length=args.mem_compress_length).to(args.device)
     elif args.mem_compress_method == "kmeans":
@@ -296,7 +322,28 @@ def pipeline(args):
                                         num_layers=args.qformer_num_layers,
                                         cache_compress=args.qformer_cache_compress,
                                         cache_max_length=args.qformer_cache_max_length,
+                                        use_pos_emb=args.memory_pos_emb,
+                                        subsample_ratio=args.dataset_memory_subsample_ratio,
                                         ).to(args.device)
+    elif args.mem_compress_method == "per":
+        nn_memory = PERMemory(
+            mem_compress_length=args.mem_compress_length,
+            evidence_length=int(getattr(args, "per_evidence_length", 1)),
+            emb_dim=args.qformer_emb_dim,
+            num_layers=args.qformer_num_layers,
+            num_heads=int(getattr(args, "qformer_num_heads", 8)),
+            bank_size=args.qformer_cache_max_length,
+            event_score_mode=str(getattr(args, "per_event_score", "delta")),
+            event_threshold=float(getattr(args, "per_event_threshold", 0.05)),
+            max_write_interval=int(getattr(
+                args, "per_max_write_interval",
+                args.dataset_memory_subsample_ratio)),
+            merge_similarity=float(getattr(
+                args, "per_merge_similarity", 0.98)),
+            score_decay=float(getattr(args, "per_score_decay", 0.995)),
+            pos_emb_scale=float(getattr(args, "per_pos_emb_scale", 0.1)),
+            subsample_ratio=args.dataset_memory_subsample_ratio,
+        ).to(args.device)
     else:
         raise ValueError(f"Invalid memory method {args.mem_compress_method}")
     
@@ -333,7 +380,7 @@ def pipeline(args):
     # else:
     #     raise NotImplementedError
     
-    condition_model_path = "PATH_TO_SHORT_CONTEXT_POLICY_CKPT_MODEL"
+    condition_model_path = os.path.expanduser(str(args.context_model_path))
     condition_ckpt = torch.load(condition_model_path, weights_only=False)
     keys_to_remove = [k for k in condition_ckpt['model'].keys() if k.startswith("diffusion")]
     for k in keys_to_remove:
@@ -344,9 +391,13 @@ def pipeline(args):
     msg = agent.model_ema.load_state_dict(condition_ckpt["model_ema"], strict=False)
     print(f"Condition Model EMA loaded with message: {msg}")
 
-    ckpt = 1000000
+    ckpt = int(getattr(args, "ckpt", 1000000))
     print(ckpt)
-    diffusion_model_path = os.path.join(args.work_dir, f"models/model_{ckpt}.pt")
+    configured_model_path = os.path.expanduser(str(args.model_path))
+    if configured_model_path != "path/to/model":
+        diffusion_model_path = configured_model_path
+    else:
+        diffusion_model_path = os.path.join(args.work_dir, f"models/model_{ckpt}.pt")
     diffusion_ckpt = torch.load(diffusion_model_path, weights_only=False)
     msg = agent.model.load_state_dict(diffusion_ckpt["model"], strict=False)
     print(f"Diffusion Model loaded with message: {msg}")
@@ -357,7 +408,9 @@ def pipeline(args):
     agent.model_ema.eval()
     result = inference(args, envs, dataset, agent, logger, env_init_fn_dills)
     # save results
-    result_path = os.path.join(args.work_dir, f"result_{ckpt}.npy")
+    intervention = getattr(args, "memory_intervention", "none")
+    result_path = os.path.join(
+        args.work_dir, f"result_{ckpt}_memory-{intervention}.npy")
     np.save(result_path, result)
 
 

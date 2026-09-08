@@ -1,3 +1,15 @@
+"""VPWEM 的可学习情景记忆压缩器。
+
+本文件维护两类有界状态：``condition_cache`` 保存稀疏历史观测 token，
+每个 ``QFormerLayer.query_cache`` 保存过去生成的摘要。固定数量的 learned
+queries 同时读取这两类状态，最终把可变长历史压成 ``mem_compress_length``
+个 token，供扩散策略以恒定长度读取。
+
+离线训练调用 ``forward``：先清空状态，再按时间顺序重放一段历史；在线 rollout
+调用 ``inference``：仅消费新离开 working-memory 窗口的观测，并把状态保留到
+下一次调用。每个新 episode 必须由上层调用 ``reset``。
+"""
+
 from typing import Optional, Tuple
 import torch
 import torch.nn as nn
@@ -34,7 +46,12 @@ def get_mask(mask: torch.Tensor, mask_shape: tuple, dropout: float, train: bool,
     return mask
 
 class QFormerLayer(nn.Module):
-    """QFormer单层transformer块"""
+    """单层 Q-Former：先读取历史 query 摘要，再读取观测证据。
+
+    self-attention 的 key/value 是“历史 query cache + 本次 queries”，而
+    cross-attention 的 key/value 是 observation cache。过去 query 在写入 cache
+    前会 ``detach``，因此 cache 是跨时间步的状态，不会形成无限长反向传播图。
+    """
     def __init__(self, d_model: int, nhead: int, d_ffn: int, 
                  dropout: float = 0.1, activation: str = "gelu",
                  cache_compress: str = "fifo",
@@ -69,6 +86,7 @@ class QFormerLayer(nn.Module):
 
         self.cache_compress = cache_compress
         self.cache_max_length = cache_max_length
+        self.step = 0
         
     def forward(self, 
                 query: torch.Tensor,
@@ -78,6 +96,8 @@ class QFormerLayer(nn.Module):
                 attn_mask: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         
         if hasattr(self, 'query_cache'):
+            # query_cache: [B, cache_time, n_queries, D]。展平时间和 query
+            # 两个轴后，当前 learned queries 可以检索历次压缩留下的摘要。
             B, T, N, D = self.query_cache.shape
             query_cache = self.query_cache.contiguous().view(B, -1, D) #[B, T*num_query, C]
             all_query = torch.cat([query_cache, query.detach()], dim=1) #[B, T*num_query + num_query, C]
@@ -110,7 +130,7 @@ class QFormerLayer(nn.Module):
             self.query_cache = query.detach().unsqueeze(1)  # [B, 1, N, C]
         self.step += 1
 
-        # Self-attention
+        # 第一次读取：从历次 query 摘要中恢复“过去已经记住了什么”。
         all_q = self.norm1(all_query)
         q = all_q[:, -query.size(1):, :]
         attn_output, self_attn_weights = self.self_attn(
@@ -121,7 +141,7 @@ class QFormerLayer(nn.Module):
         )
         query = query + self.dropout1(attn_output)
         
-        # Cross-attention (如果提供了key和value)
+        # 第二次读取：以更新后的 query 回看当前 observation cache 中的证据。
         if key is not None and value is not None:
             q = self.norm2(query)
             attn_output, cross_attn_weights = self.cross_attn(
@@ -145,6 +165,8 @@ class QFormerLayer(nn.Module):
             del self.query_cache
 
 class QFormer(nn.Module):
+    """用固定 ``n_queries`` 个 learned queries 汇总一段历史特征。"""
+
     def __init__(self, 
                  input_dim: int,
                  d_model: int,
@@ -230,17 +252,16 @@ class QFormer(nn.Module):
             return compressed_features
 
 class QFormerMemory(BaseNNMemory):
-    """
-    Input:
-        - condition: Any
-        - mask : Optional, (b, ) or None, None means no mask
+    """连接数据集历史与扩散 Transformer 的 VPWEM 核心模块。
 
-    Output:
-        - condition: (b, *cond_out_shape)
+    输入 ``memory`` 为 ``[B, T_history, D]``，``ep_step`` 为对应的 episode
+    相对时刻 ``[B, T_history]``；输出始终为 ``[B, Tm, D]``，其中
+    ``Tm=mem_compress_length``。``cache_max_length`` 限制内部历史证据/摘要的
+    时间容量，它与最终输出 token 数 ``Tm`` 是两个不同概念。
     """
 
     def __init__(self, mem_compress_length=4, 
-                 emb_dim=256, num_layers=2, 
+                 emb_dim=256, num_layers=2, num_heads=8,
                  cache_compress='fifo', cache_max_length=128,
                  use_pos_emb='sin_pos', subsample_ratio=10,
                  ):
@@ -257,6 +278,7 @@ class QFormerMemory(BaseNNMemory):
                 d_model=emb_dim,
                 n_queries=mem_compress_length,
                 n_layers=num_layers,
+                nhead=num_heads,
                 cache_compress=cache_compress,
                 cache_max_length=cache_max_length,
             )
@@ -321,8 +343,10 @@ class QFormerMemory(BaseNNMemory):
             self.condition_cache = condition_to_add
     
     def forward(self, memory: torch.Tensor, ep_step: torch.Tensor, mask: torch.Tensor = None):
+        """离线训练路径：按时间重放整段历史，返回最后时刻的记忆摘要。"""
         self.reset()
         B, T, D = memory.shape
+        # 位置编码使用 episode 内绝对步，而不是 padding 后的 batch 内下标。
         memory = memory + self.mem_pos_emb(ep_step)
         for t_idx in range(T):
             condition = memory[:, t_idx:t_idx+1, :].unsqueeze(2)  # [B, 1, 1, D]
@@ -352,6 +376,7 @@ class QFormerMemory(BaseNNMemory):
         return cp_memory
 
     def reset(self):
+        """清空在线 cache；环境 reset 时必须同步调用。"""
         self.step = 0
         self.cp_memory = None
         if hasattr(self, 'condition_cache'):
@@ -361,6 +386,11 @@ class QFormerMemory(BaseNNMemory):
                 layer.reset()
     
     def inference(self, new_memory: torch.Tensor):
+        """在线写入新历史，并返回当前固定长度摘要。
+
+        ``new_memory`` 通常是刚从最近 ``To`` 帧窗口中移出的观测。只在
+        ``subsample_ratio`` 对应的步上真正写入，以控制长 episode 的成本。
+        """
         B, T, D = new_memory.shape
         # only process each subsample_ratio step
         for t_idx in range(T):

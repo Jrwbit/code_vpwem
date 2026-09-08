@@ -143,6 +143,20 @@ class SequenceSampler:
 
 
 class LongMemSequenceSampler:
+    """把一个决策时刻拆成“近期窗口”和“更早历史”。
+
+    普通 ``SequenceSampler`` 只产生长度为 ``sequence_length`` 的训练窗口；
+    VPWEM 还需要从同一 episode 的起点到该窗口之前抽取历史。返回字典中：
+
+    - ``key``：当前训练窗口，观测键通常只实际读取前 ``key_first_k`` 帧；
+    - ``key_mem``：按时间段采样并受 ``maximum_memory_length`` 限制的历史；
+    - ``ep_step``：每个历史帧相对 episode 起点的位置，用于位置编码；
+    - ``actual_num_frames``：变长历史的真实长度，供 collate 时做 batch 内补齐。
+
+    这里产生的是“待压缩历史”，不是最终情景记忆 token；真正的压缩发生在
+    ``cleandiffuser.nn_memory`` 中。
+    """
+
     def __init__(
             self,
             replay_buffer: ReplayBuffer,
@@ -155,6 +169,8 @@ class LongMemSequenceSampler:
             memory_type: str = 'random_from_full',
             subsample_ratio: int = 10,
             maximum_memory_length: int = 16,
+            preserve_episode_anchor: bool = False,
+            include_action_memory: bool = False,
     ):
         """
             key_first_k: dict str: int
@@ -191,10 +207,14 @@ class LongMemSequenceSampler:
         self.zero_padding = zero_padding
         self.key_first_k = key_first_k
         self.keys_need_mem = list(keys)
-        self.keys_need_mem.remove('action')
+        if not include_action_memory:
+            self.keys_need_mem.remove('action')
+        self.include_action_memory = bool(include_action_memory)
         self.memory_type = memory_type
         self.subsample_ratio = subsample_ratio
+        assert maximum_memory_length >= 1
         self.maximum_memory_length = maximum_memory_length
+        self.preserve_episode_anchor = preserve_episode_anchor
 
     def __len__(self):
         return len(self.indices)
@@ -202,8 +222,11 @@ class LongMemSequenceSampler:
     def sample_sequence(self, idx):
         buffer_start_idx, buffer_end_idx, sample_start_idx, sample_end_idx = self.indices[idx]
         # find last episode start idx
-        episode_num_idx = np.searchsorted(self.episode_ends, buffer_start_idx) - 1
-        episode_num_idx = episode_num_idx
+        # episode_ends are exclusive.  At an exact episode boundary, ``side=right``
+        # is required so the first sample of episode N does not inherit episode
+        # N-1's start index.
+        episode_num_idx = np.searchsorted(
+            self.episode_ends, buffer_start_idx, side='right') - 1
         episode_start_idx = self.episode_ends[episode_num_idx] if episode_num_idx >= 0 else 0
         result = dict()
         for key in self.keys:
@@ -232,50 +255,51 @@ class LongMemSequenceSampler:
                         data[sample_end_idx:] = sample[-1]
                 data[sample_start_idx:sample_end_idx] = sample
             result[key] = data
-        # sample memory using subsample_ratio
+        # 当前窗口到这里已经组装完毕。下面只从同一 episode 的窗口左侧取历史，
+        # 所以不会把未来帧泄漏给记忆分支。
+        # 每个长度为 subsample_ratio 的时间段随机取一帧，兼顾覆盖范围与冗余控制。
         seq_begin_index = buffer_start_idx - episode_start_idx
+        # Select timestamps once and reuse them for every observation modality.
+        # Sampling independently per key silently misaligns rgb/rgb_wrist/joints.
+        if seq_begin_index == 0:
+            selected_frame_idx = [episode_start_idx]
+        else:
+            num_segments = (seq_begin_index + self.subsample_ratio - 1) // self.subsample_ratio
+            seg_starts = np.arange(num_segments) * self.subsample_ratio
+            seg_ends = np.minimum(seg_starts + self.subsample_ratio, seq_begin_index)
+            valid_mask = seg_starts < seq_begin_index
+            seg_starts = seg_starts[valid_mask]
+            seg_ends = seg_ends[valid_mask]
+            segment_sizes = seg_ends - seg_starts
+            segment_sizes[segment_sizes == 0] = 1
+            random_offsets = np.random.randint(0, segment_sizes, size=len(seg_starts))
+            selected_frame_idx = (
+                seg_starts + random_offsets + episode_start_idx).tolist()
+
+        if len(selected_frame_idx) == 0:
+            selected_frame_idx = [episode_start_idx]
+        elif self.preserve_episode_anchor:
+            # Sentinel/oracle history: the first frame carries the task cue in
+            # RememberColor and the initial-state anchor in long-horizon tasks.
+            selected_frame_idx[0] = episode_start_idx
+
+        # Retain the episode anchor if a future task still exceeds the cap.
+        if len(selected_frame_idx) > self.maximum_memory_length:
+            if self.maximum_memory_length == 1:
+                selected_frame_idx = selected_frame_idx[:1]
+            else:
+                selected_frame_idx = (
+                    selected_frame_idx[:1]
+                    + selected_frame_idx[-(self.maximum_memory_length - 1):]
+                )
+
         for key in self.keys_need_mem:
             input_arr = self.replay_buffer[key]
-            
-            # Sample randomly from each segment of subsample_ratio frames
-            # Divide [0, seq_begin_index) into segments of size subsample_ratio
-            # and randomly sample one frame from each segment
-            if seq_begin_index == 0:
-                selected_frame_idx = [episode_start_idx]
-            else:
-                # Calculate number of segments
-                num_segments = (seq_begin_index + self.subsample_ratio - 1) // self.subsample_ratio
-                
-                # Vectorized: generate all segment starts
-                seg_starts = np.arange(num_segments) * self.subsample_ratio
-                # Vectorized: generate all segment ends (cap at seq_begin_index)
-                seg_ends = np.minimum(seg_starts + self.subsample_ratio, seq_begin_index)
-                
-                # Filter out segments that are out of range
-                valid_mask = seg_starts < seq_begin_index
-                seg_starts = seg_starts[valid_mask]
-                seg_ends = seg_ends[valid_mask]
-                
-                # Vectorized: generate random indices for each segment
-                segment_sizes = seg_ends - seg_starts
-                # Ensure segment_sizes are at least 1 to avoid np.random.randint(0, 0)
-                segment_sizes[segment_sizes == 0] = 1
-                random_offsets = np.random.randint(0, segment_sizes, size=len(seg_starts))
-                selected_frame_idx = (seg_starts + random_offsets + episode_start_idx).tolist()
-            
-            # Ensure at least one frame
-            if len(selected_frame_idx) == 0:
-                selected_frame_idx = [episode_start_idx]
-            
             mem_data = input_arr[selected_frame_idx]
-            
-            # truncate memory to maximum_memory_length
-            if len(mem_data) > self.maximum_memory_length:
-                mem_data = mem_data[-self.maximum_memory_length:]
-                selected_frame_idx = selected_frame_idx[-self.maximum_memory_length:]
-            
             result[f'{key}_mem'] = mem_data
-            result['ep_step'] = np.array(selected_frame_idx, dtype=np.float32) - np.ones(len(selected_frame_idx), dtype=np.float32) * episode_start_idx
+
+        result['ep_step'] = (
+            np.asarray(selected_frame_idx, dtype=np.float32) - episode_start_idx)
         
         # Store actual_num_frames for dynamic batching
         result['actual_num_frames'] = len(selected_frame_idx) if len(self.keys_need_mem) > 0 else 1
@@ -884,6 +908,11 @@ def dynamic_batch_collate_fn(batch):
     Since samples are already sorted by length via SortedByLengthSampler,
     we just need to pad all samples in the batch to the same length (max length).
     This function is optimized to minimize CPU operations and prepare data for GPU.
+
+    注意：这里左侧重复首帧只是为了让变长历史能够堆叠成 batch。相应的
+    ``ep_step`` 左侧补 0，使这些位置与 episode anchor 具有一致的位置编码。
+    当前实现没有显式 padding mask，因此读模型时不要把补齐后的长度误认为
+    每个样本都真实观测了同样多的历史帧。
     
     Args:
         batch: List of samples from the dataset (already sorted by length)
@@ -960,6 +989,20 @@ def dynamic_batch_collate_fn(batch):
                         if isinstance(obs_value, np.ndarray):
                             obs_value = torch.from_numpy(obs_value).contiguous()
                         padded_sample[key][obs_key] = obs_value
+            elif key == 'memory_action':
+                if isinstance(value, np.ndarray):
+                    value = torch.from_numpy(value).contiguous()
+                elif not isinstance(value, torch.Tensor):
+                    value = torch.tensor(value)
+                else:
+                    value = value.contiguous()
+                current_len = value.shape[0]
+                if current_len < max_len:
+                    pad = value[0:1].repeat(
+                        max_len - current_len,
+                        *([1] * (value.dim() - 1)))
+                    value = torch.cat([pad, value], dim=0)
+                padded_sample[key] = value
             else:
                 # Non-obs key, copy as-is
                 # Convert numpy to tensor if needed

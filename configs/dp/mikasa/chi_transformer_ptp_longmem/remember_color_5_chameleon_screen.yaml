@@ -1,0 +1,12 @@
+defaults:
+  - remember_color_5_ncm
+  - _self_
+
+diffusion_num_layers: 8
+mem_compress_method: qformer
+memory_read_mode: control_indexed
+memory_aux_coeff: 0.0
+init_model_strict: false
+gradient_steps: 5000
+save_freq: 5000
+work_dir: ${save_path}/paper_transfer_screen/remember_color5/chameleon_read/${seed}
