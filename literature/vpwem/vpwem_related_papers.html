@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ICLR 2026 Memory Papers Related to VPWEM</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">ICLR 2026 Memory Papers Related to VPWEM</h1>
+</header>
+<h1 id="iclr-2026-memory-专题中与-vpwem-相关的论文">ICLR 2026 Memory
+专题中与 VPWEM 相关的论文</h1>
+<p>整理时间：2026-07-21</p>
+<p>来源：<a
+href="https://jcn8jlt2fong.feishu.cn/docx/ArXqd5BlVosgdxxg6iEcLTKznIg">ICLR
+2026 专题 — Memory（记忆机制）</a></p>
+<p>筛选对象：原文档全部 259 篇论文。本文保留 22 篇与 VPWEM
+具有直接或可迁移关系的工作，重点关注视觉机器人策略、非马尔可夫任务、工作记忆与情景记忆、长历史压缩、Diffusion
+Policy，以及持续学习。</p>
+<blockquote>
+<p>说明：下述摘要和判断基于原飞书文档提供的论文导读整理，尚不等同于逐篇阅读全文后的最终
+related-work
+结论。正式写论文前应再核对原论文正文、实验设置与最终版本。</p>
+</blockquote>
+<h2 id="一结论先行">一、结论先行</h2>
+<h3 id="最优先阅读的-6-篇">最优先阅读的 6 篇</h3>
+<ol type="1">
+<li><strong>MemoryVLA</strong>：与 VPWEM
+的概念重叠最高，均涉及工作记忆、长期记忆、非马尔可夫机器人任务和扩散动作生成，是首要相关工作与潜在直接竞争者。</li>
+<li><strong>HAMLET</strong>：用 moment token 和轻量记忆模块把 VLA
+改造成历史感知策略，是“压缩历史后条件化动作预测”的强基线。</li>
+<li><strong>Scaling up Memory for Robotic Control via Experience
+Retrieval（MemER）</strong>：从长历史中检索任务相关关键帧，用层级策略完成分钟级机器人任务，直接对应
+VPWEM 的“选择性保留历史”问题。</li>
+<li><strong>Recurrent Action Transformer with
+Memory（RATE）</strong>：面向 POMDP 和离线 RL 的循环记忆
+Transformer，可作为方法设计与长程决策基线参考。</li>
+<li><strong>Memory, Benchmark &amp; Robots（MIKASA）</strong>：VPWEM
+已使用的记忆密集型机器人基准，其任务分类和评测逻辑应进入论文的问题定义与实验设计。</li>
+<li><strong>Demystifying Robot Diffusion Policies</strong>：认为
+Diffusion Policy 可能主要在做动作记忆/查表，直接影响 VPWEM
+对性能提升来源的解释。</li>
+</ol>
+<h3 id="对-vpwem-最重要的判断">对 VPWEM 最重要的判断</h3>
+<ul>
+<li><strong>新颖性风险</strong>：MemoryVLA 与 VPWEM
+的认知叙事高度相似。VPWEM
+需要更明确地突出自身在策略类型、记忆更新、计算有界性、训练目标、实验任务或效率证据上的独特贡献。</li>
+<li><strong>基线风险</strong>：仅与短上下文 DP、DP-PTP、RNN 和 MaIL
+比较可能不够。应至少讨论 HAMLET、MemoryVLA、MemER 和
+RATE；无法复现时，也要解释架构与实验设置差异。</li>
+<li><strong>机制解释风险</strong>：需要排除“更大模型”“更长上下文”以及“动作查表”三种替代解释。</li>
+<li><strong>实验机会</strong>：加入最近邻动作检索/ALT
+类基线、历史打乱、关键帧遮蔽、记忆 token probing，以及计算量随 episode
+长度变化的曲线，会显著增强证据链。</li>
+</ul>
+<h2
+id="二p0直接竞争关键基线与核心问题">二、P0：直接竞争、关键基线与核心问题</h2>
+<h3
+id="memoryvla-perceptual-cognitive-memory-in-vision-language-action-models-for-robotic-manipulation">1.
+MemoryVLA: Perceptual-Cognitive Memory in Vision-Language-Action Models
+for Robotic Manipulation</h3>
+<ul>
+<li>作者：Hao Shi, Bin Xie, Yingfei Liu, Lin Sun, Fengrong Liu et
+al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=54U3XHf7qq">OpenReview</a></li>
+<li>核心方法：以感知 token 和认知 token
+构成工作记忆；长期记忆库存储低层细节与高层语义，通过检索、融合和去冗余持续更新；最终由记忆条件化的扩散动作专家生成动作。</li>
+<li>结果概况：在 SimplerEnv-Bridge、Fractal、LIBERO-5、MIKASA-Robo
+以及真实机器人长时程任务上报告了明显提升。</li>
+<li>与 VPWEM
+的关系：<strong>最高度重叠</strong>。两者都以非马尔可夫机器人操控为动机，采用短期/长期记忆分工，并用长期信息条件化扩散式动作生成。</li>
+<li>VPWEM 应对：逐项对比记忆输入、压缩机制、更新方式、token
+数量是否固定、是否依赖 VLM/VLA、训练目标、推理复杂度和所用基准；不要只在
+related work 中一句带过。</li>
+</ul>
+<h3
+id="hamlet-switch-your-vision-language-action-model-into-a-history-aware-policy">2.
+HAMLET: Switch Your Vision-Language-Action Model into a History-Aware
+Policy</h3>
+<ul>
+<li>作者：Myungkyu Koo, Daewon Choi, Taeyoung Kim, Kyungmin Lee,
+Changyeon Kim et al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=KcJ9U0x6kO">OpenReview</a></li>
+<li>核心方法：用 time-contrastive learning 初始化 moment
+token，以紧凑表示编码每个时间步，再由轻量记忆模块聚合为用于动作预测的
+memory features。</li>
+<li>结果概况：报告 GR00T N1.5 在历史依赖真实任务上的成功率大幅提升，并在
+RoboCasa 与 LIBERO 上继续改进。</li>
+<li>与 VPWEM
+的关系：同样研究“如何把原本只看当前观测的策略变成历史感知策略”，并强调紧凑历史表征。</li>
+<li>VPWEM 应对：突出 Q-Former 情景压缩与 moment-token
+聚合的差异；建议增加相同历史预算下的压缩方式对比。</li>
+</ul>
+<h3
+id="scaling-up-memory-for-robotic-control-via-experience-retrieval">3.
+Scaling up Memory for Robotic Control via Experience Retrieval</h3>
+<ul>
+<li>作者：Ajay Sridhar, Jennifer Pan, Satvik Sharma, Chelsea Finn</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=1dH4ARGdwD">OpenReview</a></li>
+<li>核心方法：MemER
+用高层策略从自身经验中选择并追踪任务相关关键帧，再结合近期观测生成文本指令，驱动低层
+VLA 策略。</li>
+<li>结果概况：在三项需要分钟级记忆的真实世界机器人操作任务上超过已有方法。</li>
+<li>与 VPWEM
+的关系：直接回答“长历史不应无差别保留，应该选择任务相关证据”。它采用显式关键帧检索，VPWEM
+采用学习型固定 token 压缩。</li>
+<li>VPWEM 应对：增加 keyframe
+retrieval、均匀采样或相似度检索基线，以证明端到端压缩优于显式选择。</li>
+</ul>
+<h3 id="recurrent-action-transformer-with-memory">4. Recurrent Action
+Transformer with Memory</h3>
+<ul>
+<li>作者：Egor Cherepanov, Aleksei Staroverov, Alexey Kovalev, Aleksandr
+Panov</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=kByN4v0M3e">OpenReview</a></li>
+<li>核心方法：RATE 在 Action Transformer
+中加入循环记忆，显式调节信息保留与遗忘，面向部分可观测的离线强化学习。</li>
+<li>结果概况：覆盖 T-Maze、Memory Maze、POPGym、Atari 和 MuJoCo
+等记忆型及标准任务。</li>
+<li>与 VPWEM
+的关系：是“固定历史窗口不够，策略需要跨窗口记忆”的直接架构基线，但动作学习范式与
+VPWEM 的行为克隆扩散策略不同。</li>
+<li>VPWEM 应对：在方法对比中说明 recurrent state 与 episodic token
+的容量、可解释性、并行训练和长期信息保真度差异。</li>
+</ul>
+<h3
+id="memory-benchmark-robots-a-benchmark-for-solving-complex-tasks-with-reinforcement-learning">5.
+Memory, Benchmark &amp; Robots: A Benchmark for Solving Complex Tasks
+with Reinforcement Learning</h3>
+<ul>
+<li>作者：Egor Cherepanov, Nikita Kachaev, Alexey Kovalev, Aleksandr
+Panov</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=9cLPurIZMj">OpenReview</a></li>
+<li>核心贡献：提出记忆密集型 RL 任务分类，构建 MIKASA-Base 与包含 32
+个桌面机器人记忆任务的 MIKASA-Robo。</li>
+<li>与 VPWEM 的关系：这是 VPWEM 实验问题成立的重要依据，尤其适合说明“长
+horizon”与“真正需要历史信息”并不等价。</li>
+<li>VPWEM 应对：将 MIKASA 的任务分类映射到 VPWEM
+的实验；明确每个任务依赖哪种过去不可见变量，而不只汇报平均成功率。</li>
+</ul>
+<h3
+id="demystifying-robot-diffusion-policies-action-memorization-and-a-simple-lookup-table-alternative">6.
+Demystifying Robot Diffusion Policies: Action Memorization and a Simple
+Lookup Table Alternative</h3>
+<ul>
+<li>作者：Chengyang He, Xu Liu, Gadiel Mark Sznaier Camps, Joseph Bruno,
+Guillaume Adrien Sartoretti et al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=PL0tJOfm7I">OpenReview</a></li>
+<li>核心观点：Diffusion Policy
+在低数据场景下可能主要通过视觉近邻召回训练 action
+chunk，而不是学习平滑的动作泛化；论文提出显式 Action Lookup
+Table（ALT）作为简单替代。</li>
+<li>与 VPWEM 的关系：这是 VPWEM
+最重要的机制反例。长期记忆带来的提升可能来自更容易定位训练轨迹，而不一定来自抽象的情景记忆。</li>
+<li>VPWEM 应对：加入最近邻动作检索、训练轨迹相似度、OOD
+观测、历史打乱和动作片段来源分析；证明记忆 token
+编码了任务变量，而不只是样本索引。</li>
+</ul>
+<h3 id="planning-with-an-embodied-learnable-memory">7. Planning with an
+Embodied Learnable Memory</h3>
+<ul>
+<li>作者：Priyam Parashar, Jacob Krantz, Matthew Chang, Kavit Shah,
+Xavier Puig et al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=79BOATBal9">OpenReview</a></li>
+<li>核心方法：Embodied Perception Memory 使用统一
+VLM，根据自我中心视觉维护、更新文本环境表征，并结合模仿学习与难度感知强化学习进行长时域规划。</li>
+<li>与 VPWEM
+的关系：任务层级更偏高层规划，但同样体现“记忆表示必须随环境变化更新”，可帮助界定
+VPWEM 的低层控制定位。</li>
+</ul>
+<h2
+id="三p1可迁移的记忆压缩与时序建模方法">三、P1：可迁移的记忆压缩与时序建模方法</h2>
+<h3 id="composition-of-memory-experts-for-diffusion-world-models">8.
+Composition of Memory Experts for Diffusion World Models</h3>
+<ul>
+<li>作者：Sebastian Stapf, Pablo Acuaviva, Aram Davtyan, Paolo
+Favaro</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=sUEdpZCHdp">OpenReview</a></li>
+<li>核心方法：组合短期、长期和空间长期记忆专家，用 diffusion
+product-of-experts 兼顾局部细节、情景历史与空间一致性。</li>
+<li>对 VPWEM
+的启示：可以把工作记忆与情景记忆视为具有不同职责的专家，而不是简单拼接
+token；适合启发独立 dropout、门控融合或专家消融。</li>
+</ul>
+<h3
+id="task-related-token-compression-in-multimodal-large-language-models-from-an-explainability-perspective">9.
+Task-Related Token Compression in Multimodal Large Language Models from
+an Explainability Perspective</h3>
+<ul>
+<li>作者：Lei Lei, Jie Gu, Xiaokang Ma, Chu Tang, Jingmin Chen et
+al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=YULeQtSyiW">OpenReview</a></li>
+<li>核心方法：根据指令评估视觉 token
+的全局重要性，在模型输入阶段执行任务相关压缩，并用轻量网络近似完整可解释性计算。</li>
+<li>对 VPWEM
+的启示：可将“哪些历史值得记住”显式变成任务相关重要性问题；适合作为
+memory token 可解释性和压缩质量的分析参照。</li>
+</ul>
+<h3
+id="marc-memory-augmented-rl-token-compression-for-efficient-video-understanding">10.
+MARC: Memory-Augmented RL Token Compression for Efficient Video
+Understanding</h3>
+<ul>
+<li>作者：Peiran Wu, Zhuorui Yu, Yunze Liu, Chi-Hao Wu, Enmin Zhou et
+al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=5gLgjn3MVT">OpenReview</a></li>
+<li>核心方法：先用视觉记忆检索器选择事件片段，再用强化学习和知识蒸馏训练压缩模型。</li>
+<li>结果概况：报告视觉 token 减少 95%，同时明显降低显存和延迟。</li>
+<li>对 VPWEM 的启示：提示应同时评估任务性能、token
+压缩率、显存和延迟；仅报告成功率不足以证明记忆压缩有效。</li>
+</ul>
+<h3
+id="videochat-flash-hierarchical-compression-for-long-context-video-modeling">11.
+VideoChat-Flash: Hierarchical Compression for Long-Context Video
+Modeling</h3>
+<ul>
+<li>作者：Xinhao Li, Yi Wang, Jiashuo Yu, Xiangyu Zeng, Yuhan Zhu et
+al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=MUjdNcfNPv">OpenReview</a></li>
+<li>核心方法：HiCo 从 clip 级逐层压缩到 video
+级表示，并配合由短到长的训练课程。</li>
+<li>对 VPWEM 的启示：可参考分层压缩与 short-to-long
+curriculum；也应测试历史长度超出训练分布时的泛化。</li>
+</ul>
+<h3 id="short-window-attention-enables-long-term-memorization">12. Short
+Window Attention Enables Long-Term Memorization</h3>
+<ul>
+<li>作者：Loïc Cabannes, Maximilian Beck, Maria Lomeli, Gergely
+Szilvasy, Matthijs Douze et al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=btgVfhudI1">OpenReview</a></li>
+<li>核心发现：过大的局部 attention
+窗口可能让模型逃避使用长期记忆；随机改变窗口大小可同时训练短程建模与长期记忆。</li>
+<li>对 VPWEM 的启示：VPWEM 的 working-memory
+长度可能决定模型是否真正使用 episodic
+memory。建议随机化工作窗口，或至少报告不同窗口下长期记忆利用率。</li>
+</ul>
+<h3 id="mom-linear-sequence-modeling-with-mixture-of-memories">13. MoM:
+Linear Sequence Modeling with Mixture-of-Memories</h3>
+<ul>
+<li>作者：Jusen Du, Weigao Sun, Disen Lan, Jiaxi Hu, Tao Zhang et
+al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=3PdOq8Rgue">OpenReview</a></li>
+<li>核心方法：维护多个独立 memory
+state，通过路由网络动态分配输入，减少单一固定状态中的记忆干扰。</li>
+<li>对 VPWEM 的启示：当一个 Q-Former summary
+同时承担目标、阶段、空间和物体状态时可能发生干扰；可探索分槽记忆或路由式
+query token。</li>
+</ul>
+<h3
+id="janusvln-decoupling-semantics-and-spatiality-with-dual-implicit-memory-for-vision-language-navigation">14.
+JanusVLN: Decoupling Semantics and Spatiality with Dual Implicit Memory
+for Vision-Language Navigation</h3>
+<ul>
+<li>作者：Shuang Zeng, Dekang Qi, Xinyuan Chang, Feng Xiong, Xie Shichao
+et al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=RnuB0Nlbd5">OpenReview</a></li>
+<li>核心方法：将空间几何记忆与视觉语义记忆建模为两个固定大小的隐式状态，并通过保留初始窗口和滑动窗口
+KV 实现增量更新。</li>
+<li>对 VPWEM 的启示：记忆可按信息类型解耦；VPWEM 可分析不同 query token
+是否自然形成目标、空间或阶段专门化。</li>
+</ul>
+<h3
+id="streamingvlm-real-time-understanding-for-infinite-video-streams">15.
+StreamingVLM: Real-Time Understanding for Infinite Video Streams</h3>
+<ul>
+<li>作者：Ruyi Xu, Guangxuan Xiao, Yukang Chen, Liuning He, Kelly Peng
+et al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=gVbPWbA97s">OpenReview</a></li>
+<li>核心方法：复用 attention sink
+状态，并分别维护近期视觉和文本窗口，使长视频流的延迟和内存保持稳定。</li>
+<li>对 VPWEM
+的启示：可借鉴“无限流式输入下资源不随时间增长”的评测方式，明确给出显存、延迟与
+episode 长度的关系。</li>
+</ul>
+<h2 id="四p2持续学习vla-泛化与长期记忆扩展">四、P2：持续学习、VLA
+泛化与长期记忆扩展</h2>
+<h3
+id="actions-as-language-fine-tuning-vlms-into-vlas-without-catastrophic-forgetting">16.
+Actions as Language: Fine-Tuning VLMs into VLAs Without Catastrophic
+Forgetting</h3>
+<ul>
+<li>作者：Asher James Hancock, Xindi Wu, Lihan Zha, Olga Russakovsky,
+Anirudha Majumdar</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=sFO9d6XSlf">OpenReview</a></li>
+<li>核心方法：将低层动作表示为自然语言，减小 VLM
+预训练语料与机器人微调数据之间的分布差异，再用 LoRA 训练 VLA。</li>
+<li>与 VPWEM 的关系：重点不在 episode
+内记忆，但可帮助区分“情景记忆”与“跨任务知识保留”，也提醒视觉编码器微调可能导致基础能力退化。</li>
+</ul>
+<h3
+id="robust-fine-tuning-of-vision-language-action-robot-policies-via-parameter-merging">17.
+Robust Fine-tuning of Vision-Language-Action Robot Policies via
+Parameter Merging</h3>
+<ul>
+<li>作者：Yajat Yadav, Zhiyuan Zhou, Andrew Wagenmaker, Karl Pertsch,
+Sergey Levine</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=uWJwQ5SZoM">OpenReview</a></li>
+<li>核心方法：融合预训练与微调模型权重，使单一策略兼顾新技能和原有通用能力，并扩展到终身学习。</li>
+<li>与 VPWEM 的关系：若 VPWEM
+后续扩展到跨任务持续学习，这是一条比情景缓存更直接的知识保持基线。</li>
+</ul>
+<h3
+id="vision-language-action-instruction-tuning-from-understanding-to-manipulation">18.
+Vision-Language-Action Instruction Tuning: From Understanding to
+Manipulation</h3>
+<ul>
+<li>作者：Shuai Yang, Hao Li, Bin Wang, Yilun Chen, Yang Tian et
+al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=tsxwloasw5">OpenReview</a></li>
+<li>核心方法：以混合专家适配联合训练具身推理与动作生成，在保留 VLM
+能力的同时提升操控性能。</li>
+<li>与 VPWEM
+的关系：可作为“更强基础策略本身是否已经解决长期任务”的背景；VPWEM
+应证明收益不是弱 backbone 特有现象。</li>
+</ul>
+<h3
+id="principled-fast-and-meta-knowledge-learners-for-continual-reinforcement-learning">19.
+Principled Fast and Meta Knowledge Learners for Continual Reinforcement
+Learning</h3>
+<ul>
+<li>作者：Ke Sun, Hongming Zhang, Jun Jin, Chao Gao, Xi Chen et al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=loNTDX3wTn">OpenReview</a></li>
+<li>核心方法：受海马体—皮层分工启发，以 fast learner 负责迁移、meta
+learner 负责知识整合与抗遗忘。</li>
+<li>与 VPWEM
+的关系：与“工作记忆—情景记忆”具有相似的认知分工，但发生在跨任务持续学习层面，可用于澄清
+VPWEM 只处理单 episode 内记忆。</li>
+</ul>
+<h3
+id="seeing-listening-remembering-and-reasoning-a-multimodal-agent-with-long-term-memory">20.
+Seeing, Listening, Remembering, and Reasoning: A Multimodal Agent with
+Long-Term Memory</h3>
+<ul>
+<li>作者：Lin Long, Yichen He, Wentao Ye, Yiyuan Pan, Yuan Lin et
+al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=PMz29A7Muq">OpenReview</a></li>
+<li>核心方法：M3-Agent
+从连续视听输入构建实体中心的情景与语义记忆，通过多轮检索和推理回答长视频问题。</li>
+<li>与 VPWEM
+的关系：动作控制并非核心，但其情景/语义记忆分层和机器人视角长视频评测可用于记忆表征分析。</li>
+</ul>
+<h3
+id="embodied-agents-meet-personalization-investigating-challenges-and-solutions-through-the-lens-of-memory-utilization">21.
+Embodied Agents Meet Personalization: Investigating Challenges and
+Solutions Through the Lens of Memory Utilization</h3>
+<ul>
+<li>作者：Taeyoon Kwon, Dongwook Choi, Hyojun Kim, Sunghwan Kim,
+Seungjun Moon et al.</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=E5L43l5EIu">OpenReview</a></li>
+<li>核心方法：研究具身智能体如何利用历史交互中的物体语义和用户行为序列，并用层级知识图谱缓解信息过载与多记忆协调失败。</li>
+<li>与 VPWEM
+的关系：提示长期记忆不仅有容量问题，还有检索协调问题；可作为未来面向个性化或跨
+episode 记忆的扩展方向。</li>
+</ul>
+<h3
+id="building-spatial-world-models-from-sparse-transitional-episodic-memories">22.
+Building Spatial World Models from Sparse Transitional Episodic
+Memories</h3>
+<ul>
+<li>作者：Zizhan He, Maxime Daigle, Pouya Bashivan</li>
+<li>原文：<a
+href="https://openreview.net/forum?id=w3w7WVG4ks">OpenReview</a></li>
+<li>核心方法：Episodic Spatial World Model
+从稀疏、不连续的情景转移记忆中恢复空间结构，并用于适应、探索和导航。</li>
+<li>与 VPWEM 的关系：从机制角度支持“稀疏关键情景足以恢复任务结构”，可为
+memory probing 或稀疏历史采样提供理论动机。</li>
+</ul>
+<h2 id="五建议写入-vpwem-论文的-related-work-结构">五、建议写入 VPWEM
+论文的 related-work 结构</h2>
+<h3 id="memory-aware-robot-policies">1. Memory-aware robot policies</h3>
+<p>重点讨论
+MemoryVLA、HAMLET、MemER、RATE，并用以下维度进行统一比较：</p>
+<ul>
+<li>策略类别：Diffusion Policy、VLA、offline RL Transformer
+或层级策略；</li>
+<li>记忆来源：原始视觉帧、moment token、关键帧、循环隐状态或学习型
+summary token；</li>
+<li>更新机制：追加、检索、循环更新、去冗余或 Q-Former 压缩；</li>
+<li>资源复杂度是否随 episode 长度增长；</li>
+<li>是否专门评估非马尔可夫机器人控制。</li>
+</ul>
+<h3 id="efficient-long-history-compression">2. Efficient long-history
+compression</h3>
+<p>讨论任务相关 token 压缩、MARC、VideoChat-Flash、SWAX、MoM 和
+StreamingVLM，说明 VPWEM
+的位置不是通用长上下文模型，而是由动作预测目标监督的机器人历史压缩器。</p>
+<h3 id="memory-intensive-benchmarks-and-mechanisms">3. Memory-intensive
+benchmarks and mechanisms</h3>
+<p>以 MIKASA 说明问题定义，以 Demystifying Robot Diffusion Policies
+说明动作记忆替代解释，再用 Memory Experts 与 Episodic Spatial World
+Model 支撑短期/长期及稀疏情景分工。</p>
+<h2 id="六建议补充的实验">六、建议补充的实验</h2>
+<ol type="1">
+<li><strong>直接竞争基线</strong>：MemoryVLA、HAMLET、MemER；若工程上无法完整复现，至少实现统一
+backbone 下的 moment pooling、关键帧检索与 recurrent memory
+近似版本。</li>
+<li><strong>查表基线</strong>：最近邻视觉 embedding 检索训练 action
+chunk，报告与 Diffusion Policy、VPWEM 的差异。</li>
+<li><strong>记忆真实性测试</strong>：打乱历史顺序、替换其他 episode
+历史、遮蔽初始目标帧、仅保留伪相关动作历史。</li>
+<li><strong>记忆表征 probing</strong>：从 memory token
+预测目标位置、任务阶段、已完成子目标或初始隐藏变量。</li>
+<li><strong>计算有界性</strong>：横轴使用 episode
+长度，报告显存、单步延迟和成功率；与完整上下文及固定滑窗对比。</li>
+<li><strong>工作窗口依赖</strong>：改变 working-memory
+长度，检查窗口过大时模型是否不再使用 episodic memory。</li>
+<li><strong>压缩方式消融</strong>：FIFO、均匀采样、相似度检索、关键帧选择、Q-Former，以及固定/动态
+memory token 数量。</li>
+<li><strong>正负对照</strong>：在真正需要记忆的
+POMDP、自然长时程任务和近似 Markov 任务上分别报告结果。</li>
+</ol>
+<h2 id="七推荐阅读顺序">七、推荐阅读顺序</h2>
+<ol type="1">
+<li>MemoryVLA</li>
+<li>HAMLET</li>
+<li>Scaling up Memory for Robotic Control via Experience Retrieval</li>
+<li>Demystifying Robot Diffusion Policies</li>
+<li>Memory, Benchmark &amp; Robots</li>
+<li>Recurrent Action Transformer with Memory</li>
+<li>Task-Related Token Compression</li>
+<li>Short Window Attention Enables Long-Term Memorization</li>
+<li>Composition of Memory Experts for Diffusion World Models</li>
+<li>其余 P1、P2 论文按实验需求查阅</li>
+</ol>
+</body>
+</html>

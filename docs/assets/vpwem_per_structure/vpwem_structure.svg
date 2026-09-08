@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fbff"/><stop offset="1" stop-color="#eef4fb"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#18324d" flood-opacity="0.13"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#486581"/>
+    </marker>
+    <style>
+      .title{font:700 38px 'Noto Sans CJK SC',sans-serif;fill:#102a43}.sub{font:400 19px 'Noto Sans CJK SC',sans-serif;fill:#486581}
+      .h{font:700 23px 'Noto Sans CJK SC',sans-serif;fill:#102a43}.t{font:500 18px 'Noto Sans CJK SC',sans-serif;fill:#243b53}.s{font:400 15px 'Noto Sans CJK SC',sans-serif;fill:#627d98}
+      .pill{font:700 16px 'Noto Sans CJK SC',sans-serif;fill:white}.edge{stroke:#486581;stroke-width:3;fill:none;marker-end:url(#arrow)}
+      .dash{stroke:#829ab1;stroke-width:2.5;fill:none;stroke-dasharray:9 8;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <text x="80" y="72" class="title">VPWEM：固定容量的工作记忆 + 情景记忆</text>
+  <text x="80" y="108" class="sub">原始结构｜近期观测直接保留，更早历史经 FIFO bank 与 Q-Former 压缩为固定 token</text>
+
+  <g filter="url(#shadow)">
+    <rect x="70" y="174" width="250" height="178" rx="24" fill="#ffffff" stroke="#b8cde3" stroke-width="2"/>
+    <rect x="95" y="198" width="200" height="38" rx="19" fill="#2f80ed"/>
+    <text x="195" y="224" text-anchor="middle" class="pill">连续视觉观测</text>
+    <g fill="#d9eaff" stroke="#2f80ed" stroke-width="2">
+      <rect x="98" y="264" width="44" height="48" rx="7"/><rect x="150" y="264" width="44" height="48" rx="7"/><rect x="202" y="264" width="44" height="48" rx="7"/><rect x="254" y="264" width="44" height="48" rx="7"/>
+    </g>
+    <text x="120" y="295" text-anchor="middle" class="t">o₁</text><text x="172" y="295" text-anchor="middle" class="t">o₂</text><text x="224" y="295" text-anchor="middle" class="t">…</text><text x="276" y="295" text-anchor="middle" class="t">oₜ</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="380" y="174" width="245" height="178" rx="24" fill="#ffffff" stroke="#b8cde3" stroke-width="2"/>
+    <text x="502" y="220" text-anchor="middle" class="h">视觉编码器</text>
+    <text x="502" y="258" text-anchor="middle" class="t">Image Encoder</text>
+    <text x="502" y="290" text-anchor="middle" class="s">RGB / proprioception</text>
+    <text x="502" y="316" text-anchor="middle" class="s">→ 统一 D 维 embedding</text>
+  </g>
+
+  <path d="M320 263H380" class="edge"/>
+  <path d="M625 263H690V415" class="edge"/>
+  <path d="M690 263V650" class="edge"/>
+
+  <g filter="url(#shadow)">
+    <rect x="735" y="150" width="330" height="225" rx="24" fill="#eaf4ff" stroke="#2f80ed" stroke-width="3"/>
+    <rect x="765" y="176" width="270" height="40" rx="20" fill="#2f80ed"/>
+    <text x="900" y="203" text-anchor="middle" class="pill">Working Memory</text>
+    <text x="900" y="255" text-anchor="middle" class="h">最近 L 个观测 token</text>
+    <g fill="#ffffff" stroke="#2f80ed" stroke-width="2">
+      <rect x="805" y="286" width="78" height="51" rx="9"/><rect x="917" y="286" width="78" height="51" rx="9"/>
+    </g>
+    <text x="844" y="318" text-anchor="middle" class="t">zₜ₋₁</text><text x="956" y="318" text-anchor="middle" class="t">zₜ</text>
+    <text x="900" y="360" text-anchor="middle" class="s">不压缩，保留局部精细信息（常用 L=2）</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="735" y="430" width="330" height="250" rx="24" fill="#fff7e8" stroke="#e6a23c" stroke-width="3"/>
+    <rect x="765" y="456" width="270" height="40" rx="20" fill="#d88918"/>
+    <text x="900" y="483" text-anchor="middle" class="pill">Episodic History</text>
+    <text x="900" y="535" text-anchor="middle" class="h">更早的历史 embedding</text>
+    <text x="900" y="571" text-anchor="middle" class="t">z₁, z₂, …, zₜ₋L</text>
+    <text x="900" y="610" text-anchor="middle" class="s">分段采样 + 时间位置编码</text>
+    <text x="900" y="638" text-anchor="middle" class="s">进入固定容量历史缓存</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1120" y="425" width="390" height="260" rx="24" fill="#ffffff" stroke="#e6a23c" stroke-width="3"/>
+    <text x="1315" y="468" text-anchor="middle" class="h">FIFO Bank（S=8）</text>
+    <text x="1315" y="499" text-anchor="middle" class="s">按时间写入；满容量后淘汰最老槽位</text>
+    <g fill="#fff1d6" stroke="#d88918" stroke-width="2">
+      <rect x="1160" y="526" width="54" height="48" rx="8"/><rect x="1225" y="526" width="54" height="48" rx="8"/><rect x="1290" y="526" width="54" height="48" rx="8"/><rect x="1355" y="526" width="54" height="48" rx="8"/><rect x="1420" y="526" width="54" height="48" rx="8"/>
+    </g>
+    <text x="1187" y="557" text-anchor="middle" class="s">old</text><text x="1252" y="557" text-anchor="middle" class="s">…</text><text x="1317" y="557" text-anchor="middle" class="s">…</text><text x="1382" y="557" text-anchor="middle" class="s">…</text><text x="1447" y="557" text-anchor="middle" class="s">new</text>
+    <path d="M1190 602H1450" stroke="#d88918" stroke-width="3" marker-end="url(#arrow)"/>
+    <text x="1315" y="643" text-anchor="middle" class="t">时间决定记忆寿命</text>
+  </g>
+  <path d="M1065 555H1120" class="edge"/>
+
+  <g filter="url(#shadow)">
+    <rect x="1120" y="725" width="390" height="120" rx="24" fill="#f4edff" stroke="#7b61ff" stroke-width="3"/>
+    <text x="1315" y="767" text-anchor="middle" class="h">Q-Former Memory Compressor</text>
+    <text x="1315" y="800" text-anchor="middle" class="t">递归 summary cache → 固定 M=2 memory tokens</text>
+    <text x="1315" y="828" text-anchor="middle" class="s">可学习 query；训练时与策略端到端优化</text>
+  </g>
+  <path d="M1315 685V725" class="edge"/>
+
+  <g filter="url(#shadow)">
+    <rect x="400" y="715" width="610" height="135" rx="24" fill="#eafaf4" stroke="#20a779" stroke-width="3"/>
+    <text x="705" y="758" text-anchor="middle" class="h">LongMem Diffusion Policy</text>
+    <text x="705" y="793" text-anchor="middle" class="t">noisy action + diffusion step + working tokens + memory tokens</text>
+    <text x="705" y="824" text-anchor="middle" class="s">ChiTransformerPTP 预测噪声 → 迭代去噪 → 执行动作 chunk</text>
+  </g>
+  <path d="M900 375V700H775V715" class="edge"/>
+  <path d="M1120 785H1010" class="edge"/>
+
+  <rect x="70" y="735" width="255" height="95" rx="18" fill="#102a43"/>
+  <text x="197" y="772" text-anchor="middle" class="pill">训练目标</text>
+  <text x="197" y="807" text-anchor="middle" style="font:500 18px 'Noto Sans CJK SC',sans-serif;fill:#d9eaff">Diffusion action MSE</text>
+  <path d="M325 783H400" class="dash"/>
+</svg>

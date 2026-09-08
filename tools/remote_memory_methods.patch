@@ -1,0 +1,36 @@
+diff --git a/pipelines/longmemdpptp_robomimic_image_emb.py b/pipelines/longmemdpptp_robomimic_image_emb.py
+--- a/pipelines/longmemdpptp_robomimic_image_emb.py
++++ b/pipelines/longmemdpptp_robomimic_image_emb.py
+@@ -95,8 +95,14 @@ def pipeline(args: DictConfig):
+     from cleandiffuser.nn_memory.adjsim_memory import AdjSimMemory
+     from cleandiffuser.nn_memory.qformer_memory import QFormerMemory
+     from cleandiffuser.nn_memory.per_memory import PERMemory
++    from cleandiffuser.nn_memory.recent_memory import RecentMemory
++    from cleandiffuser.nn_memory.anchor_recent_memory import AnchorRecentMemory
+     if args.mem_compress_method == "random":
+         nn_memory = RandomMemory(mem_compress_length=args.mem_compress_length).to(args.device)
++    elif args.mem_compress_method == "recent":
++        nn_memory = RecentMemory(mem_compress_length=args.mem_compress_length).to(args.device)
++    elif args.mem_compress_method == "anchor_recent":
++        nn_memory = AnchorRecentMemory(mem_compress_length=args.mem_compress_length).to(args.device)
+     elif args.mem_compress_method == "kmeans":
+         nn_memory = KMeansMemory(mem_compress_length=args.mem_compress_length).to(args.device)
+     elif args.mem_compress_method == "adjsim":
+diff --git a/pipelines/longmemdpptp_robomimic_image_emb_eval.py b/pipelines/longmemdpptp_robomimic_image_emb_eval.py
+--- a/pipelines/longmemdpptp_robomimic_image_emb_eval.py
++++ b/pipelines/longmemdpptp_robomimic_image_emb_eval.py
+@@ -336,8 +336,14 @@ def pipeline(args: DictConfig):
+     from cleandiffuser.nn_memory.adjsim_memory import AdjSimMemory
+     from cleandiffuser.nn_memory.qformer_memory import QFormerMemory
+     from cleandiffuser.nn_memory.per_memory import PERMemory
++    from cleandiffuser.nn_memory.recent_memory import RecentMemory
++    from cleandiffuser.nn_memory.anchor_recent_memory import AnchorRecentMemory
+     if args.mem_compress_method == "random":
+         nn_memory = RandomMemory(mem_compress_length=args.mem_compress_length).to(args.device)
++    elif args.mem_compress_method == "recent":
++        nn_memory = RecentMemory(mem_compress_length=args.mem_compress_length).to(args.device)
++    elif args.mem_compress_method == "anchor_recent":
++        nn_memory = AnchorRecentMemory(mem_compress_length=args.mem_compress_length).to(args.device)
+     elif args.mem_compress_method == "kmeans":
+         nn_memory = KMeansMemory(mem_compress_length=args.mem_compress_length).to(args.device)
+     elif args.mem_compress_method == "adjsim":

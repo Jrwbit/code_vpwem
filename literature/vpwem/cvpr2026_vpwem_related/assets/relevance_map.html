@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f5f7fb; color: #172033; font-family: "Noto Sans CJK SC", sans-serif; }
+  .canvas { width: 1400px; height: 820px; padding: 42px 52px 38px; background: linear-gradient(145deg,#f8fbff,#f5f7fb 55%,#eef3ff); }
+  h1 { margin: 0; font-size: 34px; letter-spacing: .2px; }
+  .sub { color: #667085; margin-top: 8px; font-size: 17px; }
+  .plot { position: relative; margin: 28px 0 0 86px; width: 1130px; height: 620px; background: #fff; border: 1px solid #dfe5ef; border-radius: 22px; box-shadow: 0 14px 36px rgba(34,55,100,.08); }
+  .grid { position: absolute; inset: 36px 42px 58px 62px; background-image: linear-gradient(#e9edf5 1px,transparent 1px),linear-gradient(90deg,#e9edf5 1px,transparent 1px); background-size: 20% 20%; border-left: 2px solid #98a2b3; border-bottom: 2px solid #98a2b3; }
+  .xlabel { position:absolute; left:470px; bottom:14px; color:#475467; font-size:17px; font-weight:600; }
+  .ylabel { position:absolute; left:-205px; top:288px; width:470px; transform:rotate(-90deg); text-align:center; color:#475467; font-size:17px; font-weight:600; }
+  .zone { position:absolute; right:42px; top:36px; width:410px; height:210px; border-radius:18px; background:rgba(249,112,102,.07); border:1px dashed #f97066; }
+  .zone-label { position:absolute; right:62px; top:48px; color:#b42318; font-size:14px; font-weight:700; }
+  .dot { position:absolute; transform:translate(-50%,-50%); border-radius:999px; color:#fff; display:grid; place-items:center; font-weight:800; box-shadow:0 8px 18px rgba(16,24,40,.17); border:3px solid rgba(255,255,255,.92); }
+  .p0 { background:linear-gradient(145deg,#e5484d,#f97066); }
+  .p1 { background:linear-gradient(145deg,#3567e8,#5b8ff9); }
+  .label { position:absolute; transform:translate(18px,-12px); white-space:nowrap; padding:6px 9px; border-radius:8px; background:rgba(255,255,255,.94); border:1px solid #e3e8f1; font-size:14px; font-weight:700; box-shadow:0 4px 12px rgba(16,24,40,.08); }
+  .legend { position:absolute; right:60px; bottom:22px; display:flex; gap:18px; color:#475467; font-size:14px; }
+  .legend i { display:inline-block; width:13px; height:13px; border-radius:50%; margin-right:6px; vertical-align:-1px; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <h1>CVPR 2026 × VPWEM：首批相关论文定位图</h1>
+  <div class="sub">横轴看研究问题是否相同，纵轴看“历史如何被保存和利用”是否相似；右上角是最需要优先处理的新颖性区域。</div>
+  <div class="plot">
+    <div class="grid"></div><div class="zone"></div><div class="zone-label">直接竞争 / 必须重点对比</div>
+    <div class="xlabel">与 VPWEM 问题重合度 →</div><div class="ylabel">与 VPWEM 记忆机制重合度 →</div>
+    <div class="dot p0" style="left:960px;top:128px;width:70px;height:70px">96</div><div class="label" style="left:960px;top:128px">OptimusVLA · 双记忆 VLA</div>
+    <div class="dot p0" style="left:875px;top:206px;width:66px;height:66px">92</div><div class="label" style="left:875px;top:206px">HiF-VLA · 运动压缩历史</div>
+    <div class="dot p0" style="left:820px;top:148px;width:66px;height:66px">90</div><div class="label" style="left:820px;top:148px">Scene Graph Memory · 显式场景记忆</div>
+    <div class="dot p0" style="left:765px;top:244px;width:64px;height:64px">88</div><div class="label" style="left:765px;top:244px">TRM-VLA · 推理轨迹记忆</div>
+    <div class="dot p1" style="left:650px;top:300px;width:60px;height:60px">83</div><div class="label" style="left:650px;top:300px">CycleManip · 历史采样</div>
+    <div class="dot p1" style="left:595px;top:422px;width:56px;height:56px">76</div><div class="label" style="left:595px;top:422px">PALM · 任务进度建模</div>
+    <div class="dot p1" style="left:490px;top:485px;width:54px;height:54px">72</div><div class="label" style="left:490px;top:485px">AFI · 动作记忆陷阱反证</div>
+    <div class="dot p1" style="left:405px;top:455px;width:52px;height:52px">68</div><div class="label" style="left:405px;top:455px">SemanticVLA · 推理 vs. 记忆</div>
+    <div class="legend"><span><i style="background:#e5484d"></i>P0：直接相关</span><span><i style="background:#3567e8"></i>P1：重要支撑或反证</span></div>
+  </div>
+</div>
+</body>
+</html>

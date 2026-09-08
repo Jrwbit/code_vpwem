@@ -209,3 +209,6 @@ cvpr_final
 /Codex对话科研经历提炼_*.md
 /研究生阶段科研进展与研究方向汇报*.md
 /docs/*租赁协议*.md
+
+# Safe configuration template for the Feishu bridge
+!/tools/feishu_codex_bridge/.env.example

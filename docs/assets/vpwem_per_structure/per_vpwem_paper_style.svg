@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1050" viewBox="0 0 1800 1050">
+  <defs>
+    <marker id="arrowP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#111"/></marker>
+    <marker id="arrowO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#f07f2f"/></marker>
+    <marker id="arrowB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#3f88c5"/></marker>
+    <g id="scene">
+      <rect width="68" height="50" fill="#e9ecef"/>
+      <path d="M6 41H62M12 40L25 25L39 29L54 15" stroke="#6c757d" stroke-width="3" fill="none"/>
+      <path d="M50 13l8-5m-8 5l7 4" stroke="#222" stroke-width="3"/>
+      <circle cx="25" cy="25" r="5" fill="#777"/><rect x="12" y="33" width="10" height="8" fill="#999"/>
+      <circle cx="49" cy="39" r="5" fill="#f4a261"/><circle cx="58" cy="39" r="5" fill="#5b9bd5"/>
+    </g>
+    <g id="smallScene"><use href="#scene" transform="scale(.72)"/></g>
+    <style>
+      .panel{font:700 27px 'Times New Roman','Noto Serif CJK SC',serif;fill:#111}.head{font:700 21px 'Times New Roman','Noto Serif CJK SC',serif;fill:#111}.txt{font:400 17px 'Times New Roman','Noto Serif CJK SC',serif;fill:#111}.small{font:400 14px 'Times New Roman','Noto Serif CJK SC',serif;fill:#111}.tiny{font:400 12px 'Times New Roman','Noto Serif CJK SC',serif;fill:#111}.orange{fill:#f07f2f}.blue{fill:#3f88c5}.greenBox{fill:#dceecf;stroke:#111;stroke-width:1.7}.orangeBox{fill:#f6c49f;stroke:#111;stroke-width:1.6}.blueBox{fill:#a9cce8;stroke:#111;stroke-width:1.6}.grayBox{fill:#d9d9d9;stroke:#111;stroke-width:1.5}.line{stroke:#111;stroke-width:1.8;fill:none;marker-end:url(#arrowP)}.thin{stroke:#111;stroke-width:1.3;fill:none}.dash{stroke:#111;stroke-width:1.5;fill:none;stroke-dasharray:6 5;marker-end:url(#arrowP)}.oline{stroke:#f07f2f;stroke-width:2;fill:none;marker-end:url(#arrowO)}.bline{stroke:#3f88c5;stroke-width:2;fill:none;marker-end:url(#arrowB)}
+    </style>
+  </defs>
+  <rect width="1800" height="1050" fill="#fff"/>
+
+  <!-- (a) Architecture -->
+  <rect x="24" y="28" width="1030" height="920" fill="#f3f3f3"/>
+  <text x="48" y="88" class="panel">(a) Architecture: PER-VPWEM</text>
+
+  <!-- robot and temporal observations -->
+  <g transform="translate(60 118)" stroke="#111" stroke-width="7" fill="none">
+    <path d="M8 70h75M25 68V48l21-22 18 14 15-18"/><circle cx="46" cy="26" r="5" fill="#111"/><path d="M78 22l17 9-3 18M92 49l11-2"/>
+  </g>
+  <path d="M175 150H940" class="line"/><text x="900" y="132" class="txt" font-style="italic">Time</text><text x="654" y="132" class="txt" font-style="italic">t</text>
+  <g stroke="#111" stroke-width="1.3"><path d="M290 143v14M355 143v14M420 143v14M615 143v14M680 143v14M745 143v14"/></g>
+  <g transform="translate(250 185) rotate(-8)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#f07f2f" stroke-width="2"/></g>
+  <g transform="translate(325 178) rotate(-5)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#f07f2f" stroke-width="2"/></g>
+  <g transform="translate(400 171) rotate(-2)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#f07f2f" stroke-width="2"/></g>
+  <text x="516" y="210" class="head">···</text>
+  <g transform="translate(596 172)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#f07f2f" stroke-width="2"/></g>
+  <g transform="translate(675 172)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#3f88c5" stroke-width="2.5"/></g>
+  <g transform="translate(754 172)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#3f88c5" stroke-width="2.5"/></g>
+  <text x="330" y="252" class="small orange">Long History</text><text x="696" y="252" class="small blue">Context Window</text>
+  <path d="M630 226V280" class="oline"/><path d="M712 226V280" class="bline"/><path d="M790 226V280" class="bline"/>
+  <path d="M612 280h36l-10 25h-16z" fill="#dceecf" stroke="#111"/><path d="M690 280h46l-12 25h-22z" fill="#dceecf" stroke="#111"/>
+  <text x="843" y="196" class="small">Multi-view RGBD Images,</text><text x="843" y="216" class="small">Proprioceptive States, ···</text><text x="843" y="253" class="small">Multi-modal Encoder</text>
+
+  <!-- observation/event bank -->
+  <text x="64" y="330" class="head">Event Memory Manager</text>
+  <text x="64" y="355" class="small">Fixed bank size K; content-driven lifetime</text>
+  <rect x="64" y="382" width="310" height="82" rx="8" fill="#fff" stroke="#111" stroke-width="1.7"/>
+  <text x="78" y="407" class="small">Event Bank</text>
+  <g transform="translate(80 420)"><rect width="42" height="30" class="orangeBox"/><text x="21" y="20" text-anchor="middle" class="tiny">z₁</text></g>
+  <g transform="translate(132 420)"><rect width="42" height="30" class="orangeBox"/><text x="21" y="20" text-anchor="middle" class="tiny">zᵢ</text></g>
+  <text x="191" y="441" class="small">···</text>
+  <g transform="translate(225 420)"><rect width="42" height="30" class="orangeBox"/><text x="21" y="20" text-anchor="middle" class="tiny">zⱼ</text></g>
+  <g transform="translate(277 420)"><rect width="42" height="30" class="orangeBox"/><text x="21" y="20" text-anchor="middle" class="tiny">zₖ</text></g>
+  <text x="330" y="440" class="tiny">K=8</text>
+  <path d="M640 306V335H218V382" class="oline"/>
+
+  <rect x="64" y="490" width="310" height="162" class="orangeBox"/>
+  <text x="219" y="520" text-anchor="middle" class="head">Event Selection</text>
+  <text x="82" y="550" class="small">Utility:</text><text x="145" y="550" class="txt" font-style="italic">uₜ = 1 − cos(zₜ, zₜ₋₁)</text>
+  <text x="82" y="581" class="small">Write Gate</text><text x="180" y="581" class="small">threshold / max interval</text>
+  <text x="82" y="610" class="small">Anchor</text><text x="180" y="610" class="small">keep episode start</text>
+  <text x="82" y="639" class="small">Update</text><text x="180" y="639" class="small">merge similar / replace min utility</text>
+  <path d="M219 490V465" class="line"/>
+  <rect x="86" y="681" width="45" height="32" fill="none" stroke="#111" stroke-width="1.4" stroke-dasharray="5 4"/><text x="145" y="703" class="small">Evicted low-utility token</text>
+  <path d="M144 652v45h-13" class="dash"/>
+
+  <!-- Q-former internals -->
+  <text x="422" y="350" class="head">Contextual Memory Compressor</text>
+  <g transform="translate(422 382)">
+    <rect width="304" height="266" rx="10" class="greenBox"/>
+    <rect x="26" y="24" width="252" height="53" rx="4" class="greenBox"/><text x="152" y="57" text-anchor="middle" class="txt">Self-Attention</text>
+    <rect x="26" y="101" width="252" height="53" rx="4" class="greenBox"/><text x="152" y="134" text-anchor="middle" class="txt">Cross-Attention</text>
+    <rect x="26" y="178" width="252" height="53" rx="4" class="greenBox"/><text x="152" y="211" text-anchor="middle" class="txt">Feed Forward</text>
+    <path d="M152 77v24M152 154v24" class="line"/>
+    <text x="271" y="252" class="small">×N</text>
+  </g>
+  <path d="M374 424H448" class="line"/><text x="397" y="410" class="small" font-style="italic">K,V</text>
+  <rect x="466" y="695" width="46" height="34" class="orangeBox"/><rect x="514" y="695" width="46" height="34" class="orangeBox"/><text x="579" y="716" class="small orange">Episodic Memory Tokens (M=2)</text>
+  <path d="M574 648v47" class="line"/>
+
+  <!-- working tokens and policy -->
+  <rect x="765" y="343" width="48" height="34" class="blueBox"/><rect x="815" y="343" width="48" height="34" class="blueBox"/><text x="878" y="366" class="small blue">Working Memory Tokens (L=2)</text>
+  <path d="M712 306V343" class="bline"/>
+  <rect x="782" y="470" width="225" height="118" rx="6" class="greenBox"/>
+  <text x="894" y="508" text-anchor="middle" class="txt">Diffusion Policy</text><text x="894" y="534" text-anchor="middle" class="small">for H Denoising Steps</text><text x="894" y="560" text-anchor="middle" class="small">(Noise Predictor)</text>
+  <path d="M863 377v93" class="line"/><path d="M560 712H746V548H782" class="oline"/>
+  <g transform="translate(808 638)"><rect width="43" height="36" class="grayBox"/><rect x="43" width="43" height="36" class="grayBox"/><rect x="86" width="43" height="36" class="grayBox"/><rect x="129" width="43" height="36" class="grayBox"/></g>
+  <text x="894" y="703" text-anchor="middle" class="txt">aₜ, aₜ₊₁, …, aₜ₊₃</text><text x="894" y="732" text-anchor="middle" class="head">Action Chunk</text><path d="M894 588v50" class="line"/>
+
+  <rect x="58" y="784" width="932" height="126" fill="#fff" stroke="#777" stroke-width="1.2"/>
+  <text x="78" y="817" class="head">Key difference from VPWEM</text>
+  <text x="78" y="850" class="txt">FIFO: time decides which history survives.</text><text x="470" y="850" class="txt">PER: event utility decides which history survives.</text>
+  <text x="78" y="883" class="small">Unchanged: working-memory length, event-bank capacity, Q-Former output M=2, diffusion policy, and action diffusion loss.</text>
+
+  <!-- divider -->
+  <path d="M1070 28V948" stroke="#999" stroke-width="1.2" stroke-dasharray="6 6"/>
+
+  <!-- (b) Training -->
+  <text x="1095" y="72" class="panel">(b) Training</text>
+  <text x="1098" y="108" class="txt">Episode Start</text>
+  <g transform="translate(1205 102)">
+    <g transform="translate(0 0) rotate(-7)"><use href="#smallScene"/><rect width="49" height="36" fill="none" stroke="#f07f2f" stroke-width="2"/></g>
+    <g transform="translate(55 0) rotate(-5)"><use href="#smallScene"/><rect width="49" height="36" fill="none" stroke="#f07f2f" stroke-width="2"/></g>
+    <g transform="translate(110 0) rotate(-3)"><use href="#smallScene"/><rect width="49" height="36" fill="none" stroke="#aaa"/></g>
+    <g transform="translate(165 0)"><use href="#smallScene"/><rect width="49" height="36" fill="none" stroke="#f07f2f" stroke-width="2"/></g>
+    <text x="230" y="26" class="head">···</text>
+    <g transform="translate(275 0)"><use href="#smallScene"/><rect width="49" height="36" fill="none" stroke="#f07f2f" stroke-width="2"/></g>
+    <g transform="translate(330 0)"><use href="#smallScene"/><rect width="49" height="36" fill="none" stroke="#3f88c5" stroke-width="2"/></g>
+    <g transform="translate(385 0)"><use href="#smallScene"/><rect width="49" height="36" fill="none" stroke="#3f88c5" stroke-width="2"/></g>
+  </g>
+  <text x="1260" y="166" class="small orange">Selected Long-History Events</text><text x="1538" y="166" class="small blue">Short Context</text>
+  <rect x="1120" y="211" width="185" height="60" class="orangeBox"/><text x="1212" y="238" text-anchor="middle" class="small">Event Scoring</text><text x="1212" y="258" text-anchor="middle" class="small">Anchor / Gate / Top-K</text>
+  <rect x="1350" y="211" width="185" height="60" rx="5" class="greenBox"/><text x="1442" y="247" text-anchor="middle" class="txt">Q-Former Compressor</text>
+  <path d="M1278 144V211" class="oline"/><path d="M1305 241H1350" class="line"/>
+  <rect x="1585" y="198" width="34" height="31" class="blueBox"/><rect x="1621" y="198" width="34" height="31" class="blueBox"/>
+  <rect x="1585" y="243" width="34" height="31" class="orangeBox"/><rect x="1621" y="243" width="34" height="31" class="orangeBox"/>
+  <path d="M1535 241H1585" class="line"/>
+  <rect x="1674" y="207" width="92" height="67" rx="4" class="greenBox"/><text x="1720" y="236" text-anchor="middle" class="small">Noise</text><text x="1720" y="256" text-anchor="middle" class="small">Predictor</text><path d="M1655 236H1674" class="line"/>
+  <g transform="translate(1585 308)"><rect width="34" height="30" class="grayBox"/><rect x="34" width="34" height="30" class="grayBox"/><rect x="68" width="34" height="30" class="grayBox"/></g>
+  <text x="1636" y="360" text-anchor="middle" class="small">Noised Action Chunk</text><path d="M1636 308V274" class="line"/>
+  <path d="M1766 239c22 0 22 70 0 70" class="thin"/><text x="1772" y="291" class="small" font-style="italic">ε</text>
+
+  <!-- (c) Inference -->
+  <text x="1095" y="435" class="panel">(c) Inference</text>
+  <path d="M1115 493H1758" class="line"/><text x="1124" y="480" class="small">t−1</text><text x="1285" y="480" class="small">t</text><text x="1390" y="480" class="small">t+1</text><text x="1495" y="480" class="small">t+2</text><text x="1600" y="480" class="small">t+3</text>
+  <g transform="translate(1108 516)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#f07f2f" stroke-width="2"/></g>
+  <g transform="translate(1213 516)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#f07f2f" stroke-width="2"/></g>
+  <g transform="translate(1318 516)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#3f88c5" stroke-width="2"/></g>
+  <g transform="translate(1423 516)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#3f88c5" stroke-width="2"/></g>
+  <g transform="translate(1528 516)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#3f88c5" stroke-width="2"/></g>
+  <g transform="translate(1633 516)"><use href="#scene"/><rect width="68" height="50" fill="none" stroke="#3f88c5" stroke-width="2"/></g>
+
+  <text x="1102" y="612" class="txt">1. Score new observation</text>
+  <rect x="1105" y="632" width="176" height="58" class="orangeBox"/><text x="1193" y="657" text-anchor="middle" class="small">uₜ = 1 − cos(zₜ,zₜ₋₁)</text><text x="1193" y="679" text-anchor="middle" class="small">Gate write / merge / replace</text>
+  <text x="1320" y="612" class="txt">2. Update fixed event bank</text>
+  <g transform="translate(1325 635)"><rect width="43" height="42" class="orangeBox"/><rect x="48" width="43" height="42" class="orangeBox"/><rect x="96" width="43" height="42" class="orangeBox"/><text x="157" y="27" class="small">···</text><rect x="187" width="43" height="42" class="orangeBox"/></g>
+  <path d="M1281 661H1325" class="oline"/>
+
+  <text x="1110" y="744" class="txt">3. Compress selected events</text>
+  <rect x="1115" y="765" width="202" height="62" rx="5" class="greenBox"/><text x="1216" y="802" text-anchor="middle" class="txt">Q-Former Compressor</text>
+  <path d="M1440 677V718H1216V765" class="oline"/>
+  <rect x="1360" y="779" width="38" height="34" class="orangeBox"/><rect x="1400" y="779" width="38" height="34" class="orangeBox"/><path d="M1317 796H1360" class="oline"/>
+  <rect x="1360" y="735" width="38" height="34" class="blueBox"/><rect x="1400" y="735" width="38" height="34" class="blueBox"/>
+
+  <text x="1490" y="744" class="txt">4. Predict next action chunk</text>
+  <rect x="1495" y="765" width="145" height="62" rx="5" class="greenBox"/><text x="1567" y="792" text-anchor="middle" class="small">Noise</text><text x="1567" y="813" text-anchor="middle" class="small">Predictor</text><path d="M1438 774H1495" class="line"/>
+  <g transform="translate(1662 778)"><rect width="31" height="32" class="grayBox"/><rect x="31" width="31" height="32" class="grayBox"/><rect x="62" width="31" height="32" class="grayBox"/></g><path d="M1640 796H1662" class="line"/>
+  <text x="1708" y="838" text-anchor="middle" class="small">aₜ:t+H</text>
+
+  <rect x="1100" y="880" width="655" height="67" fill="#fff" stroke="#777" stroke-width="1.2"/>
+  <text x="1120" y="907" class="small"><tspan font-weight="700">PER online rule:</tspan> preserve the first observation; write salient events;</text>
+  <text x="1120" y="930" class="small">update similar slots; otherwise replace the lowest decayed utility slot.</text>
+
+  <text x="46" y="1004" class="txt"><tspan font-weight="700">Fig. P.</tspan> Overview of PER-VPWEM. Orange denotes event-selected episodic memory, blue denotes the short context, and green denotes learnable modules.</text>
+  <text x="46" y="1031" class="txt">Relative to VPWEM, PER changes only history retention; the Q-Former compressor, fixed memory-token budget, and diffusion policy remain unchanged.</text>
+</svg>

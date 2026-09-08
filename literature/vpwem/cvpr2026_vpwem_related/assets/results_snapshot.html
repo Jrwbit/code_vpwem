@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  *{box-sizing:border-box} body{margin:0;background:#f5f7fb;color:#172033;font-family:"Noto Sans CJK SC",sans-serif}
+  .canvas{width:1400px;height:930px;padding:42px 50px;background:linear-gradient(145deg,#fafcff,#f3f6fc)}
+  h1{margin:0;font-size:34px}.sub{margin:8px 0 24px;color:#667085;font-size:16px}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  .card{height:344px;padding:20px 18px 16px;background:#fff;border:1px solid #e1e6ef;border-radius:18px;box-shadow:0 10px 26px rgba(34,55,100,.07)}
+  .title{font-size:19px;font-weight:800;line-height:1.25;min-height:48px}.metric{font-size:13px;color:#667085;margin-top:4px;min-height:38px}
+  .bars{height:190px;display:flex;align-items:flex-end;justify-content:center;gap:28px;border-bottom:2px solid #d0d5dd;margin-top:10px}
+  .barwrap{text-align:center;width:84px}.bar{width:54px;margin:auto;border-radius:9px 9px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:8px;font-weight:800;color:#fff;font-size:15px}
+  .base{background:linear-gradient(#98a2b3,#667085)}.ours{background:linear-gradient(#5b8ff9,#315bd8)}
+  .name{font-size:12px;color:#475467;margin-top:7px;line-height:1.2}.delta{text-align:right;color:#175cd3;font-weight:800;font-size:14px;margin-top:7px}
+  .note{margin-top:22px;padding:13px 16px;border-radius:12px;background:#fff8e7;color:#7a4e00;font-size:14px;border:1px solid #f4d69b}
+</style>
+</head>
+<body><div class="canvas">
+  <h1>七篇论文的代表性结果快照</h1>
+  <div class="sub">每张卡只比较同一论文、同一任务中的基线与作者方法；用于理解证据强弱，不用于跨论文排名。</div>
+  <div class="grid">
+    <div class="card"><div class="title">OptimusVLA</div><div class="metric">LIBERO-Long 成功率（%）</div><div class="bars"><div class="barwrap"><div class="bar base" style="height:170px">94.5</div><div class="name">OpenVLA-OFT</div></div><div class="barwrap"><div class="bar ours" style="height:174px">96.4</div><div class="name">OptimusVLA</div></div></div><div class="delta">+1.9 个百分点</div></div>
+    <div class="card"><div class="title">TRM-VLA</div><div class="metric">SimplerEnv 平均成功率（%）</div><div class="bars"><div class="barwrap"><div class="bar base" style="height:92px">51.3</div><div class="name">CogACT</div></div><div class="barwrap"><div class="bar ours" style="height:131px">72.9</div><div class="name">TRM-VLA</div></div></div><div class="delta">+21.6 个百分点</div></div>
+    <div class="card"><div class="title">HiF-VLA</div><div class="metric">LIBERO-Long 多视角成功率（%）</div><div class="bars"><div class="barwrap"><div class="bar base" style="height:169px">94.0</div><div class="name">OpenVLA-OFT</div></div><div class="barwrap"><div class="bar ours" style="height:174px">96.4</div><div class="name">HiF-VLA</div></div></div><div class="delta">+2.4 个百分点</div></div>
+    <div class="card"><div class="title">CycleManip</div><div class="metric">Block Hammering 成功率（%）</div><div class="bars"><div class="barwrap"><div class="bar base" style="height:42px">23</div><div class="name">最佳基线 DP3</div></div><div class="barwrap"><div class="bar ours" style="height:155px">86</div><div class="name">CycleManip</div></div></div><div class="delta">+63 个百分点</div></div>
+    <div class="card"><div class="title">PALM</div><div class="metric">LIBERO-Long 成功率（%）</div><div class="bars"><div class="barwrap"><div class="bar base" style="height:124px">69.0</div><div class="name">CoT-VLA</div></div><div class="barwrap"><div class="bar ours" style="height:165px">91.8</div><div class="name">PALM</div></div></div><div class="delta">+22.8 个百分点</div></div>
+    <div class="card"><div class="title">AFI</div><div class="metric">真实机器人 Place Carrot 平均成功率（%）</div><div class="bars"><div class="barwrap"><div class="bar base" style="height:110px">61</div><div class="name">π0</div></div><div class="barwrap"><div class="bar ours" style="height:157px">87</div><div class="name">π0 + AFI</div></div></div><div class="delta">+26 个百分点</div></div>
+    <div class="card"><div class="title">SemanticVLA</div><div class="metric">LIBERO-Long 成功率（%）</div><div class="bars"><div class="barwrap"><div class="bar base" style="height:166px">92.0</div><div class="name">UniVLA</div></div><div class="barwrap"><div class="bar ours" style="height:170px">94.4</div><div class="name">SemanticVLA</div></div></div><div class="delta">+2.4 个百分点</div></div>
+  </div>
+  <div class="note">注意：这些是论文作者报告的代表性结果，训练数据、骨干网络和评测协议并不统一。报告正文会继续区分“方法贡献”与“更大模型/更多数据”带来的收益。</div>
+</div></body></html>
