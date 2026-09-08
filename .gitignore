@@ -188,3 +188,24 @@ run.sh
 ignores/
 iclr_final
 cvpr_final
+
+# Local agent/editor scratch space
+/.codex/
+
+# Training and evaluation outputs (models, rollouts, reports, and videos)
+/PATH_TO_SAVE_MODEL/
+/artifacts/
+
+# Downloaded research binaries. Keep Markdown/HTML indexes and notes trackable.
+*.pdf
+*.docx
+/literature/**/*.webp
+/literature/**/*.png
+/literature/**/*.json
+/literature/**/*.txt
+/literature/**/*.tsv
+
+# Personal notes/documents kept beside the working tree
+/Codex对话科研经历提炼_*.md
+/研究生阶段科研进展与研究方向汇报*.md
+/docs/*租赁协议*.md
