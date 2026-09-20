@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="2660" viewBox="0 0 2200 2660">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f7faff"/>
+      <stop offset="1" stop-color="#eef4fb"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#17345d" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#365574"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#d1495b"/>
+    </marker>
+    <style>
+      .title { font: 700 56px 'Noto Sans CJK SC','Microsoft YaHei',sans-serif; fill:#13233a; }
+      .subtitle { font: 400 27px 'Noto Sans CJK SC','Microsoft YaHei',sans-serif; fill:#57708e; }
+      .section { font: 700 29px 'Noto Sans CJK SC','Microsoft YaHei',sans-serif; fill:#fff; letter-spacing:1px; }
+      .boxTitle { font: 700 31px 'Noto Sans CJK SC','Microsoft YaHei',sans-serif; fill:#14263f; }
+      .body { font: 400 25px 'Noto Sans CJK SC','Microsoft YaHei',sans-serif; fill:#334a65; }
+      .shape { font: 700 26px 'JetBrains Mono','Noto Sans Mono CJK SC',monospace; fill:#174f91; }
+      .small { font: 400 22px 'Noto Sans CJK SC','Microsoft YaHei',sans-serif; fill:#61758d; }
+      .warn { font: 700 23px 'Noto Sans CJK SC','Microsoft YaHei',sans-serif; fill:#b52c3d; }
+      .arrow { stroke:#365574; stroke-width:6; fill:none; marker-end:url(#arrow); }
+      .arrowDash { stroke:#d1495b; stroke-width:6; stroke-dasharray:15 12; fill:none; marker-end:url(#arrowRed); }
+      .card { filter:url(#shadow); stroke-width:3; rx:24; }
+    </style>
+  </defs>
+
+  <rect width="2200" height="2580" fill="url(#bg)"/>
+  <text x="1100" y="85" text-anchor="middle" class="title">从原始图像到 VPWEM 输出动作</text>
+  <text x="1100" y="135" text-anchor="middle" class="subtitle">以 RememberColor5 的 _emb 配置为例｜To=2，Tm=4，Ta=9，A=8，D=256</text>
+
+  <!-- Section 1 -->
+  <rect x="70" y="185" width="2060" height="55" rx="18" fill="#2e6fbb"/>
+  <text x="1100" y="223" text-anchor="middle" class="section">阶段 A　把原始观测编码成 dp_emb（预计算阶段，只做一次）</text>
+
+  <rect class="card" x="105" y="285" width="550" height="220" fill="#fff" stroke="#6da7e5"/>
+  <text x="380" y="335" text-anchor="middle" class="boxTitle">① 原始观测</text>
+  <text x="150" y="385" class="body">环境相机 RGB（可有多个视角）</text>
+  <text x="150" y="425" class="shape">[B, T, 3, H, W]</text>
+  <text x="150" y="468" class="body">机器人低维状态 proprio</text>
+  <text x="150" y="500" class="shape">[B, T, P]</text>
+
+  <path class="arrow" d="M655 395 H785"/>
+
+  <rect class="card" x="785" y="285" width="560" height="220" fill="#eaf3ff" stroke="#4586cf"/>
+  <text x="1065" y="335" text-anchor="middle" class="boxTitle">② ResNet18 卷积主干</text>
+  <text x="830" y="385" class="body">每个 RGB 帧独立提取视觉特征</text>
+  <text x="830" y="430" class="shape">feature map</text>
+  <text x="830" y="470" class="shape">[B×T, 512, h, w]</text>
+  <text x="830" y="500" class="small">此时仍有显式二维空间位置</text>
+
+  <path class="arrow" d="M1345 395 H1470"/>
+
+  <rect class="card" x="1470" y="285" width="625" height="220" fill="#fff7e8" stroke="#e49a2d"/>
+  <text x="1782" y="335" text-anchor="middle" class="boxTitle">③ 全局观测编码</text>
+  <text x="1520" y="382" class="body">Global AvgPool(1×1)</text>
+  <text x="1520" y="420" class="body">视觉向量 + proprio 拼接</text>
+  <text x="1520" y="458" class="body">MLP 投影到统一宽度</text>
+  <text x="1520" y="497" class="shape">[B, T, 256]</text>
+
+  <path class="arrow" d="M1782 505 V615"/>
+  <rect class="card" x="1470" y="615" width="625" height="150" fill="#eaf9f2" stroke="#2da574"/>
+  <text x="1782" y="666" text-anchor="middle" class="boxTitle">④ 写入数据集</text>
+  <text x="1515" y="710" class="body">当前/全部时间的全局 embedding</text>
+  <text x="1515" y="748" class="shape">dp_emb [T, 256]</text>
+
+  <!-- Spatial fork -->
+  <path class="arrowDash" d="M1065 505 V635 H770"/>
+  <rect class="card" x="105" y="585" width="665" height="220" fill="#fff1f2" stroke="#d1495b"/>
+  <text x="437" y="635" text-anchor="middle" class="boxTitle">空间 4×4 分支必须从这里取</text>
+  <text x="150" y="680" class="body">AdaptiveAvgPool(4×4) → 展平空间</text>
+  <text x="150" y="720" class="shape">[B,T,16,512] → Linear</text>
+  <text x="150" y="760" class="shape">[B,T,16,256]</text>
+  <text x="150" y="795" class="warn">不能从 dp_emb [B,T,256] 反推回 4×4</text>
+
+  <!-- Section 2 -->
+  <rect x="70" y="855" width="2060" height="55" rx="18" fill="#7257b5"/>
+  <text x="1100" y="893" text-anchor="middle" class="section">阶段 B　VPWEM 训练时读取 dp_emb，并拆成近期观测与更早历史</text>
+
+  <path class="arrow" d="M1782 765 V975 H1100"/>
+  <rect class="card" x="760" y="975" width="680" height="155" fill="#f1edff" stroke="#7b61c9"/>
+  <text x="1100" y="1025" text-anchor="middle" class="boxTitle">⑤ Dataset 按当前时刻切分</text>
+  <text x="1100" y="1070" text-anchor="middle" class="body">最近 To 帧直接保留；更早历史交给记忆模块</text>
+  <text x="1100" y="1110" text-anchor="middle" class="small">Th 是可变长度，示例取 12</text>
+
+  <path class="arrow" d="M950 1130 V1225 H555 V1270"/>
+  <path class="arrow" d="M1250 1130 V1225 H1645 V1270"/>
+
+  <rect class="card" x="105" y="1270" width="900" height="210" fill="#eaf3ff" stroke="#4388d1"/>
+  <text x="555" y="1320" text-anchor="middle" class="boxTitle">⑥ Working Memory：近期观测</text>
+  <text x="155" y="1370" class="body">最近 To=2 帧，不做历史压缩</text>
+  <text x="155" y="1412" class="shape">condition [B, 2, 256]</text>
+  <text x="155" y="1455" class="small">保留当前控制所需的精细全局信息</text>
+
+  <rect class="card" x="1195" y="1270" width="900" height="210" fill="#fff4df" stroke="#dc9225"/>
+  <text x="1645" y="1320" text-anchor="middle" class="boxTitle">⑦ Episodic History：更早历史</text>
+  <text x="1245" y="1370" class="body">示例 Th=12；数据集已按 r=20 稀疏取样</text>
+  <text x="1245" y="1412" class="shape">memory [B, 12, 256]</text>
+  <text x="1245" y="1455" class="small">它仍是全局 dp_emb，没有显式 4×4 网格</text>
+
+  <!-- Section 3 -->
+  <rect x="70" y="1530" width="2060" height="55" rx="18" fill="#d58518"/>
+  <text x="1100" y="1568" text-anchor="middle" class="section">阶段 C　Q-Former 把可变长历史压成固定数量的 memory tokens</text>
+
+  <path class="arrow" d="M1645 1480 V1635"/>
+  <rect class="card" x="1195" y="1635" width="900" height="245" fill="#fff7e8" stroke="#d88a1d"/>
+  <text x="1645" y="1685" text-anchor="middle" class="boxTitle">⑧ QFormerMemory</text>
+  <text x="1245" y="1730" class="body">加 episode 位置编码 → cache（最多8）</text>
+  <text x="1245" y="1770" class="body">4 个 learned queries：self-attn + cross-attn + FFN</text>
+  <text x="1245" y="1815" class="shape">[B, 12, 256] → [B, 4, 256]</text>
+  <text x="1245" y="1853" class="small">有损压缩：目标是保留对动作有用的信息</text>
+
+  <path class="arrow" d="M555 1480 V1935 H860"/>
+  <path class="arrow" d="M1645 1880 V1935 H1340"/>
+
+  <!-- Condition concat -->
+  <rect class="card" x="690" y="1935" width="820" height="205" fill="#edf7ff" stroke="#3580c7"/>
+  <text x="1100" y="1985" text-anchor="middle" class="boxTitle">⑨ 拼接动作网络的条件序列</text>
+  <text x="750" y="2032" class="body">1 个 diffusion timestep token</text>
+  <text x="750" y="2072" class="body">+ 4 个 memory tokens + 2 个 observation tokens</text>
+  <text x="750" y="2115" class="shape">final condition [B, 7, 256]</text>
+
+  <!-- Noisy action side -->
+  <rect class="card" x="105" y="1935" width="500" height="205" fill="#f2f5f9" stroke="#7b8da5"/>
+  <text x="355" y="1985" text-anchor="middle" class="boxTitle">带噪动作输入</text>
+  <text x="150" y="2032" class="shape">xₜ [B, 9, 8]</text>
+  <text x="150" y="2072" class="body">Linear(8→256)</text>
+  <text x="150" y="2115" class="shape">[B, 9, 256]</text>
+
+  <!-- Section 4 -->
+  <rect x="70" y="2190" width="2060" height="55" rx="18" fill="#238768"/>
+  <text x="1100" y="2228" text-anchor="middle" class="section">阶段 D　动作 Transformer 去噪，DDPM 多次迭代后得到可执行动作</text>
+
+  <path class="arrow" d="M355 2140 V2310 H715"/>
+  <path class="arrow" d="M1100 2140 V2310 H1485"/>
+  <rect class="card" x="520" y="2310" width="1160" height="170" fill="#e9f8f2" stroke="#278b6b"/>
+  <text x="1100" y="2360" text-anchor="middle" class="boxTitle">⑩ LongMemChiTransformerPTP（8层 Decoder）</text>
+  <text x="1100" y="2402" text-anchor="middle" class="body">动作 token 做因果 self-attention，再 cross-attention 读取 7 个条件 token</text>
+  <text x="1100" y="2445" text-anchor="middle" class="shape">预测噪声 ε̂ [B, 9, 8]</text>
+
+  <path class="arrow" d="M1680 2395 H1785"/>
+  <rect class="card" x="1785" y="2285" width="310" height="220" fill="#eaf9f2" stroke="#278b6b"/>
+  <text x="1940" y="2335" text-anchor="middle" class="boxTitle">⑪ DDPM</text>
+  <text x="1940" y="2375" text-anchor="middle" class="body">反复去噪 50 步</text>
+  <text x="1940" y="2420" text-anchor="middle" class="body">反归一化</text>
+  <text x="1940" y="2462" text-anchor="middle" class="shape">执行8步动作</text>
+  <text x="1940" y="2497" text-anchor="middle" class="shape">[B,8,8]</text>
+
+  <text x="1100" y="2605" text-anchor="middle" class="subtitle">核心结论：全局 dp_emb 适合轻量 VPWEM；若需要显式空间历史，必须在 ResNet 全局池化之前保留 4×4 feature tokens。</text>
+</svg>

@@ -1,0 +1,98 @@
+====================================================================================================
+MODEL: vpwem
+EXPERIMENT ENTRY: pipelines/fair_history_momart_multitask_emb.py
+PROTOCOL: dp_emb; To=2; Ta=9; Tm=2; QFormer=2 layers/2 queries; FIFO=8; DDPM steps=50
+====================================================================================================
+
+[CONDITION]
+TaskConditionedEmbeddingEncoder(
+  (task_embedding): Embedding(5, 256)
+)
+PARAMETERS: total=1,280 trainable=1,280
+
+[MEMORY]
+QFormerMemory(
+  (qformer): QFormer(
+    (input_proj): Linear(in_features=256, out_features=256, bias=True)
+    (layers): ModuleList(
+      (0-1): 2 x QFormerLayer(
+        (self_attn): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+        )
+        (cross_attn): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+        )
+        (linear1): Linear(in_features=256, out_features=1024, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear2): Linear(in_features=1024, out_features=256, bias=True)
+        (norm1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (norm2): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (norm3): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (dropout1): Dropout(p=0.1, inplace=False)
+        (dropout2): Dropout(p=0.1, inplace=False)
+        (dropout3): Dropout(p=0.1, inplace=False)
+      )
+    )
+    (output_proj): Linear(in_features=256, out_features=256, bias=True)
+    (norm): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+  )
+  (mem_pos_emb): SinusoidalEmbedding()
+)
+PARAMETERS: total=2,239,488 trainable=2,239,488
+
+[DIFFUSION]
+LongMemChiTransformerPTP(
+  (map_noise): PositionalEmbedding()
+  (act_emb): Linear(in_features=10, out_features=256, bias=True)
+  (obs_emb): Linear(in_features=256, out_features=256, bias=True)
+  (mem_emb): Linear(in_features=256, out_features=256, bias=True)
+  (drop): Dropout(p=0.0, inplace=False)
+  (cond_encoder): Sequential(
+    (0): Linear(in_features=256, out_features=1024, bias=True)
+    (1): Mish()
+    (2): Linear(in_features=1024, out_features=256, bias=True)
+  )
+  (encoder): Sequential(
+    (0): Linear(in_features=256, out_features=1024, bias=True)
+    (1): Mish()
+    (2): Linear(in_features=1024, out_features=256, bias=True)
+  )
+  (decoder): TransformerDecoder(
+    (layers): ModuleList(
+      (0-7): 8 x TransformerDecoderLayer(
+        (self_attn): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+        )
+        (multihead_attn): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+        )
+        (linear1): Linear(in_features=256, out_features=1024, bias=True)
+        (dropout): Dropout(p=0.3, inplace=False)
+        (linear2): Linear(in_features=1024, out_features=256, bias=True)
+        (norm1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (norm2): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (norm3): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (dropout1): Dropout(p=0.3, inplace=False)
+        (dropout2): Dropout(p=0.3, inplace=False)
+        (dropout3): Dropout(p=0.3, inplace=False)
+      )
+    )
+  )
+  (ln_f): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+  (head): Linear(in_features=256, out_features=10, bias=True)
+)
+PARAMETERS: total=9,619,848 trainable=9,619,722
+
+[CROSS_ATTENTION_MASK]
+tensor([[0., 0., 0., 0., -inf],
+        [0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0.]])
+
+TOTAL PARAMETERS (component sum): 11,860,616
+TRAINABLE PARAMETERS: 11,860,490

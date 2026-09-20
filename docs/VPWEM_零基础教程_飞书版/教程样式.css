@@ -1,0 +1,71 @@
+:root {
+  color-scheme: light;
+  --ink: #172033;
+  --muted: #5b6780;
+  --blue: #2563eb;
+  --paper: #ffffff;
+  --canvas: #f3f6fb;
+  --line: #d9e1ef;
+  --code: #111827;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 40px 56px 100px;
+  color: var(--ink);
+  background: var(--paper);
+  font: 17px/1.78 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+}
+h1, h2, h3 { line-height: 1.35; scroll-margin-top: 24px; }
+h1 { margin-top: 1.8em; padding-bottom: .35em; border-bottom: 2px solid var(--blue); }
+h1:first-of-type { margin-top: 0; }
+h2 { margin-top: 2em; color: #12356b; }
+h3 { margin-top: 1.5em; }
+a { color: var(--blue); }
+blockquote {
+  margin: 1.2em 0;
+  padding: .7em 1.1em;
+  color: var(--muted);
+  background: #eff6ff;
+  border-left: 4px solid #60a5fa;
+}
+code {
+  padding: .12em .35em;
+  background: #eef2f7;
+  border-radius: 4px;
+  font-family: "JetBrains Mono", "Noto Sans Mono CJK SC", monospace;
+}
+pre {
+  overflow-x: auto;
+  padding: 18px 20px;
+  color: #e5edf9;
+  background: var(--code);
+  border-radius: 10px;
+  line-height: 1.55;
+}
+pre code { padding: 0; color: inherit; background: transparent; }
+table { width: 100%; border-collapse: collapse; margin: 1.2em 0; }
+th, td { padding: 9px 12px; border: 1px solid var(--line); vertical-align: top; }
+th { background: #eef4ff; text-align: left; }
+img { display: block; max-width: 100%; height: auto; margin: 24px auto; border-radius: 8px; }
+#TOC {
+  margin: 24px 0 40px;
+  padding: 18px 24px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+#TOC::before { content: "全部章节目录"; display: block; font-weight: 700; font-size: 1.2em; }
+#TOC ul { margin: .45em 0; }
+hr { margin: 3em 0; border: 0; border-top: 1px solid var(--line); }
+@media (max-width: 700px) {
+  body { padding: 22px 18px 70px; font-size: 16px; }
+  table { display: block; overflow-x: auto; }
+}
+@media print {
+  body { max-width: none; padding: 0; font-size: 11pt; }
+  #TOC { break-after: page; }
+  pre { white-space: pre-wrap; }
+}

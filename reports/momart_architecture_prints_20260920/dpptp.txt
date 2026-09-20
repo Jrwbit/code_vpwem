@@ -1,0 +1,449 @@
+====================================================================================================
+MODEL: dpptp
+EXPERIMENT ENTRY: pipelines/dpptp_momart_image.py
+PROTOCOL: raw image; To=2; Ta=9; Tm=0; DDPM steps=50
+====================================================================================================
+
+[CONDITION]
+MultiImageObsConditionMomart(
+  (key_model_map): ModuleDict(
+    (rgb): ResNet(
+      (conv1): Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+      (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+      (relu): ReLU(inplace=True)
+      (maxpool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+      (layer1): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(4, 64, eps=1e-05, affine=True)
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(4, 64, eps=1e-05, affine=True)
+        )
+      )
+      (layer2): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(8, 128, eps=1e-05, affine=True)
+        )
+      )
+      (layer3): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(16, 256, eps=1e-05, affine=True)
+        )
+      )
+      (layer4): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(32, 512, eps=1e-05, affine=True)
+        )
+      )
+      (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
+      (fc): Identity()
+    )
+    (rgb_wrist): ResNet(
+      (conv1): Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+      (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+      (relu): ReLU(inplace=True)
+      (maxpool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+      (layer1): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(4, 64, eps=1e-05, affine=True)
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(4, 64, eps=1e-05, affine=True)
+        )
+      )
+      (layer2): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(8, 128, eps=1e-05, affine=True)
+        )
+      )
+      (layer3): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(16, 256, eps=1e-05, affine=True)
+        )
+      )
+      (layer4): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(32, 512, eps=1e-05, affine=True)
+        )
+      )
+      (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
+      (fc): Identity()
+    )
+    (depth): ResNet(
+      (conv1): Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+      (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+      (relu): ReLU(inplace=True)
+      (maxpool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+      (layer1): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(4, 64, eps=1e-05, affine=True)
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(4, 64, eps=1e-05, affine=True)
+        )
+      )
+      (layer2): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(8, 128, eps=1e-05, affine=True)
+        )
+      )
+      (layer3): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(16, 256, eps=1e-05, affine=True)
+        )
+      )
+      (layer4): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(32, 512, eps=1e-05, affine=True)
+        )
+      )
+      (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
+      (fc): Identity()
+    )
+    (depth_wrist): ResNet(
+      (conv1): Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+      (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+      (relu): ReLU(inplace=True)
+      (maxpool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+      (layer1): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(4, 64, eps=1e-05, affine=True)
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(4, 64, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(4, 64, eps=1e-05, affine=True)
+        )
+      )
+      (layer2): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(8, 128, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(8, 128, eps=1e-05, affine=True)
+        )
+      )
+      (layer3): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(16, 256, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(16, 256, eps=1e-05, affine=True)
+        )
+      )
+      (layer4): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(32, 512, eps=1e-05, affine=True)
+          (relu): ReLU(inplace=True)
+          (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(32, 512, eps=1e-05, affine=True)
+        )
+      )
+      (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
+      (fc): Identity()
+    )
+    (scan): ScanCore(
+      input_shape=(1, 100)
+      output_shape=[64]
+      backbone_net=Conv1dBase(
+        (nets): Sequential(
+          (conv0): Conv1d(1, 32, kernel_size=(8,), stride=(4,))
+          (act0): ReLU()
+          (conv1): Conv1d(32, 64, kernel_size=(4,), stride=(2,))
+          (act1): ReLU()
+          (conv2): Conv1d(64, 64, kernel_size=(2,), stride=(1,))
+          (act2): ReLU()
+        )
+      )
+      pool_net=SpatialSoftmax(num_kp=32, temperature=1.0, noise=0.0)
+    )
+  )
+  (key_transform_map): ModuleDict(
+    (rgb): Sequential(
+      (0): Identity()
+      (1): CropRandomizer(input_shape=(3, 90, 120), crop_size=[75, 100], num_crops=1)
+      (2): Identity()
+    )
+    (rgb_wrist): Sequential(
+      (0): Identity()
+      (1): CropRandomizer(input_shape=(3, 90, 120), crop_size=[75, 100], num_crops=1)
+      (2): Identity()
+    )
+    (depth): Sequential(
+      (0): Identity()
+      (1): CropRandomizer(input_shape=(3, 90, 120), crop_size=[75, 100], num_crops=1)
+      (2): Identity()
+    )
+    (depth_wrist): Sequential(
+      (0): Identity()
+      (1): CropRandomizer(input_shape=(3, 90, 120), crop_size=[75, 100], num_crops=1)
+      (2): Identity()
+    )
+  )
+  (mlp): Sequential(
+    (0): Linear(in_features=2122, out_features=256, bias=True)
+    (1): LeakyReLU(negative_slope=0.01)
+    (2): Linear(in_features=256, out_features=256, bias=True)
+  )
+)
+PARAMETERS: total=45,325,824 trainable=45,325,824
+
+[MEMORY]
+None
+
+[DIFFUSION]
+ChiTransformerPTP(
+  (map_noise): PositionalEmbedding()
+  (act_emb): Linear(in_features=10, out_features=256, bias=True)
+  (obs_emb): Linear(in_features=256, out_features=256, bias=True)
+  (drop): Dropout(p=0.0, inplace=False)
+  (cond_encoder): Sequential(
+    (0): Linear(in_features=256, out_features=1024, bias=True)
+    (1): Mish()
+    (2): Linear(in_features=1024, out_features=256, bias=True)
+  )
+  (encoder): Sequential(
+    (0): Linear(in_features=256, out_features=1024, bias=True)
+    (1): Mish()
+    (2): Linear(in_features=1024, out_features=256, bias=True)
+  )
+  (decoder): TransformerDecoder(
+    (layers): ModuleList(
+      (0-7): 8 x TransformerDecoderLayer(
+        (self_attn): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+        )
+        (multihead_attn): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+        )
+        (linear1): Linear(in_features=256, out_features=1024, bias=True)
+        (dropout): Dropout(p=0.3, inplace=False)
+        (linear2): Linear(in_features=1024, out_features=256, bias=True)
+        (norm1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (norm2): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (norm3): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (dropout1): Dropout(p=0.3, inplace=False)
+        (dropout2): Dropout(p=0.3, inplace=False)
+        (dropout3): Dropout(p=0.3, inplace=False)
+      )
+    )
+  )
+  (ln_f): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+  (head): Linear(in_features=256, out_features=10, bias=True)
+)
+PARAMETERS: total=9,553,526 trainable=9,553,418
+
+[CROSS_ATTENTION_MASK]
+tensor([[0., 0., -inf],
+        [0., 0., 0.],
+        [0., 0., 0.],
+        [0., 0., 0.],
+        [0., 0., 0.],
+        [0., 0., 0.],
+        [0., 0., 0.],
+        [0., 0., 0.],
+        [0., 0., 0.]])
+
+TOTAL PARAMETERS (component sum): 54,879,350
+TRAINABLE PARAMETERS: 54,879,242

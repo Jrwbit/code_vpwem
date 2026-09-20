@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>原版 DP / DP-PTP / No-History / Direct 网络架构差分</title>
+<style>
+:root{--ink:#172033;--muted:#64748b;--line:#d7e0eb;--blue:#2563eb;--gray:#64748b;--green:#159447;--yellow:#fff3bd;--yellow-line:#e5ae24;--same:#f2f5f9;--bg:#eef3f8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans CJK SC","Microsoft YaHei",system-ui,sans-serif}
+header{padding:30px 42px;background:#142449;color:#fff}header h1{font-size:32px;margin:0 0 8px}header p{margin:0;color:#cad7f2;font-size:16px}.wrap{max-width:1480px;margin:auto;padding:24px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:17px;padding:22px;margin-bottom:18px;box-shadow:0 7px 24px #1d33500c}h2{margin:0 0 8px;font-size:24px}.sub{margin:0;color:var(--muted)}
+.headline{display:grid;grid-template-columns:1fr 56px 1fr 56px 1fr;align-items:stretch;margin-top:18px}.arrow{display:flex;align-items:center;justify-content:center;font-size:31px;color:#718096;font-weight:800}
+.model{border:2px solid var(--c);border-radius:15px;overflow:hidden;background:#fff}.model-title{padding:14px 16px;color:#fff;background:var(--c)}.model-title b{font-size:22px}.model-title span{float:right;font-family:ui-monospace,monospace;font-size:13px;margin-top:6px}.body{padding:14px}.flow{display:flex;flex-direction:column;gap:9px}.box{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--same);position:relative}.box+.box:before{content:"↓";position:absolute;top:-18px;left:50%;color:#748195;font-weight:800}.box strong{display:block}.box small{display:block;color:var(--muted);margin-top:3px;line-height:1.45}.changed{background:var(--yellow);border-color:var(--yellow-line)}.new{background:#eaf8ef;border-color:#7dcc99}.zero{border-style:dashed;color:#718096;background:#fafafa}
+.delta{margin-top:13px;border-radius:10px;padding:10px 12px;background:#fff8e1;border-left:5px solid #e5ae24;font-size:14px;line-height:1.5}.delta b{color:#8a5200}
+.legend{display:flex;gap:20px;margin-top:12px;color:var(--muted);font-size:13px}.sw{display:inline-block;width:13px;height:13px;border-radius:3px;margin-right:5px;vertical-align:-2px}.same-sw{background:var(--same);border:1px solid var(--line)}.change-sw{background:var(--yellow);border:1px solid var(--yellow-line)}.new-sw{background:#eaf8ef;border:1px solid #7dcc99}
+.table-wrap{overflow:auto}.matrix{width:100%;border-collapse:separate;border-spacing:0;margin-top:16px;font-size:14px}.matrix th,.matrix td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:11px 12px;vertical-align:top;line-height:1.5}.matrix th{color:white}.matrix th:first-child{background:#27364d}.matrix th:nth-child(2){background:var(--blue)}.matrix th:nth-child(3){background:var(--gray)}.matrix th:nth-child(4){background:var(--green)}.matrix td:first-child{font-weight:750;background:#f7f9fc;white-space:nowrap}.matrix td.change{background:#fff8db}.yes{color:#08783a;font-weight:750}.no{color:#8a94a4}.code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+.takeaway{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.take{border-radius:12px;padding:14px 16px;line-height:1.55}.take:nth-child(1){background:#fff8db;border:1px solid #e5c85d}.take:nth-child(2){background:#eaf8ef;border:1px solid #8acba1}.take b{display:block;margin-bottom:4px}
+.foot{color:#667085;font-size:13px;line-height:1.55}.foot code{color:#334155}
+.dp-origin{display:grid;grid-template-columns:1.25fr 56px 1fr;gap:0;align-items:stretch;margin-top:16px}.origin-card{border:2px solid #0ea5e9;border-radius:14px;padding:16px;background:#f8fcff}.origin-card h3{margin:0 0 12px;color:#027aa9;font-size:21px}.origin-flow{display:grid;grid-template-columns:1fr 34px 1fr 34px 1fr;align-items:center}.origin-flow .oa{text-align:center;color:#708099;font-size:25px;font-weight:800}.mask-card{border:1px solid var(--line);border-radius:14px;padding:15px;background:#f8fafc}.mask-card h3{margin:0 0 9px;font-size:18px}.masks{display:grid;grid-template-columns:1fr 1fr;gap:12px}.mask{display:grid;grid-template-columns:32px repeat(3,1fr);font:12px ui-monospace,monospace;text-align:center;gap:3px}.mask span{padding:5px 3px;border-radius:4px}.mask .lab{background:transparent;color:#64748b}.mask .on{background:#b8ebcb;color:#09622d}.mask .off{background:#dfe5ec;color:#718096}.mask-note{font-size:13px;color:#526173;line-height:1.5;margin:9px 0 0}.only{margin-top:12px;padding:10px 12px;background:#fff3bd;border-left:5px solid #e5ae24;border-radius:8px}
+@media(max-width:1050px){.headline{grid-template-columns:1fr}.arrow{height:46px;transform:rotate(90deg)}.takeaway{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>原版 DP / DP-PTP / No-History / Direct：网络到底哪里不一样</h1><p>从实际实验构造代码抽出的差分图。原版 DP 是起点；灰色是继承不变，黄色是相对前一模型修改，绿色是 Direct 新增的历史分支。</p></header>
+<main class="wrap">
+<section class="panel">
+  <h2>原版 DP：整个比较的起点</h2>
+  <p class="sub">原版 DP 与 DP-PTP 的可训练层和参数量完全相同；DP-PTP 没有新增网络层，只把 observation 的 cross-attention 可见性改成时间对齐。</p>
+  <div class="dp-origin">
+    <div class="origin-card">
+      <h3>原版 DP · 54,879,350 params</h3>
+      <div class="origin-flow">
+        <div class="box"><strong>当前观测 2 帧</strong><small>4路视觉 + proprio + scan</small></div><div class="oa">→</div>
+        <div class="box"><strong>MultiImageObsConditionMomart</strong><small>ResNet18 + 特征拼接 + MLP<br>输出 [B,2,256]</small></div><div class="oa">→</div>
+        <div class="box"><strong>ChiTransformer × 8</strong><small>[τ,o₀,o₁] → 动作噪声 [B,9,10]</small></div>
+      </div>
+      <div class="only"><b>DP → DP-PTP 唯一变化：</b><code>ChiTransformer</code> 类换成 <code>ChiTransformerPTP</code>，其内部只有 cross-attention <code>memory_mask</code> 的数值发生变化。</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="mask-card">
+      <h3>实际 mask 差异</h3>
+      <div class="masks">
+        <div><b>原版 DP</b><div class="mask">
+          <span class="lab"></span><span class="lab">τ</span><span class="lab">o₀</span><span class="lab">o₁</span>
+          <span class="lab">a₀</span><span class="on">读</span><span class="on">读</span><span class="on">读</span>
+          <span class="lab">a₁</span><span class="on">读</span><span class="on">读</span><span class="on">读</span>
+          <span class="lab">a₂+</span><span class="on">读</span><span class="on">读</span><span class="on">读</span>
+        </div></div>
+        <div><b>DP-PTP</b><div class="mask">
+          <span class="lab"></span><span class="lab">τ</span><span class="lab">o₀</span><span class="lab">o₁</span>
+          <span class="lab">a₀</span><span class="on">读</span><span class="on">读</span><span class="off">遮</span>
+          <span class="lab">a₁</span><span class="on">读</span><span class="on">读</span><span class="on">读</span>
+          <span class="lab">a₂+</span><span class="on">读</span><span class="on">读</span><span class="on">读</span>
+        </div></div>
+      </div>
+      <p class="mask-note">原版 DP 的所有动作位置都能读取两帧观测；DP-PTP 中较早动作不能读取时间上更晚的观测。动作 self-attention 的因果 mask 不变。</p>
+    </div>
+  </div>
+</section>
+<section class="panel">
+  <h2>先看主线：变化只发生在两个位置</h2>
+  <p class="sub">DP-PTP → No-History 改“任务条件与接口”；No-History → Direct 才改“历史输入与视觉编码”。</p>
+  <div class="headline">
+    <article class="model" style="--c:var(--blue)">
+      <div class="model-title"><b>DP-PTP</b><span>54,879,350 params</span></div>
+      <div class="body"><div class="flow">
+        <div class="box"><strong>当前观测：2 帧</strong><small>RGB、wrist RGB、depth、wrist depth、proprio、scan</small></div>
+        <div class="box"><strong>MultiImageObsConditionMomart</strong><small>各视觉流 ResNet18；拼接低维/scan；MLP → [B, 2, 256]</small></div>
+        <div class="box zero"><strong>无长期历史</strong><small>Tm = 0</small></div>
+        <div class="box"><strong>ChiTransformerPTP × 8 层</strong><small>条件：[τ, o₀, o₁]；PTP cross-attention mask</small></div>
+        <div class="box"><strong>输出动作噪声</strong><small>[B, 9, 10]</small></div>
+      </div><div class="delta"><b>基准：</b>只有当前两帧，没有 task embedding，也没有 memory token。</div></div>
+    </article>
+    <div class="arrow">→</div>
+    <article class="model" style="--c:var(--gray)">
+      <div class="model-title"><b>No-History</b><span>54,946,422 params</span></div>
+      <div class="body"><div class="flow">
+        <div class="box"><strong>当前观测：2 帧</strong><small>输入模态与 DP-PTP 相同，额外传入 task_id</small></div>
+        <div class="box changed"><strong>原编码器 + Task Embedding</strong><small>Embedding(5, 256) 加到每个当前观测 token；视觉主干不变</small></div>
+        <div class="box zero"><strong>仍无长期历史</strong><small>Tm = 0；memory 张量长度为 0</small></div>
+        <div class="box changed"><strong>LongMemChiTransformerPTP × 8 层</strong><small>换成可接 memory 的接口；因 Tm=0，条件仍是 [τ, o₀, o₁]</small></div>
+        <div class="box"><strong>输出动作噪声</strong><small>[B, 9, 10]</small></div>
+      </div><div class="delta"><b>相对 DP-PTP：</b>新增 task embedding；Decoder 类换成 LongMem 版本，但没有输入任何历史。</div></div>
+    </article>
+    <div class="arrow">→</div>
+    <article class="model" style="--c:var(--green)">
+      <div class="model-title"><b>Direct</b><span>55,748,214 params</span></div>
+      <div class="body"><div class="flow">
+        <div class="box"><strong>当前观测：2 帧 + task_id</strong><small>当前观测仍输出 [B, 2, 256]</small></div>
+        <div class="box changed"><strong>DirectSpatialHistoryConditionMomart</strong><small>视觉 ResNet trunk 同时服务当前路径和历史空间路径</small></div>
+        <div class="box new"><strong>新增：16 帧视觉历史分支</strong><small>仅4路图像/深度；每路每帧池化成 4×4 token，再投影到 256 维</small></div>
+        <div class="box new"><strong>直接保留 1024 个 memory token</strong><small>16 帧 × 4 视角 × 16 空间位置 = [B, 1024, 256]</small></div>
+        <div class="box changed"><strong>LongMemChiTransformerPTP × 8 层</strong><small>条件：[τ, m₀…m₁₀₂₃, o₀, o₁]；Tm = 1024</small></div>
+        <div class="box"><strong>输出动作噪声</strong><small>[B, 9, 10]</small></div>
+      </div><div class="delta"><b>相对 No-History：</b>新增真正的视觉历史编码和 1024 个历史 token；Decoder 层数/宽度不变，只是开始读取 memory。</div></div>
+    </article>
+  </div>
+  <div class="legend"><span><i class="sw same-sw"></i>继承/不变</span><span><i class="sw change-sw"></i>相对前一模型修改</span><span><i class="sw new-sw"></i>新增历史计算路径</span></div>
+</section>
+
+<section class="panel">
+  <h2>逐项对照</h2>
+  <div class="table-wrap"><table class="matrix">
+    <tr><th>网络位置</th><th>DP-PTP</th><th>No-History</th><th>Direct</th></tr>
+    <tr><td>当前观测模态</td><td>4路视觉 + proprio + scan</td><td>相同</td><td>相同</td></tr>
+    <tr><td>当前观测输出</td><td class="code">[B, 2, 256]</td><td class="code">[B, 2, 256]</td><td class="code">[B, 2, 256]</td></tr>
+    <tr><td>Task embedding</td><td class="no">无</td><td class="change">Embedding(5,256)，加到观测 token</td><td>与 No-History 相同</td></tr>
+    <tr><td>历史输入</td><td class="no">无</td><td class="no">无</td><td class="change"><span class="yes">16帧 × 4路视觉</span><br>历史不包含 proprio / scan</td></tr>
+    <tr><td>历史视觉处理</td><td class="no">无</td><td class="no">无</td><td class="change code">ResNet trunk → AvgPool2d(4×4)<br>→ Linear(C,256) + spatial/view embedding</td></tr>
+    <tr><td>Memory token 数</td><td>0</td><td>0</td><td class="change"><b>1024</b></td></tr>
+    <tr><td>Diffusion 类</td><td class="code">ChiTransformerPTP</td><td class="change code">LongMemChiTransformerPTP</td><td class="code">LongMemChiTransformerPTP</td></tr>
+    <tr><td>Decoder 主干</td><td>8层，d_model=256，4 heads</td><td>相同</td><td>相同</td></tr>
+    <tr><td>Cross-attention 条件</td><td class="code">[τ, o₀, o₁]</td><td class="code">[τ, o₀, o₁]</td><td class="change code">[τ, m₀…m₁₀₂₃, o₀, o₁]</td></tr>
+    <tr><td>相对新增参数</td><td>—</td><td class="change">+67,072</td><td class="change">+801,792</td></tr>
+  </table></div>
+  <div class="takeaway">
+    <div class="take"><b>DP-PTP vs No-History</b>视觉 backbone 和有效历史输入没有区别。主要差别是多任务 task embedding，以及为了统一实验代码而换成 LongMem Decoder 接口。</div>
+    <div class="take"><b>No-History vs Direct</b>这才是核心消融：Direct 增加16帧空间视觉历史，并让同一个8层 PTP Decoder cross-attend 1024个 memory token。</div>
+  </div>
+</section>
+
+<section class="panel foot">
+  <b>代码依据：</b>
+  <code>tools/print_momart_architectures.py</code> 的实际构造参数；
+  <code>cleandiffuser/nn_condition/momart_history_condition.py</code> 的 TaskConditioned 与 Direct spatial 路径；
+  <code>cleandiffuser/nn_diffusion/chitransformerptp.py</code> 和 <code>longmem_chitransformerptp.py</code> 的条件拼接及 mask。
+  参数量沿用同一份实际实例化输出；不包含 optimizer 状态。
+</section>
+</main>
+</body></html>
