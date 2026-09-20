@@ -39,6 +39,7 @@ from cleandiffuser.utils.mine_utils import Mine
 from .basic import DiffusionModel
 from copy import deepcopy
 from cleandiffuser.nn_diffusion.longmem_chitransformerptp import LongMemChiTransformerPTP
+from cleandiffuser.nn_diffusion.direct_history_chitransformerptp import DirectHistoryChiTransformerPTP
 
 
 def apply_memory_intervention(memory: Optional[torch.Tensor], mode: str = "none"):
@@ -167,7 +168,9 @@ class LongMemDDPM(DiffusionModel):
         self.action_dim = (
             int(x_max.shape[-1]) if x_max is not None
             else int(nn_diffusion.act_emb.in_features))
-        if isinstance(nn_diffusion, ChiTransformerPTP) or isinstance(nn_diffusion, LongMemChiTransformerPTP):
+        if isinstance(nn_diffusion, (
+                ChiTransformerPTP, LongMemChiTransformerPTP,
+                DirectHistoryChiTransformerPTP)):
             self.action_steps = nn_diffusion.T + 1 - nn_diffusion.To
             self.obs_steps = nn_diffusion.To
         elif isinstance(nn_diffusion, ChiTransformer):
@@ -187,6 +190,9 @@ class LongMemDDPM(DiffusionModel):
         # if self.use_condition_cache:
         self.condition_cache_list = []
         self.action_cache_list = []
+        self.spatial_frame_cache_list = []
+        self.direct_selected_history = []
+        self.direct_history_step = 0
         
         self.pred_reg_coeff = args_dict.pred_reg_coeff
         self.memory_aux_coeff = float(
@@ -282,8 +288,12 @@ class LongMemDDPM(DiffusionModel):
                 if isinstance(memory, dict):
                     # Multi-modal memory: process through nn_condition first
                     if self.use_condition_model:
-                        memory_tensor = model["condition"](
-                            dict(memory))  # (B, T, D) when keep_horizon_dims=True
+                        if hasattr(model["condition"], "encode_spatial_history"):
+                            memory_tensor = model["condition"].encode_spatial_history(
+                                dict(memory))
+                        else:
+                            memory_tensor = model["condition"](
+                                dict(memory))  # (B, T, D) when keep_horizon_dims=True
                     else:
                         raise ValueError("Memory is a dict but nn_condition is None. Cannot process multi-modal memory.")
                 else:
@@ -510,21 +520,31 @@ class LongMemDDPM(DiffusionModel):
             self, x0, condition=None, memory=None, ep_step=None,
             counterfactual_index=None, counterfactual_weight=None,
             memory_context=None,
-            update_ema=True, **kwargs):
+            update_ema=True, optimizer_step=True, loss_scale=1.0, **kwargs):
         # Step 1: Update the main model (diffusion + condition + memory) with MI loss
         total_loss, memory_tensor, compressed_memory, action_loss = self.loss(
             x0, condition, memory, ep_step,
             counterfactual_index=counterfactual_index,
             counterfactual_weight=counterfactual_weight,
             memory_context=memory_context)
-        self.scaler.scale(total_loss).backward()
-        grad_norm = nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip_norm) \
-            if self.grad_clip_norm else None
-        self.scaler.step(self.optimizer)
-        self.scaler.update()
-        self.optimizer.zero_grad()
-        if update_ema: self.ema_update()
-        log = {"loss": total_loss.item(), "grad_norm": grad_norm, "action_loss": action_loss.item()}
+        self.scaler.scale(total_loss * float(loss_scale)).backward()
+        grad_norm = None
+        if optimizer_step:
+            if self.grad_clip_norm:
+                self.scaler.unscale_(self.optimizer)
+                grad_norm = nn.utils.clip_grad_norm_(
+                    self.model.parameters(), self.grad_clip_norm)
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+            self.optimizer.zero_grad()
+            if update_ema:
+                self.ema_update()
+        log = {
+            "loss": total_loss.item(),
+            "grad_norm": grad_norm,
+            "action_loss": action_loss.item(),
+            "optimizer_step": float(optimizer_step),
+        }
         if hasattr(self, "_last_memory_losses"):
             log.update({
                 key: value.item()
@@ -596,6 +616,9 @@ class LongMemDDPM(DiffusionModel):
     def reset_cache(self):
         self.condition_cache_list = []
         self.action_cache_list = []
+        self.spatial_frame_cache_list = []
+        self.direct_selected_history = []
+        self.direct_history_step = 0
 
     def sample(
             self,
@@ -650,7 +673,82 @@ class LongMemDDPM(DiffusionModel):
         if preserve_history: log["sample_history"][:, 0] = xt.cpu().numpy()
 
         # preprocess the conditions and memories
-        if memory_cfg is not None:
+        direct_spatial = (
+            self.use_condition_model
+            and hasattr(model["condition"], "encode_spatial_frames")
+            and hasattr(model["condition"], "pack_history")
+            and getattr(model["condition"], "history_frames", None)
+            is not None)
+        if direct_spatial:
+            # Match VPWEM's online evidence schedule exactly: frames only enter
+            # history after leaving [t-1,t], and one is retained every r steps.
+            with torch.set_grad_enabled(requires_grad):
+                if memory_cfg is not None:
+                    condition_vec_cfg = model["condition"](
+                        dict(condition_cfg), mask_cfg)
+                    compressed_memory = model["condition"].encode_spatial_history(
+                        dict(memory_cfg))
+                    self.condition_cache_list = [
+                        condition_vec_cfg[:, i]
+                        for i in range(condition_vec_cfg.shape[1])
+                    ][-self.obs_steps:]
+                    self.spatial_frame_cache_list = []
+                    self.direct_selected_history = []
+                    self.direct_history_step = 0
+                else:
+                    if not self.condition_cache_list:
+                        new_input = dict(condition_cfg)
+                    else:
+                        new_input = {
+                            key: (
+                                value
+                                if value.ndim <= 1 or key.startswith("_")
+                                else value[:, -self.inference_action_steps:])
+                            for key, value in condition_cfg.items()}
+                    new_condition = model["condition"](
+                        dict(new_input), mask_cfg)
+                    new_spatial = model["condition"].encode_spatial_frames(
+                        dict(new_input))
+                    self.condition_cache_list.extend([
+                        new_condition[:, i]
+                        for i in range(new_condition.shape[1])])
+                    self.spatial_frame_cache_list.extend([
+                        new_spatial[:, i]
+                        for i in range(new_spatial.shape[1])])
+
+                    history_candidates = (
+                        self.spatial_frame_cache_list[:-self.obs_steps])
+                    ratio = int(getattr(
+                        model["condition"], "history_subsample_ratio", 1))
+                    for frame in history_candidates:
+                        if self.direct_history_step % ratio == 0:
+                            self.direct_selected_history.append(frame)
+                        self.direct_history_step += 1
+                    max_frames = model["condition"].history_frames
+                    if len(self.direct_selected_history) > max_frames:
+                        if max_frames == 1:
+                            self.direct_selected_history = (
+                                self.direct_selected_history[:1])
+                        else:
+                            self.direct_selected_history = (
+                                self.direct_selected_history[:1]
+                                + self.direct_selected_history[-(max_frames - 1):])
+
+                    self.condition_cache_list = (
+                        self.condition_cache_list[-self.obs_steps:])
+                    self.spatial_frame_cache_list = (
+                        self.spatial_frame_cache_list[-self.obs_steps:])
+                    condition_vec_cfg = torch.stack(
+                        self.condition_cache_list, dim=1)
+                    if self.direct_selected_history:
+                        selected = torch.stack(
+                            self.direct_selected_history, dim=1)
+                    else:
+                        selected = new_spatial[:, :0]
+                    compressed_memory = model["condition"].pack_history(
+                        selected)
+                condition_vec_cg = condition_cg
+        elif memory_cfg is not None:
             # 路径 A：调用方显式提供完整历史（常用于离线诊断/成对干预）。
             with torch.set_grad_enabled(requires_grad):
                 if condition_cfg is not None and self.use_condition_model:
@@ -720,7 +818,11 @@ class LongMemDDPM(DiffusionModel):
                 else:
                     condition_cfg_new = dict()
                     for keys in condition_cfg.keys():
-                        condition_cfg_new[keys] = condition_cfg[keys][:, -self.inference_action_steps:, ...]
+                        value = condition_cfg[keys]
+                        condition_cfg_new[keys] = (
+                            value
+                            if value.ndim <= 1 or keys.startswith("_")
+                            else value[:, -self.inference_action_steps:, ...])
                         mask_cfg_new = mask_cfg
                     condition_vec_cfg_new = model["condition"](condition_cfg_new, mask_cfg_new)
                     for i in range(self.inference_action_steps):

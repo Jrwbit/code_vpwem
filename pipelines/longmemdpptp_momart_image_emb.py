@@ -18,6 +18,7 @@ import torch.nn as nn
 import pickle
 from utils import (
     set_seed, parse_cfg, Logger, auto_resume_training, prune_checkpoints)
+from cleandiffuser.dataset.multitask import BalancedTaskBatchMux
 from torch.optim.lr_scheduler import CosineAnnealingLR
 import multiprocessing
 from collections import defaultdict
@@ -61,9 +62,22 @@ def pipeline(args):
         
     # ---------------- Create Dataset ----------------
 
-    dataset_config_dict = {
+    task_specs = getattr(args, "task_datasets", None)
+    if task_specs:
+        task_paths = {
+            str(spec.name): os.path.expanduser(str(spec.path))
+            for spec in task_specs
+        }
+    else:
+        task_paths = {
+            f"{args.env_name}_{args.env_type}": os.path.expanduser(
+                str(args.dataset_path))
+        }
+
+    def make_dataset(dataset_path):
+        dataset_config_dict = {
         "train": {
-            "data": args.dataset_path,
+            "data": dataset_path,
             "num_data_workers": 8,
             "hdf5_cache_mode": "low_dim",
             "hdf5_use_swmr": True,
@@ -91,46 +105,49 @@ def pipeline(args):
             "dataset_memory_type": args.dataset_memory_type,
             "dataset_memory_subsample_ratio": args.dataset_memory_subsample_ratio,
         }
-    }
-    dataset_config = DictToObj(dataset_config_dict)
-    
-    dataset, _ = TrainUtils.load_data_for_training(dataset_config, obs_keys=args.shape_meta["obs"])
-    train_sampler = dataset.get_dataset_sampler()
-    normalizer = defaultdict(dict)
-    
-    # Compute action statistics using torch on device
-    action_max = torch.full((args.shape_meta["action"].shape[0],), float('-inf'), device=args.device, dtype=torch.float32)
-    action_min = torch.full((args.shape_meta["action"].shape[0],), float('inf'), device=args.device, dtype=torch.float32)
-    
-    for demo_idx, demo in dataset.hdf5_cache.items():
-        # Convert to torch tensor and move to device
-        actions = torch.from_numpy(demo['actions'].astype(np.float32)).to(args.device)
-        action_max = torch.maximum(torch.max(actions, dim=0)[0], action_max)
-        action_min = torch.minimum(torch.min(actions, dim=0)[0], action_min)
-    
-    # Create normalizer with torch tensor on device
-    # Stack min and max to create [min, max] shape for MinMaxNormalizer
-    action_stats = torch.stack([action_min, action_max], dim=0)  # (2, action_dim)
-    action_normalizer = MinMaxNormalizer(action_stats, device=args.device)
-    normalizer['action'] = action_normalizer
-    setattr(dataset, 'normalizer', normalizer)
-    print("\n============= Training Dataset =============")
-    print(dataset)
-    print("")
+        }
+        dataset_config = DictToObj(dataset_config_dict)
+        dataset, _ = TrainUtils.load_data_for_training(
+            dataset_config, obs_keys=args.shape_meta["obs"])
 
-    # initialize data loaders
-    # Note: if train_sampler is provided, shuffle should be False
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        num_workers=8,
-        shuffle=train_sampler is None,  # Only shuffle if no custom sampler
-        sampler=train_sampler,
-        drop_last=True,
-        pin_memory=True,
-        persistent_workers=True,
-        collate_fn=momart_dataset_utils.dynamic_batch_collate_fn,
-    )
+        normalizer = defaultdict(dict)
+        action_max = torch.full(
+            (args.shape_meta["action"].shape[0],), float('-inf'),
+            device=args.device, dtype=torch.float32)
+        action_min = torch.full(
+            (args.shape_meta["action"].shape[0],), float('inf'),
+            device=args.device, dtype=torch.float32)
+        for demo in dataset.hdf5_cache.values():
+            actions = torch.from_numpy(
+                demo['actions'].astype(np.float32)).to(args.device)
+            action_max = torch.maximum(actions.max(dim=0).values, action_max)
+            action_min = torch.minimum(actions.min(dim=0).values, action_min)
+        action_stats = torch.stack([action_min, action_max], dim=0)
+        normalizer['action'] = MinMaxNormalizer(
+            action_stats, device=args.device)
+        dataset.normalizer = normalizer
+        return dataset
+
+    datasets = {name: make_dataset(path) for name, path in task_paths.items()}
+    num_workers = int(getattr(args, "num_workers", 8))
+    dataloaders = {}
+    for task_name, task_dataset in datasets.items():
+        train_sampler = task_dataset.get_dataset_sampler()
+        dataloaders[task_name] = torch.utils.data.DataLoader(
+            task_dataset,
+            batch_size=args.batch_size,
+            num_workers=num_workers,
+            shuffle=train_sampler is None,
+            sampler=train_sampler,
+            drop_last=True,
+            pin_memory=True,
+            persistent_workers=num_workers > 0,
+            collate_fn=momart_dataset_utils.dynamic_batch_collate_fn,
+        )
+        print(f"\n============= Training Dataset: {task_name} =============")
+        print(task_dataset)
+    dataset = next(iter(datasets.values()))
+    batch_mux = BalancedTaskBatchMux(dataloaders, seed=args.seed)
 
     if args.nn == "chi_transformer":
         from cleandiffuser.nn_condition.multi_image_condition import MultiImageObsConditionMomart
@@ -205,7 +222,14 @@ def pipeline(args):
             action_min=action_min,
             short_cond_dropout=args.short_cond_dropout,
             long_cond_dropout=args.long_cond_dropout,
-            optim_params={"lr": args.lr})
+            ema_rate=float(getattr(args, "ema_rate", 0.999)),
+            optim_params={
+                "lr": args.lr,
+                "betas": (
+                    float(getattr(args, "adam_beta1", 0.9)),
+                    float(getattr(args, "adam_beta2", 0.999)),
+                ),
+            })
     
     print(f"======================= Parameter Report of Diffusion Model =======================")
     report_parameters(nn_diffusion)
@@ -223,7 +247,9 @@ def pipeline(args):
         # ----------------- Training ----------------------
         diffusion_loss_list = []
         start_time = time.time()
-        for batch in loop_dataloader(dataloader):
+        while True:
+            task_name, batch = batch_mux.next(n_gradient_step)
+            task_dataset = datasets[task_name]
             # get condition
             nobs = batch['obs']
             # condition = {}
@@ -244,7 +270,7 @@ def pipeline(args):
                 naction = torch.from_numpy(naction).to(args.device)
             else:
                 naction = naction.to(args.device)
-            naction = dataset.normalizer['action'].normalize(naction)  # Returns torch tensor on device
+            naction = task_dataset.normalizer['action'].normalize(naction)
             memory = nobs['dp_emb_mem'].to(args.device)
             # print(memory.shape[1])
             mem_steps = nobs['ep_step'].to(args.device)
@@ -257,7 +283,8 @@ def pipeline(args):
                 metrics = {
                     'step': n_gradient_step,
                     'total_time': time.time() - start_time,
-                    'avg_diffusion_loss': np.mean(diffusion_loss_list)
+                    'avg_diffusion_loss': np.mean(diffusion_loss_list),
+                    'task_index': list(datasets).index(task_name),
                 }
                 logger.log(metrics, category='train')
                 diffusion_loss_list = []

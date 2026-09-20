@@ -10,3 +10,4 @@ from .pearcemlp import PearceMlp
 from .pearcetransformer import PearceTransformer
 from .sfbc_unet import SfBCUNet
 from .mlps import MlpNNDiffusion
+from .direct_history_chitransformerptp import DirectHistoryChiTransformerPTP

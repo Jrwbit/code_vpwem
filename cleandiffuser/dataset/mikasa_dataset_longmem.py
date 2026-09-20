@@ -9,7 +9,10 @@ import zarr
 from tqdm import tqdm
 
 from cleandiffuser.dataset.base_dataset import BaseDataset
-from cleandiffuser.dataset.imagecodecs import register_codecs, Jpeg2k
+from cleandiffuser.dataset.imagecodecs import (
+    register_codecs,
+    get_default_image_compressor,
+)
 from cleandiffuser.dataset.replay_buffer import ReplayBuffer
 from cleandiffuser.dataset.dataset_utils import LongMemSequenceSampler, EmptyNormalizer, \
     MinMaxNormalizer, ImageNormalizer, dict_apply
@@ -50,6 +53,7 @@ class LongMemMikasaDataset(BaseDataset):
             subsample_ratio=10,
             maximum_memory_length=16,
             preserve_episode_anchor=False,
+            history_sampling_seed=None,
             include_action_memory=False,
             ncm_pair_manifest_path=None,
             ncm_pairing_seed=0,
@@ -101,6 +105,7 @@ class LongMemMikasaDataset(BaseDataset):
             maximum_memory_length=maximum_memory_length,
             preserve_episode_anchor=preserve_episode_anchor,
             include_action_memory=include_action_memory,
+            history_sampling_seed=history_sampling_seed,
         )
         
         self.subsample_ratio = subsample_ratio
@@ -450,7 +455,10 @@ def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
             _ = zarr_arr[zarr_idx]
             return True
         except Exception as e:
-            return False
+            raise RuntimeError(
+                f"Failed to encode image at replay index {zarr_idx} "
+                f"(source index {hdf5_idx})"
+            ) from e
 
     if load_images and len(rgb_keys) > 0:
         with tqdm(total=n_steps * len(rgb_keys), desc="Loading image data", mininterval=1.0) as pbar:
@@ -460,7 +468,12 @@ def _convert_mikasa_to_replay(store, shape_meta, dataset_path,
                 for key in rgb_keys:
                     shape = tuple(shape_meta['obs'][key]['shape'])
                     c, h, w = shape
-                    this_compressor = Jpeg2k(level=50)
+                    # Prefer the codec selected by imagecodecs for this build.
+                    # In particular, the older OpenJPEG backend can emit a
+                    # stream that fails to decode after many consecutive
+                    # encodes on some frames, whereas the available JPEG-XL
+                    # backend is stable for the MIKASA image corpus.
+                    this_compressor = get_default_image_compressor()
                     img_arr = data_group.require_dataset(
                         name=key,
                         shape=(n_steps, h, w, c),

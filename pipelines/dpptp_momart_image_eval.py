@@ -159,7 +159,7 @@ def make_async_envs(args):
         env_init_fn_dills.append(dill.dumps(init_fn))
     # env_fn() and dummy_env_fn() should be function!
     envs = AsyncVectorEnv(env_fns, dummy_env_fn=dummy_env_fn)
-    envs.seed(args.seed)
+    envs.seed(int(getattr(args, "eval_seed", args.seed)))
     return envs, env_init_fn_dills
 
 
@@ -257,11 +257,18 @@ def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
     all_all_actions = np.concatenate(all_all_actions, axis=0)
     predictability_ratio.append(batch_mlp_corr(all_all_actions))
 
-    log_dict = {'mean_step': np.nanmean(episode_steps), 
-                'mean_reward': np.nanmean(episode_rewards), 
-                'mean_success': np.nanmean(episode_success),
+    flat_rewards = np.asarray(episode_rewards, dtype=np.float32).reshape(-1)
+    flat_success = np.asarray(episode_success, dtype=np.bool_).reshape(-1)
+    flat_steps = np.repeat(np.asarray(episode_steps, dtype=np.int32), args.num_envs)
+    log_dict = {'mean_step': np.nanmean(flat_steps),
+                'mean_reward': np.nanmean(flat_rewards),
+                'mean_success': np.nanmean(flat_success),
                 "mlp_corr_pred_actions_full_traj_online_fixed": np.nanmean(predictability_ratio),
                 "avg_infer_time": np.mean(avg_infer_times),
+                "episode_reward": flat_rewards,
+                "episode_success": flat_success,
+                "episode_steps": flat_steps,
+                "eval_seed": int(getattr(args, "eval_seed", args.seed)),
                 }
     print(log_dict, flush=True)
     return log_dict
@@ -270,8 +277,10 @@ def inference(args, envs, dataset, agent, logger, env_init_fn_dills):
 @hydra.main(config_path="../configs/dp/momart/chi_transformer_ptp", config_name="momart")
 def pipeline(args):
     # ---------------- Create Logger ----------------
-    set_seed(args.seed)
-    logger = Logger(pathlib.Path(args.work_dir), args)
+    set_seed(int(getattr(args, "eval_seed", args.seed)))
+    result_dir = pathlib.Path(os.path.expanduser(str(getattr(args, "eval_output_dir", args.work_dir))))
+    result_dir.mkdir(parents=True, exist_ok=True)
+    logger = Logger(result_dir, args)
 
     # ---------------- Create Environment ----------------
     if multiprocessing.get_start_method(allow_none=True) != "spawn":  
@@ -407,15 +416,23 @@ def pipeline(args):
     else:
         raise NotImplementedError
     
-    ckpt = 600000
+    ckpt = int(getattr(args, "checkpoint_step", 600000))
     print(ckpt)
-    model_path = os.path.join(args.work_dir, f"models/model_{ckpt}.pt")
+    configured_model_path = getattr(args, "model_path", None)
+    model_path = (str(configured_model_path) if configured_model_path else
+                  os.path.join(args.work_dir, f"models/model_{ckpt}.pt"))
     agent.load(model_path)
     
     agent.model.eval()
     agent.model_ema.eval()
     result = inference(args, envs, dataset, agent, logger, env_init_fn_dills)
-    result_path = os.path.join(args.work_dir, f"result_{ckpt}.npy")
+    result.update({
+        "checkpoint_step": ckpt,
+        "model_path": model_path,
+        "env_name": str(args.env_name),
+        "env_type": str(args.env_type),
+    })
+    result_path = result_dir / f"result_{ckpt}.npy"
     np.save(result_path, result)
 
 if __name__ == "__main__":
@@ -430,4 +447,3 @@ if __name__ == "__main__":
 
 
     
-

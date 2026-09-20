@@ -1,0 +1,54 @@
+defaults:
+  - momart_emb
+  - _self_
+
+pipeline_name: longmemdpptp_momart_multitask
+env_name: momart_all
+env_type: mixed
+data_root: /oss/sh2/vpwem_data/momart_emb_8layer
+task_datasets:
+  - name: unload_dishwasher_to_dresser_suboptimal
+    path: ${data_root}/unload_dishwasher_to_dresser_suboptimal.hdf5
+  - name: unload_dishwasher_to_dresser_expert
+    path: ${data_root}/unload_dishwasher_to_dresser_expert.hdf5
+  - name: table_cleanup_to_sink_suboptimal
+    path: ${data_root}/table_cleanup_to_sink_suboptimal.hdf5
+  - name: table_cleanup_to_sink_expert
+    path: ${data_root}/table_cleanup_to_sink_expert.hdf5
+  - name: table_cleanup_to_dishwasher_suboptimal
+    path: ${data_root}/table_cleanup_to_dishwasher_suboptimal.hdf5
+  - name: table_cleanup_to_dishwasher_expert
+    path: ${data_root}/table_cleanup_to_dishwasher_expert.hdf5
+  - name: table_setup_from_dishwasher_suboptimal
+    path: ${data_root}/table_setup_from_dishwasher_suboptimal.hdf5
+  - name: table_setup_from_dishwasher_expert
+    path: ${data_root}/table_setup_from_dishwasher_expert.hdf5
+  - name: table_setup_from_dresser_suboptimal
+    path: ${data_root}/table_setup_from_dresser_suboptimal.hdf5
+  - name: table_setup_from_dresser_expert
+    path: ${data_root}/table_setup_from_dresser_expert.hdf5
+
+# DP-VPWEM Table I
+gradient_steps: 1000000
+batch_size: 64
+num_workers: 2
+sample_steps: 50
+action_steps: 8
+horizon: 9
+temperature: 1.0
+diffusion_num_layers: 8
+mem_compress_method: qformer
+mem_compress_length: 2
+qformer_emb_dim: 256
+qformer_num_layers: 2
+qformer_cache_max_length: 8
+dataset_memory_subsample_ratio: 20
+long_cond_dropout: 0.3
+lr: 0.0001
+ema_rate: 0.999
+adam_beta1: 0.9
+adam_beta2: 0.999
+
+exp_name: momart_all_balanced_vpwem
+group: dp_momart_multitask
+work_dir: ${save_path}/ours/momart_multitask/${exp_name}/${seed}

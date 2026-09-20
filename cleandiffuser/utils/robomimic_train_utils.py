@@ -151,6 +151,12 @@ def dataset_factory(config, obs_keys, filter_by_attribute=None, dataset_path=Non
         filter_by_attribute=filter_by_attribute,
         memory_type=config.memory.dataset_memory_type,
         subsample_ratio=config.memory.dataset_memory_subsample_ratio,
+        maximum_memory_length=getattr(
+            config.memory, "dataset_maximum_memory_length", None),
+        preserve_episode_anchor=getattr(
+            config.memory, "dataset_preserve_episode_anchor", False),
+        history_sampling_seed=getattr(
+            config.memory, "history_sampling_seed", None),
     )
     dataset = LongMemSequenceDataset(**ds_kwargs)
 

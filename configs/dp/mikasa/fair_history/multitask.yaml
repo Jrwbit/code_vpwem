@@ -1,0 +1,28 @@
+defaults:
+  - base
+  - _self_
+
+pipeline_name: fair_history_mikasa_multitask
+history_method: direct_token2
+env_name: MIKASA-All-v0
+data_root: /oss/sh2/vpwem_data/mikasa
+task_datasets:
+  - {name: RememberColor3-v0, path: '${data_root}/RememberColor3-v0'}
+  - {name: ShellGameTouch-v0, path: '${data_root}/ShellGameTouch-v0'}
+  - {name: RememberColor5-v0, path: '${data_root}/RememberColor5-v0'}
+  - {name: InterceptGrabMedium-v0, path: '${data_root}/InterceptGrabMedium-v0'}
+
+gradient_steps: 600000
+batch_size: 256
+num_workers: 2
+keep_checkpoints: 20
+save_path: /oss/sh2/vpwem_outputs/direct_token2_real_batch/mikasa_multitask
+work_dir: ${save_path}/real_bs${batch_size}_grad1
+group: fair_history_mikasa_multitask
+exp_name: direct_token2/real_bs${batch_size}_grad1
+
+hydra:
+  run:
+    dir: ${work_dir}
+  job:
+    chdir: false

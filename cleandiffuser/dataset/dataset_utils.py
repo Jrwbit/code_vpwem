@@ -1,4 +1,4 @@
-from typing import Dict, Callable, List, Union
+from typing import Dict, Callable, List, Union, Optional
 import numpy as np
 import torch
 import numba
@@ -171,6 +171,7 @@ class LongMemSequenceSampler:
             maximum_memory_length: int = 16,
             preserve_episode_anchor: bool = False,
             include_action_memory: bool = False,
+            history_sampling_seed: Optional[int] = None,
     ):
         """
             key_first_k: dict str: int
@@ -215,6 +216,10 @@ class LongMemSequenceSampler:
         assert maximum_memory_length >= 1
         self.maximum_memory_length = maximum_memory_length
         self.preserve_episode_anchor = preserve_episode_anchor
+        # When set, history timestamps are a pure function of the sample index.
+        # Separate method arms therefore receive exactly the same raw evidence,
+        # independent of worker scheduling or model runtime.
+        self.history_sampling_seed = history_sampling_seed
 
     def __len__(self):
         return len(self.indices)
@@ -272,7 +277,15 @@ class LongMemSequenceSampler:
             seg_ends = seg_ends[valid_mask]
             segment_sizes = seg_ends - seg_starts
             segment_sizes[segment_sizes == 0] = 1
-            random_offsets = np.random.randint(0, segment_sizes, size=len(seg_starts))
+            if self.history_sampling_seed is None:
+                random_offsets = np.random.randint(
+                    0, segment_sizes, size=len(seg_starts))
+            else:
+                rng = np.random.default_rng(np.random.SeedSequence([
+                    int(self.history_sampling_seed), int(idx)]))
+                random_offsets = np.asarray([
+                    rng.integers(0, int(size)) for size in segment_sizes
+                ], dtype=np.int64)
             selected_frame_idx = (
                 seg_starts + random_offsets + episode_start_idx).tolist()
 

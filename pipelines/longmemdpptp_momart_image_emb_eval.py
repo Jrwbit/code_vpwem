@@ -141,7 +141,8 @@ def make_async_envs(args):
     env_fns = [env_fn] * args.num_envs
     env_init_fn_dills = list()
     for j in range(args.eval_episodes):
-        enable_render = True
+        enable_render = j < int(getattr(
+            args, "num_video_episodes", args.eval_episodes))
         def init_fn(env, enable_render=enable_render):
             # setup rendering
             # video_wrapper

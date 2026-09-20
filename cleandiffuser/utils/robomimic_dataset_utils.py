@@ -3,6 +3,7 @@ This file contains Dataset classes that are used by torch dataloaders
 to fetch batches from hdf5 files.
 """
 import os
+import zlib
 import h5py
 import numpy as np
 from copy import deepcopy
@@ -36,6 +37,9 @@ class LongMemSequenceDataset(torch.utils.data.Dataset):
         load_next_obs=True,
         memory_type: str = 'random_from_full',
         subsample_ratio: int = 10,
+        maximum_memory_length: int = None,
+        preserve_episode_anchor: bool = False,
+        history_sampling_seed: int = None,
     ):
         """
         Dataset class for fetching sequences of experience.
@@ -166,6 +170,11 @@ class LongMemSequenceDataset(torch.utils.data.Dataset):
         # Use subsample_ratio for dynamic sampling
         # Sample every subsample_ratio frames from 0 to index_in_demo
         self.subsample_ratio = subsample_ratio
+        self.maximum_memory_length = (
+            None if maximum_memory_length is None
+            else int(maximum_memory_length))
+        self.preserve_episode_anchor = bool(preserve_episode_anchor)
+        self.history_sampling_seed = history_sampling_seed
         
         self.close_and_delete_hdf5_handle()
 
@@ -529,7 +538,7 @@ class LongMemSequenceDataset(torch.utils.data.Dataset):
 
         seq = TensorUtils.pad_sequence(seq, padding=(seq_begin_pad, seq_end_pad), pad_same=True)
         pad_mask = np.array([0] * seq_begin_pad + [1] * (seq_end_index - seq_begin_index) + [0] * seq_end_pad)
-        pad_mask = pad_mask[:, None].astype(np.bool)
+        pad_mask = pad_mask[:, None].astype(np.bool_)
 
         return seq, pad_mask
 
@@ -593,13 +602,35 @@ class LongMemSequenceDataset(torch.utils.data.Dataset):
             # For each segment [seg_start, seg_end), randomly pick one index
             segment_sizes = seg_ends - seg_starts
             # Generate random offsets within each segment
-            random_offsets = np.random.randint(0, segment_sizes, size=len(seg_starts))
+            if self.history_sampling_seed is None:
+                random_offsets = np.random.randint(
+                    0, segment_sizes, size=len(seg_starts))
+            else:
+                rng = np.random.default_rng(np.random.SeedSequence([
+                    int(self.history_sampling_seed),
+                    int(zlib.crc32(str(demo_id).encode("utf-8"))),
+                    int(index_in_demo),
+                ]))
+                random_offsets = np.asarray([
+                    rng.integers(0, int(size)) for size in segment_sizes
+                ], dtype=np.int64)
             # Add offsets to segment starts to get final indices
             selected_frame_idx = (seg_starts + random_offsets).tolist()
         
         # Ensure at least one frame (the first frame)
         if len(selected_frame_idx) == 0:
             selected_frame_idx = [0]
+        elif self.preserve_episode_anchor:
+            selected_frame_idx[0] = 0
+
+        if (self.maximum_memory_length is not None
+                and len(selected_frame_idx) > self.maximum_memory_length):
+            if self.maximum_memory_length == 1:
+                selected_frame_idx = selected_frame_idx[:1]
+            else:
+                selected_frame_idx = (
+                    selected_frame_idx[:1]
+                    + selected_frame_idx[-(self.maximum_memory_length - 1):])
         
         # Store actual number of frames for dynamic batching
         actual_num_frames = len(selected_frame_idx)
@@ -657,8 +688,20 @@ class LongMemSequenceDataset(torch.utils.data.Dataset):
         if "actual_num_frames" in obs_mem:
             all_obs["actual_num_frames"] = obs_mem["actual_num_frames"]
 
-        # prepare image observations from dataset
-        return ObsUtils.process_obs_dict(all_obs)
+        # Prepare current observations in the standard robomimic way. Memory
+        # keys carry a ``_mem`` suffix and are therefore not present in the
+        # modality registry; process them explicitly under their base key so
+        # RGB history is also scaled and changed from HWC to CHW.
+        processed = ObsUtils.process_obs_dict({
+            key: all_obs[key] for key in keys})
+        for base_key in keys:
+            memory_key = base_key + '_mem'
+            processed[memory_key] = ObsUtils.process_obs(
+                obs=all_obs[memory_key], obs_key=base_key)
+        processed['ep_step'] = all_obs['ep_step']
+        if 'actual_num_frames' in all_obs:
+            processed['actual_num_frames'] = all_obs['actual_num_frames']
+        return processed
 
     def get_dataset_sequence_from_demo(self, demo_id, index_in_demo, keys, seq_length=1):
         """

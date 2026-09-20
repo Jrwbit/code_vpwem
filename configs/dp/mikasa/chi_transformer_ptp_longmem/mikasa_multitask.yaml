@@ -1,0 +1,42 @@
+defaults:
+  - remember_color_3
+  - _self_
+
+pipeline_name: longmemdpptp_mikasa_multitask
+env_name: MIKASA-All-v0
+data_root: /oss/sh2/vpwem_data/mikasa
+task_datasets:
+  - name: RememberColor3-v0
+    path: ${data_root}/RememberColor3-v0
+  - name: ShellGameTouch-v0
+    path: ${data_root}/ShellGameTouch-v0
+  - name: RememberColor5-v0
+    path: ${data_root}/RememberColor5-v0
+  - name: InterceptGrabMedium-v0
+    path: ${data_root}/InterceptGrabMedium-v0
+
+# DP-VPWEM Table I
+gradient_steps: 600000
+batch_size: 64
+num_workers: 2
+sample_steps: 50
+action_steps: 8
+horizon: 9
+temperature: 1.0
+diffusion_num_layers: 8
+mem_compress_method: qformer
+mem_compress_length: 2
+qformer_emb_dim: 256
+qformer_num_layers: 2
+qformer_cache_max_length: 8
+dataset_memory_subsample_ratio: 5
+long_cond_dropout: 0.3
+lr: 0.0001
+ema_rate: 0.999
+adam_beta1: 0.9
+adam_beta2: 0.999
+inference_action_steps: 8
+
+exp_name: mikasa_all_balanced_vpwem
+group: dp_mikasa_multitask
+work_dir: ${save_path}/ours/mikasa_multitask/${exp_name}/${seed}
