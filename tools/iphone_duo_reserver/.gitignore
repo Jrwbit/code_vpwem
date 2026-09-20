@@ -1,0 +1,5 @@
+.browser-profile/
+.pickup-browser-profile/
+.venv/
+screenshots/
+__pycache__/
