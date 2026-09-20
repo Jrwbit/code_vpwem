@@ -3,7 +3,7 @@ pipeline_name: dpptp_robomimic
 env_name: longsquare
 env_type: ph
 abs_action: true
-dataset_path: PATH_TO_DATASET/robomimic/longhistsquare100/demos.hdf5
+dataset_path: /oss/sh2/vpwem_data/robomimic/longhistsquare100/demos.hdf5
 mode: train
 max_episode_steps: 500
 render_obs_key: 'agentview_image'
@@ -93,7 +93,7 @@ mamba:
   device: ${device}
 # log
 exp_name: ${env_name}_${env_type}/obs_${obs_steps}_act_${action_steps}_emb
-save_path: PATH_TO_SAVE_MODEL
+save_path: /oss/sh2/vpwem_outputs
 project: CleanDiffuser
 group: dp_robomimic_multi_modal
 wandb_mode: offline

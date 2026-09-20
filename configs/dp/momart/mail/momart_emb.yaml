@@ -3,7 +3,7 @@ pipeline_name: dpptp_momart
 env_name: unload_dishwasher_to_dresser
 env_type: suboptimal
 abs_action: true
-dataset_path: PATH_TO_DATASET/momart/${env_name}_${env_type}.hdf5
+dataset_path: /oss/sh2/vpwem_data/momart/${env_name}_${env_type}.hdf5
 mode: train
 max_episode_steps: 1500
 render_obs_key: 'rgb'
@@ -72,7 +72,7 @@ mamba:
   device: ${device}
 # log
 exp_name: ${env_name}_${env_type}/obs_${obs_steps}_act_${action_steps}
-save_path: PATH_TO_SAVE_MODEL
+save_path: /oss/sh2/vpwem_outputs
 project: CleanDiffuser
 group: dp_momart
 wandb_mode: offline
