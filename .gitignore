@@ -212,3 +212,27 @@ cvpr_final
 
 # Safe configuration template for the Feishu bridge
 !/tools/feishu_codex_bridge/.env.example
+
+# Local dependency trees and browser sessions
+/cad/.vendor/
+/tools/iphone_duo_reserver/.venv/
+/tools/iphone_duo_reserver/.browser-profile/
+/tools/iphone_duo_reserver/.pickup-browser-profile/
+
+# Reproducible CAD exports and editor backups; keep scripts and READMEs
+/cad/**/*.FCBak
+/cad/**/*.FCStd
+/cad/**/*.step
+/cad/**/*.stl
+/cad/**/*.png
+
+# Generated local bundles and extracted reference text
+/DirectHistoryDP_4x4结构图.png
+/VPWEM_零基础学习文件库.zip
+/vpwem.txt
+
+# Generated report process markers and private publication links
+*.stderr
+/reports/**/feishu_url.txt
+/reports/*TRANSFER_COMPLETE*
+/reports/*transfer_summary*.tsv

@@ -88,7 +88,7 @@ class Config:
             "FEISHU_DOC_EDITOR_TYPE", credentials.get("default_manager_type", "openid")
         )
         self.doc_base_url = os.environ.get(
-            "FEISHU_DOC_BASE_URL", "https://feishu.cn/docx"
+            "FEISHU_DOC_BASE_URL", "https://ccnuoe6sry36.feishu.cn/docx"
         ).rstrip("/")
         self.default_workspace = Path(
             os.environ.get("CODEX_DEFAULT_WORKSPACE", "/data/wjr/vpwem/code_vpwem")
@@ -350,6 +350,77 @@ class FeishuClient:
         )
 
     @staticmethod
+    def _find_file_block(value: Any) -> str:
+        if isinstance(value, dict):
+            if value.get("block_type") == 23 and value.get("block_id"):
+                return str(value["block_id"])
+            for child in value.values():
+                block_id = FeishuClient._find_file_block(child)
+                if block_id:
+                    return block_id
+        elif isinstance(value, list):
+            for child in value:
+                block_id = FeishuClient._find_file_block(child)
+                if block_id:
+                    return block_id
+        return ""
+
+    def create_file_block(self, document_id: str) -> str:
+        data = self._request(
+            "POST",
+            f"/docx/v1/documents/{document_id}/blocks/{document_id}/children",
+            self._json_body(
+                {"children": [{"block_type": 23, "file": {}}], "index": -1}
+            ),
+            query={"document_revision_id": "-1"},
+        )
+        block_id = self._find_file_block(data)
+        if not block_id:
+            children = data.get("children", [])
+            if children and children[0].get("block_type") == 33:
+                view_children = children[0].get("children", [])
+                if view_children and isinstance(view_children[0], str):
+                    block_id = view_children[0]
+        if not block_id:
+            raise RuntimeError(f"飞书创建附件块未返回内部 file block：{data}")
+        return block_id
+
+    def upload_file(self, file_path: Path, file_block_id: str) -> str:
+        body, content_type = self._multipart(
+            {
+                "file_name": file_path.name,
+                "parent_type": "docx_file",
+                "parent_node": file_block_id,
+                "size": str(file_path.stat().st_size),
+            },
+            file_path,
+        )
+        data = self._request(
+            "POST",
+            "/drive/v1/medias/upload_all",
+            body,
+            content_type=content_type,
+        )
+        token = data.get("file_token", "")
+        if not token:
+            raise RuntimeError(f"飞书上传附件未返回 file_token：{data}")
+        return token
+
+    def replace_file(self, document_id: str, block_id: str, file_token: str) -> None:
+        self._request(
+            "PATCH",
+            f"/docx/v1/documents/{document_id}/blocks/{block_id}",
+            self._json_body({"replace_file": {"token": file_token}}),
+            query={"document_revision_id": "-1"},
+        )
+
+    def add_file_attachment(self, document_id: str, file_path: Path) -> str:
+        block_id = self.create_file_block(document_id)
+        token = self.upload_file(file_path, block_id)
+        self.replace_file(document_id, block_id, token)
+        return token
+
+    @staticmethod
     def _local_image_path(
         image_url: str, markdown_path: Path, asset_root: Path
     ) -> Path | None:
@@ -372,6 +443,7 @@ class FeishuClient:
         editor_id: str = "",
         editor_type: str = "openid",
         asset_root: Path | None = None,
+        attachments: list[Path] | None = None,
     ) -> tuple[str, list[str]]:
         markdown = markdown_path.read_text(encoding="utf-8")
         if len(markdown) > 10_000_000:
@@ -396,6 +468,12 @@ class FeishuClient:
                 time.sleep(0.4)
             except Exception as exc:
                 warnings.append(f"图片 {image_path.name} 上传失败：{exc}")
+        for attachment in attachments or []:
+            try:
+                self.add_file_attachment(document_id, attachment)
+                time.sleep(0.4)
+            except Exception as exc:
+                warnings.append(f"附件 {attachment.name} 上传失败：{exc}")
         self.add_document_editor(document_id, editor_id, editor_type)
         return f"{self.config.doc_base_url}/{document_id}", warnings
 
