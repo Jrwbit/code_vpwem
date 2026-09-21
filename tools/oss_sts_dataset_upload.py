@@ -69,6 +69,9 @@ def main() -> None:
         os.dup2(log_fd, sys.stderr.fileno())
         os.close(null_fd)
         os.close(log_fd)
+        # Do not keep the SSH transport alive after the launcher exits. The
+        # upload has not opened any network connections at this point.
+        os.closerange(3, int(os.sysconf("SC_OPEN_MAX")))
     auth = oss2.StsAuth(
         credentials["AccessKeyId"],
         credentials["AccessKeySecret"],
