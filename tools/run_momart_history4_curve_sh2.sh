@@ -25,7 +25,8 @@ if (( episodes <= 0 || num_envs <= 0 || episodes % num_envs != 0 )); then
 fi
 
 mkdir -p "${output}/logs"
-exec 9>"${output}/.queue.lock"
+lock_file=${MOMART_CURVE_LOCK_FILE:-${output}/.queue.lock}
+exec 9>"${lock_file}"
 flock -n 9 || { echo "MoMaRT curve queue already running" >&2; exit 2; }
 
 export CUDA_VISIBLE_DEVICES="${gpu}"
