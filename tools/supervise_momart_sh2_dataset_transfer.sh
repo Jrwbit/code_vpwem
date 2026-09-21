@@ -47,6 +47,44 @@ complete() {
     [[ "${source_manifest}" == "${target_manifest}" ]]
 }
 
+validate_sh2() {
+    ssh -o BatchMode=yes -o ConnectTimeout=10 "${SH2_HOST}" 'bash -s' <<'EOS'
+set -euo pipefail
+source /oss/sh2/vpwem/runtime/activate_momart_history4_sh2.sh
+
+test "$(find "${MOMART_RAW_DATA_ROOT}" -maxdepth 1 -type f -name '*.hdf5' | wc -l)" -eq 10
+test "$(find "${MOMART_EMB_DATA_ROOT}" -maxdepth 1 -type f -name '*.hdf5' | wc -l)" -eq 10
+test "$(find "${MOMART_CONTEXT_ROOT}" -type f -path '*/obs_2_act_8_8layer/100/models/model_1000000.pt' | wc -l)" -eq 10
+test -s "${MOMART_VPWEM_ROOT}/models/model_1000000.pt"
+test -s "${MOMART_RAW_POLICY_ROOT}/direct/seed100/models/model_1000000.pt"
+test -s "${MOMART_RAW_POLICY_ROOT}/direct_token2/seed100/models/model_1000000.pt"
+test -s "${MOMART_NO_HISTORY_ROOT}/models/model_1000000.pt"
+test "$(find "${MOMART_TRANSFER_ROOT}/evaluations" -type f -name result.npy | wc -l)" -eq 40
+
+"${VPWEM_ENV}/bin/python" - <<'PY'
+from pathlib import Path
+import h5py
+
+roots = (
+    Path("/oss/sh2/vpwem_data/momart"),
+    Path("/oss/sh2/vpwem_data/momart_emb_8layer"),
+)
+for root in roots:
+    for path in sorted(root.glob("*.hdf5")):
+        with h5py.File(path, "r") as handle:
+            if len(handle.keys()) == 0:
+                raise RuntimeError(f"empty HDF5: {path}")
+PY
+
+cd "${MOMART_REPO}"
+PYTHONPATH="${MOMART_REPO}:${MOMART_REPO}/pipelines" \
+    "${VPWEM_ENV}/bin/python" -m pytest -q \
+    tests/test_momart_embedding_condition.py \
+    tests/test_momart_nohistory_eval.py \
+    tests/test_multitask.py
+EOS
+}
+
 launch_shard() {
     local kind=$1 source=$2 prefix=$3 shard=$4
     log "launch kind=${kind} shard=${shard}/${SHARD_COUNT}"
@@ -77,11 +115,15 @@ launch_all() {
 log "supervisor_start"
 while true; do
     if complete; then
-        completed_at=$(date -Is)
-        ssh -o BatchMode=yes -o ConnectTimeout=10 "${SH2_HOST}" \
-            "printf 'completed_at=%s\\nraw_hdf5=10\\nemb_hdf5=10\\nverification=source_target_name_and_size_match\\n' '${completed_at}' > '${marker}'"
-        log "complete marker=${marker}"
-        exit 0
+        log "size_manifest_complete validating_sh2"
+        if validate_sh2; then
+            completed_at=$(date -Is)
+            ssh -o BatchMode=yes -o ConnectTimeout=10 "${SH2_HOST}" \
+                "printf 'completed_at=%s\\nraw_hdf5=10\\nemb_hdf5=10\\nverification=source_target_name_size_hdf5_and_targeted_tests_passed\\n' '${completed_at}' > '${marker}'"
+            log "complete marker=${marker}"
+            exit 0
+        fi
+        log "validation_failed; will retry"
     fi
 
     active=$(active_uploads 2>/dev/null || printf 'unknown')
