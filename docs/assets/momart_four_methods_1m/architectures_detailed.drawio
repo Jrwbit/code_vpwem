@@ -161,7 +161,7 @@
         <mxCell id="53" value="&lt;b&gt;动作位置编码&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;加可学习 position embedding&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
           <mxGeometry x="780" y="2070" width="280" height="112" as="geometry" />
         </mxCell>
-        <mxCell id="54" value="&lt;b&gt;Transformer Decoder ×8&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;因果 self-attn + 条件 cross-attn&lt;br&gt;4头；FFN 256→1024→256&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+        <mxCell id="54" value="&lt;b&gt;Transformer Decoder ×8&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;因果 self-attn + PTP 时间对齐 cross-attn&lt;br&gt;4头；FFN 256→1024→256&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
           <mxGeometry x="2180" y="2040" width="335" height="140" as="geometry" />
         </mxCell>
         <mxCell id="55" value="&lt;b&gt;LayerNorm + 输出头&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;Linear 256→10&lt;br&gt;预测噪声 εθ [B,9,10]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
@@ -454,7 +454,7 @@
         <mxCell id="84" value="&lt;b&gt;动作位置编码&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;加可学习 position embedding&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
           <mxGeometry x="780" y="2070" width="280" height="112" as="geometry" />
         </mxCell>
-        <mxCell id="85" value="&lt;b&gt;Transformer Decoder ×8&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;因果 self-attn + 条件 cross-attn&lt;br&gt;4头；FFN 256→1024→256&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+        <mxCell id="85" value="&lt;b&gt;Transformer Decoder ×8&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;因果 self-attn + PTP 时间对齐 cross-attn&lt;br&gt;4头；FFN 256→1024→256&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
           <mxGeometry x="2180" y="2040" width="335" height="140" as="geometry" />
         </mxCell>
         <mxCell id="86" value="&lt;b&gt;LayerNorm + 输出头&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;Linear 256→10&lt;br&gt;预测噪声 εθ [B,9,10]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
@@ -753,7 +753,7 @@
         <mxCell id="86" value="&lt;b&gt;动作位置编码&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;加可学习 position embedding&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
           <mxGeometry x="780" y="2070" width="280" height="112" as="geometry" />
         </mxCell>
-        <mxCell id="87" value="&lt;b&gt;Transformer Decoder ×8&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;因果 self-attn + 条件 cross-attn&lt;br&gt;4头；FFN 256→1024→256&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+        <mxCell id="87" value="&lt;b&gt;Transformer Decoder ×8&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;因果 self-attn + PTP 时间对齐 cross-attn&lt;br&gt;4头；FFN 256→1024→256&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
           <mxGeometry x="2180" y="2040" width="335" height="140" as="geometry" />
         </mxCell>
         <mxCell id="88" value="&lt;b&gt;LayerNorm + 输出头&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;Linear 256→10&lt;br&gt;预测噪声 εθ [B,9,10]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
@@ -923,7 +923,7 @@
         <mxCell id="43" value="&lt;b&gt;动作位置编码&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;加可学习 position embedding&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
           <mxGeometry x="780" y="2070" width="280" height="112" as="geometry" />
         </mxCell>
-        <mxCell id="44" value="&lt;b&gt;Transformer Decoder ×8&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;因果 self-attn + 条件 cross-attn&lt;br&gt;4头；FFN 256→1024→256&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+        <mxCell id="44" value="&lt;b&gt;Transformer Decoder ×8&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;因果 self-attn + PTP 时间对齐 cross-attn&lt;br&gt;4头；FFN 256→1024→256&lt;br&gt;[B,9,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
           <mxGeometry x="2180" y="2040" width="335" height="140" as="geometry" />
         </mxCell>
         <mxCell id="45" value="&lt;b&gt;LayerNorm + 输出头&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;Linear 256→10&lt;br&gt;预测噪声 εθ [B,9,10]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">

@@ -33,7 +33,7 @@ class DetailPage(Page):
         self.label("③ 扩散动作骨干：条件 + 带噪动作 → 去噪 → 执行", 75, 1790, 3120, 43, 25, bold=True, color="#EA580C")
 
 
-def raw_current(p: DetailPage) -> str:
+def raw_current(p: DetailPage, *, include_task: bool = True) -> str:
     names = ("正面 RGB", "腕部 RGB", "正面深度", "腕部深度")
     channels = (3, 3, 1, 1)
     outputs = []
@@ -53,9 +53,15 @@ def raw_current(p: DetailPage) -> str:
     for output in (*outputs, proprio, scan_encoder):
         p.edge(output, merge)
     mlp = p.node("多模态 MLP", "Linear 2122→256<br>LeakyReLU→Linear 256→256<br>[B,2,256]", 1080, 1195, 310, 135)
-    task = p.node("任务 embedding", "Embedding(5,256)，逐帧相加<br>[B,2,256]", 1080, 1415, 310, 125, "condition")
-    recent = p.node("近期观测 token", "2 个全局 token<br>[B,2,256]", 1080, 1610, 310, 115, "condition")
-    for a, b in ((merge, mlp), (mlp, task), (task, recent)):
+    if include_task:
+        task = p.node("任务 embedding", "Embedding(5,256)，逐帧相加<br>[B,2,256]", 1080, 1415, 310, 125, "condition")
+        recent_y = 1610
+    else:
+        task = None
+        recent_y = 1450
+    recent = p.node("近期观测 token", "2 个全局 token<br>[B,2,256]", 1080, recent_y, 310, 115, "condition")
+    path = ((merge, mlp), (mlp, task), (task, recent)) if task else ((merge, mlp), (mlp, recent))
+    for a, b in path:
         p.edge(a, b)
     return recent
 
@@ -120,7 +126,8 @@ def vpwem_history(p: DetailPage) -> str:
     return output
 
 
-def action_backbone(p: DetailPage, recent: str, memory: str | None, tm: int) -> None:
+def action_backbone(p: DetailPage, recent: str, memory: str | None, tm: int,
+                    *, ptp: bool = True) -> None:
     noise_step = p.node("扩散时间步 τ", "PositionalEmbedding<br>[B,1,256]", 1120, 1860, 250, 112, "input")
     cond = p.node("条件 token 拼接", f"[τ, memory({tm}), obs(2)]<br>[B,{tm + 3},256]", 1460, 1860, 290, 112, "condition")
     cond_mlp = p.node("条件逐 token MLP", f"位置编码；256→1024→256<br>Mish；[B,{tm + 3},256]", 1830, 1860, 290, 112, "condition")
@@ -133,17 +140,20 @@ def action_backbone(p: DetailPage, recent: str, memory: str | None, tm: int) -> 
     noisy = p.node("带噪动作 xₜ", "归一化 9 步 × 10维<br>[B,9,10]", 75, 2070, 265, 112, "input")
     linear = p.node("动作线性映射", "Linear 10→256<br>[B,9,256]", 425, 2070, 270, 112)
     position = p.node("动作位置编码", "加可学习 position embedding<br>[B,9,256]", 780, 2070, 280, 112)
-    decoder = p.node("Transformer Decoder ×8", "因果 self-attn + 条件 cross-attn<br>4头；FFN 256→1024→256<br>[B,9,256]", 2180, 2040, 335, 140, "action")
+    cross = "PTP 时间对齐 cross-attn" if ptp else "全可见条件 cross-attn"
+    decoder = p.node("Transformer Decoder ×8", f"因果 self-attn + {cross}<br>4头；FFN 256→1024→256<br>[B,9,256]", 2180, 2040, 335, 140, "action")
     head = p.node("LayerNorm + 输出头", "Linear 256→10<br>预测噪声 εθ [B,9,10]", 2570, 2040, 270, 140, "action")
     ddpm = p.node("DDPM 反向去噪", "循环 50 次<br>动作序列 [B,9,10]", 2890, 2040, 250, 140, "action")
     execute = p.node("在线执行", "取动作块 8 步<br>[B,8,10]", 3150, 2040, 215, 140, "action")
     for a, b in ((noisy, linear), (linear, position), (position, decoder),
                  (cond_mlp, decoder), (decoder, head), (head, ddpm), (ddpm, execute)):
         p.edge(a, b)
-    p.label(
-        "PTP 掩码：动作 self-attention 为因果掩码；长期历史对所有动作位置可见；第 j 帧近期观测仅对第 j 个及之后动作位置可见。",
-        75, 2250, 3250, 54, 20, color="#475569",
+    note = (
+        "PTP 掩码：动作 self-attention 为因果掩码；长期历史对所有动作位置可见；第 j 帧近期观测仅对第 j 个及之后动作位置可见。"
+        if ptp else
+        "DP 掩码：动作 self-attention 为因果掩码；扩散时间步和两个近期观测 token 对全部 9 个动作位置可见。"
     )
+    p.label(note, 75, 2250, 3250, 54, 20, color="#475569")
 
 
 def main() -> None:
