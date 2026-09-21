@@ -118,8 +118,8 @@ def train(args):
 def pipeline(args):
     set_seed(args.seed)
     assert args.horizon == args.obs_steps + args.action_steps - 1
-    if str(args.history_method) != "direct_token2":
-        raise ValueError("this queue is intended for direct_token2")
+    if str(args.history_method) not in {"direct_token2", "no_history"}:
+        raise ValueError("history_method must be direct_token2 or no_history")
     train(args)
 
 
