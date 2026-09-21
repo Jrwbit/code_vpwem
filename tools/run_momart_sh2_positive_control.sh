@@ -59,7 +59,7 @@ import numpy as np
 result = np.load(sys.argv[1], allow_pickle=True).item()
 success = np.asarray(result["episode_success"], dtype=np.int8)
 print(f"positive_control successes={int(success.sum())}/{len(success)}")
-if len(success) != 10 or success.mean() < 0.5:
+if len(success) != 10 or success.mean() < 0.8:
     raise SystemExit("positive control failed: SH2 behavior differs from BHR")
 ' "${result}"
 printf 'PASS positive_control time=%s\n' "$(date -Is)"

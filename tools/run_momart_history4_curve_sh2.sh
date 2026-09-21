@@ -67,7 +67,7 @@ assert result["env_name"] == "table_setup_from_dresser"
 assert result["env_type"] == "expert"
 assert result["eval_seed"] == 20260917
 assert len(result["episode_success"]) == 10
-assert result["mean_success"] >= 0.5
+assert result["mean_success"] >= 0.8
 ' "${control}"; then
     echo "SH2 MoMaRT positive control is absent or failed: ${control}" >&2
     exit 2
