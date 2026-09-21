@@ -1,0 +1,350 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device" version="24.7.17">
+  <diagram id="no_history" name="No-History">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2100" pageHeight="1120" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="No-History" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=36;fontColor=#172033;fontStyle=1;">
+          <mxGeometry x="55" y="30" width="1800" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="近期观测基线｜不使用长期历史；历史 token 数 0" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=19;fontColor=#64748B;fontStyle=0;">
+          <mxGeometry x="55" y="94" width="1900" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="当前观测路径" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=24;fontColor=#1D4ED8;fontStyle=1;">
+          <mxGeometry x="65" y="170" width="450" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="长期历史路径" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=24;fontColor=#7C3AED;fontStyle=1;">
+          <mxGeometry x="65" y="500" width="450" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="&lt;b&gt;最近 2 帧观测&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;RGB×2 · 深度×2&lt;br&gt;proprio · scan&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#E0F2FE;strokeColor=#0284C7;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="70" y="250" width="260" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="&lt;b&gt;多模态编码&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;四路 ResNet-18&lt;br&gt;低维特征融合 + MLP&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="400" y="250" width="260" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="&lt;b&gt;任务条件&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;加入可学习 task embedding&lt;br&gt;得到 [B,2,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="740" y="250" width="270" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="&lt;b&gt;历史关闭&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;memory=None&lt;br&gt;Tm=0；无 Q-Former&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#F1F5F9;strokeColor=#64748B;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="70" y="600" width="260" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="" edge="1" parent="1" source="6" target="7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="" edge="1" parent="1" source="7" target="8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="12" value="&lt;b&gt;条件序列&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;[扩散步, 历史(0), 近期观测(2)]&lt;br&gt;PTP 时间对齐 mask&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1420" y="350" width="270" height="138" as="geometry" />
+        </mxCell>
+        <mxCell id="13" value="&lt;b&gt;动作去噪网络&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;8 层 PTP Transformer&lt;br&gt;256维 · 4头 · FFN 1024&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="350" width="285" height="138" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="&lt;b&gt;DDPM&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;50 次反向去噪&lt;br&gt;9步 × 10维动作&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="570" width="285" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="&lt;b&gt;在线执行&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;每次执行 8 步动作&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="760" width="285" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="" edge="1" parent="1" source="8" target="12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="17" value="" edge="1" parent="1" source="12" target="13" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="18" value="" edge="1" parent="1" source="13" target="14" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="19" value="" edge="1" parent="1" source="14" target="15" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="20" value="共同骨干：带噪动作使用因果自注意力；近期观测按 PTP 掩码可见；长期历史对所有动作位置可见。" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=19;fontColor=#475569;fontStyle=0;">
+          <mxGeometry x="65" y="965" width="1900" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="21" value="相对基准：完整保留动作 Transformer，仅关闭长期历史输入。" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=21;fontColor=#172033;fontStyle=1;">
+          <mxGeometry x="70" y="850" width="1450" height="55" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="direct" name="Direct">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2100" pageHeight="1120" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="Direct" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=36;fontColor=#172033;fontStyle=1;">
+          <mxGeometry x="55" y="30" width="1800" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="完整空间历史｜16 帧 × 4 路视觉 × 4×4 网格 = 最多 1024 个历史 token" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=19;fontColor=#64748B;fontStyle=0;">
+          <mxGeometry x="55" y="94" width="1900" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="当前观测路径" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=24;fontColor=#1D4ED8;fontStyle=1;">
+          <mxGeometry x="65" y="170" width="450" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="长期历史路径" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=24;fontColor=#7C3AED;fontStyle=1;">
+          <mxGeometry x="65" y="500" width="450" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="&lt;b&gt;最近 2 帧 raw 观测&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;四路视觉 + proprio + scan&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#E0F2FE;strokeColor=#0284C7;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="70" y="250" width="255" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="&lt;b&gt;当前观测全局编码&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;ResNet-18 + MLP&lt;br&gt;加 task embedding&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="405" y="250" width="270" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="&lt;b&gt;近期条件&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;[B,2,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="760" y="250" width="245" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="" edge="1" parent="1" source="6" target="7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="" edge="1" parent="1" source="7" target="8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="&lt;b&gt;最多 16 帧历史&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;仅四路 RGB/深度&lt;br&gt;无历史 proprio/scan&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#E0F2FE;strokeColor=#0284C7;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="70" y="590" width="255" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="12" value="&lt;b&gt;空间视觉主干&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;每路 ResNet trunk&lt;br&gt;AdaptiveAvgPool2d(4×4)&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="405" y="590" width="280" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="13" value="&lt;b&gt;空间 token&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;每格投影至 256维&lt;br&gt;加空间位置与视角编码&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#F3E8FF;strokeColor=#7C3AED;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="775" y="590" width="280" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="" edge="1" parent="1" source="11" target="12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="" edge="1" parent="1" source="12" target="13" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="&lt;b&gt;完整历史条件&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;16×4×16 = 1024 token&lt;br&gt;[B,1024,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#F3E8FF;strokeColor=#7C3AED;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1125" y="590" width="245" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="17" value="" edge="1" parent="1" source="13" target="16" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="18" value="&lt;b&gt;条件序列&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;[扩散步, 历史(1024), 近期观测(2)]&lt;br&gt;PTP 时间对齐 mask&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1420" y="350" width="270" height="138" as="geometry" />
+        </mxCell>
+        <mxCell id="19" value="&lt;b&gt;动作去噪网络&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;8 层 PTP Transformer&lt;br&gt;256维 · 4头 · FFN 1024&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="350" width="285" height="138" as="geometry" />
+        </mxCell>
+        <mxCell id="20" value="&lt;b&gt;DDPM&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;50 次反向去噪&lt;br&gt;9步 × 10维动作&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="570" width="285" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="21" value="&lt;b&gt;在线执行&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;每次执行 8 步动作&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="760" width="285" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="22" value="" edge="1" parent="1" source="8" target="18" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="23" value="" edge="1" parent="1" source="16" target="18" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="24" value="" edge="1" parent="1" source="18" target="19" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="25" value="" edge="1" parent="1" source="19" target="20" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="26" value="" edge="1" parent="1" source="20" target="21" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="27" value="共同骨干：带噪动作使用因果自注意力；近期观测按 PTP 掩码可见；长期历史对所有动作位置可见。" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=19;fontColor=#475569;fontStyle=0;">
+          <mxGeometry x="65" y="965" width="1900" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="28" value="相对 No-History：新增空间历史分支，完整历史 token 直接进入交叉注意力。" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=21;fontColor=#172033;fontStyle=1;">
+          <mxGeometry x="70" y="850" width="1640" height="55" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="direct_token2" name="Direct-token2">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2100" pageHeight="1120" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="Direct-token2" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=36;fontColor=#172033;fontStyle=1;">
+          <mxGeometry x="55" y="30" width="1800" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="无参数压缩｜与 Direct 共用空间视觉编码，将 1024 个历史 token 平均池化为 2 个" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=19;fontColor=#64748B;fontStyle=0;">
+          <mxGeometry x="55" y="94" width="1900" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="当前观测路径" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=24;fontColor=#1D4ED8;fontStyle=1;">
+          <mxGeometry x="65" y="170" width="450" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="长期历史路径" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=24;fontColor=#7C3AED;fontStyle=1;">
+          <mxGeometry x="65" y="500" width="450" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="&lt;b&gt;最近 2 帧 raw 观测&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;四路视觉 + proprio + scan&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#E0F2FE;strokeColor=#0284C7;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="70" y="250" width="255" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="&lt;b&gt;当前观测全局编码&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;ResNet-18 + MLP&lt;br&gt;加 task embedding&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="405" y="250" width="270" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="&lt;b&gt;近期条件&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;[B,2,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="760" y="250" width="245" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="" edge="1" parent="1" source="6" target="7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="" edge="1" parent="1" source="7" target="8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="&lt;b&gt;最多 16 帧历史&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;仅四路 RGB/深度&lt;br&gt;无历史 proprio/scan&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#E0F2FE;strokeColor=#0284C7;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="70" y="590" width="255" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="12" value="&lt;b&gt;空间视觉主干&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;每路 ResNet trunk&lt;br&gt;AdaptiveAvgPool2d(4×4)&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="405" y="590" width="280" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="13" value="&lt;b&gt;空间 token&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;每格投影至 256维&lt;br&gt;加空间位置与视角编码&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#F3E8FF;strokeColor=#7C3AED;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="775" y="590" width="280" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="" edge="1" parent="1" source="11" target="12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="" edge="1" parent="1" source="12" target="13" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="&lt;b&gt;固定平均池化&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;1024 → 2 token&lt;br&gt;AdaptiveAvgPool1d(2)&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#F3E8FF;strokeColor=#7C3AED;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1125" y="590" width="245" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="17" value="" edge="1" parent="1" source="13" target="16" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="18" value="&lt;b&gt;条件序列&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;[扩散步, 历史(2), 近期观测(2)]&lt;br&gt;PTP 时间对齐 mask&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1420" y="350" width="270" height="138" as="geometry" />
+        </mxCell>
+        <mxCell id="19" value="&lt;b&gt;动作去噪网络&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;8 层 PTP Transformer&lt;br&gt;256维 · 4头 · FFN 1024&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="350" width="285" height="138" as="geometry" />
+        </mxCell>
+        <mxCell id="20" value="&lt;b&gt;DDPM&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;50 次反向去噪&lt;br&gt;9步 × 10维动作&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="570" width="285" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="21" value="&lt;b&gt;在线执行&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;每次执行 8 步动作&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="760" width="285" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="22" value="" edge="1" parent="1" source="8" target="18" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="23" value="" edge="1" parent="1" source="16" target="18" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="24" value="" edge="1" parent="1" source="18" target="19" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="25" value="" edge="1" parent="1" source="19" target="20" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="26" value="" edge="1" parent="1" source="20" target="21" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="27" value="共同骨干：带噪动作使用因果自注意力；近期观测按 PTP 掩码可见；长期历史对所有动作位置可见。" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=19;fontColor=#475569;fontStyle=0;">
+          <mxGeometry x="65" y="965" width="1900" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="28" value="相对 Direct：仅在历史送入 Decoder 前做无参数平均池化；视觉主干仍可训练。" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=21;fontColor=#172033;fontStyle=1;">
+          <mxGeometry x="70" y="850" width="1640" height="55" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="vpwem" name="VPWEM">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2100" pageHeight="1120" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="VPWEM" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=36;fontColor=#172033;fontStyle=1;">
+          <mxGeometry x="55" y="30" width="1800" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="学习式情景记忆｜预计算 dp_emb + FIFO 缓存 + 2 层 Q-Former → 2 个记忆 token" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=19;fontColor=#64748B;fontStyle=0;">
+          <mxGeometry x="55" y="94" width="1900" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="当前观测路径" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=24;fontColor=#1D4ED8;fontStyle=1;">
+          <mxGeometry x="65" y="170" width="450" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="长期历史路径" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=24;fontColor=#7C3AED;fontStyle=1;">
+          <mxGeometry x="65" y="500" width="450" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="&lt;b&gt;最近 2 帧 dp_emb&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;预计算 256维 embedding&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#E0F2FE;strokeColor=#0284C7;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="70" y="250" width="255" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="&lt;b&gt;任务条件&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;加 task embedding&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="405" y="250" width="250" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="&lt;b&gt;近期条件&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;[B,2,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="750" y="250" width="245" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="" edge="1" parent="1" source="6" target="7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="" edge="1" parent="1" source="7" target="8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="&lt;b&gt;历史 dp_emb&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;最多 16 帧&lt;br&gt;每帧 256维&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#E0F2FE;strokeColor=#0284C7;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="70" y="590" width="225" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="12" value="&lt;b&gt;时间编码&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;加入 episode 内的&lt;br&gt;正弦位置编码&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="350" y="590" width="225" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="13" value="&lt;b&gt;FIFO 观测缓存&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;容量 8&lt;br&gt;保留最近历史证据&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#F3E8FF;strokeColor=#7C3AED;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="630" y="590" width="225" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="&lt;b&gt;可学习 query&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;2 个 query&lt;br&gt;读取历史 query 摘要缓存&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#F3E8FF;strokeColor=#7C3AED;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="630" y="790" width="225" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="&lt;b&gt;Q-Former ×2&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;自注意力 → 交叉注意力&lt;br&gt;→ 前馈网络；8头&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#F3E8FF;strokeColor=#7C3AED;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="925" y="590" width="240" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="&lt;b&gt;记忆摘要&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;2 token&lt;br&gt;[B,2,256]&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#F3E8FF;strokeColor=#7C3AED;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1205" y="590" width="190" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="17" value="" edge="1" parent="1" source="11" target="12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="18" value="" edge="1" parent="1" source="12" target="13" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="19" value="" edge="1" parent="1" source="13" target="15" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="20" value="" edge="1" parent="1" source="14" target="15" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="21" value="" edge="1" parent="1" source="15" target="16" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="22" value="&lt;b&gt;条件序列&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;[扩散步, 历史(2), 近期观测(2)]&lt;br&gt;PTP 时间对齐 mask&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1420" y="350" width="270" height="138" as="geometry" />
+        </mxCell>
+        <mxCell id="23" value="&lt;b&gt;动作去噪网络&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;8 层 PTP Transformer&lt;br&gt;256维 · 4头 · FFN 1024&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="350" width="285" height="138" as="geometry" />
+        </mxCell>
+        <mxCell id="24" value="&lt;b&gt;DDPM&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;50 次反向去噪&lt;br&gt;9步 × 10维动作&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="570" width="285" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="25" value="&lt;b&gt;在线执行&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:15px'&gt;每次执行 8 步动作&lt;/font&gt;" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontColor=#172033;fontSize=19;align=center;verticalAlign=middle;spacing=10;">
+          <mxGeometry x="1760" y="760" width="285" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="26" value="" edge="1" parent="1" source="8" target="22" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="27" value="" edge="1" parent="1" source="16" target="22" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="28" value="" edge="1" parent="1" source="22" target="23" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="29" value="" edge="1" parent="1" source="23" target="24" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="30" value="" edge="1" parent="1" source="24" target="25" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=2;dashed=0;fontSize=15;fontColor=#475569;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="31" value="共同骨干：带噪动作使用因果自注意力；近期观测按 PTP 掩码可见；长期历史对所有动作位置可见。" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=19;fontColor=#475569;fontStyle=0;">
+          <mxGeometry x="65" y="965" width="1900" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="32" value="相对 Direct-token2：固定池化改为可学习记忆；当前实验还使用不同的预计算 embedding 输入链路。" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=0;fontSize=20;fontColor=#172033;fontStyle=1;">
+          <mxGeometry x="70" y="915" width="1640" height="48" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

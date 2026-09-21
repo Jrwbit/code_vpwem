@@ -234,3 +234,7 @@ FIFO 观测缓存〔容量 8〕                                       │
 ![MoMaRT 四方法平均成功率柱状图](assets/momart_four_methods_1m/mean_scores.png)
 
 **结果边界**：以上为单个训练 seed 的诊断级结果。No-History、Direct、Direct-token2 使用 raw-image、有效 batch 64；当前 VPWEM 使用预计算 embedding、有效 batch 256。因此表格与图展示的是四个已运行系统的分数，不能把差异单独归因于历史记忆机制。逐项原始汇总见 `reports/momart_1m_four_methods/report_feishu.md` 第 7 节。
+
+## 可编辑流程图文件
+
+文档附件 **`architectures.drawio`** 含四个独立页面：No-History、Direct、Direct-token2、VPWEM。每个矩形节点、文字标签与箭头都是可编辑对象。下载后可在 diagrams.net 网页版或 draw.io Desktop 中打开，选择顶部页面标签切换方法。该文件在仓库中的路径为 `docs/assets/momart_four_methods_1m/architectures.drawio`。
