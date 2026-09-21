@@ -107,20 +107,21 @@ def build_agent(args, normalizer):
 
 def split_batch(args, dataset, batch):
     condition, memory = {}, {}
+    use_history = str(args.history_method) != "no_history"
     for key, value in batch["obs"].items():
         if key.endswith("_mem"):
-            base_key = key[:-4]
-            memory[base_key] = dataset.normalizer["obs"][base_key].normalize(
-                value.to(args.device))
+            if use_history:
+                base_key = key[:-4]
+                memory[base_key] = dataset.normalizer["obs"][base_key].normalize(
+                    value.to(args.device))
         elif key not in {"ep_step", "actual_num_frames"}:
             condition[key] = dataset.normalizer["obs"][key].normalize(
                 value[:, :args.obs_steps].to(args.device))
     action = dataset.normalizer["action"].normalize(
         batch["action"].to(args.device))
-    steps = batch["obs"]["ep_step"].int().to(args.device)
-    if str(args.history_method) == "no_history":
+    steps = batch["obs"]["ep_step"].int().to(args.device) if use_history else None
+    if not use_history:
         memory = None
-        steps = None
     return condition, memory, action, steps
 
 

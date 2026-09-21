@@ -172,6 +172,7 @@ class LongMemSequenceSampler:
             preserve_episode_anchor: bool = False,
             include_action_memory: bool = False,
             history_sampling_seed: Optional[int] = None,
+            include_history: bool = True,
     ):
         """
             key_first_k: dict str: int
@@ -220,6 +221,7 @@ class LongMemSequenceSampler:
         # Separate method arms therefore receive exactly the same raw evidence,
         # independent of worker scheduling or model runtime.
         self.history_sampling_seed = history_sampling_seed
+        self.include_history = bool(include_history)
 
     def __len__(self):
         return len(self.indices)
@@ -260,6 +262,10 @@ class LongMemSequenceSampler:
                         data[sample_end_idx:] = sample[-1]
                 data[sample_start_idx:sample_end_idx] = sample
             result[key] = data
+        if not self.include_history:
+            result['ep_step'] = np.zeros(1, dtype=np.float32)
+            result['actual_num_frames'] = 1
+            return result
         # 当前窗口到这里已经组装完毕。下面只从同一 episode 的窗口左侧取历史，
         # 所以不会把未来帧泄漏给记忆分支。
         # 每个长度为 subsample_ratio 的时间段随机取一帧，兼顾覆盖范围与冗余控制。

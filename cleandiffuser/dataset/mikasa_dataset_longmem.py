@@ -64,6 +64,7 @@ class LongMemMikasaDataset(BaseDataset):
             conversion_max_inflight_tasks=None,
             load_images=True,
             device='cpu',
+            include_history=True,
     ):
         super().__init__()
 
@@ -106,6 +107,7 @@ class LongMemMikasaDataset(BaseDataset):
             preserve_episode_anchor=preserve_episode_anchor,
             include_action_memory=include_action_memory,
             history_sampling_seed=history_sampling_seed,
+            include_history=include_history,
         )
         
         self.subsample_ratio = subsample_ratio
@@ -118,6 +120,7 @@ class LongMemMikasaDataset(BaseDataset):
         self.pad_after = pad_after
         self.n_obs_steps = n_obs_steps
         self.device = device
+        self.include_history = bool(include_history)
         self.ncm_manifest = None
         self.ncm_pairing_seed = int(ncm_pairing_seed)
         self.ncm_pair_batch_fraction = float(ncm_pair_batch_fraction)
@@ -181,10 +184,11 @@ class LongMemMikasaDataset(BaseDataset):
             del sample[key]
             # obs_dict[key] = self.normalizer['obs'][key].normalize(obs_dict[key])
 
-            mem_key = key + "_mem"
-            obs_dict[mem_key] = np.moveaxis(sample[mem_key], -1, 1
-                                           ).astype(np.float32) / 255.
-            del sample[mem_key]
+            if self.include_history:
+                mem_key = key + "_mem"
+                obs_dict[mem_key] = np.moveaxis(sample[mem_key], -1, 1
+                                               ).astype(np.float32) / 255.
+                del sample[mem_key]
             # obs_dict[mem_key] = self.normalizer['obs'][key].normalize(obs_dict[mem_key])
 
         for key in self.lowdim_keys:
@@ -192,8 +196,9 @@ class LongMemMikasaDataset(BaseDataset):
             del sample[key]
             # obs_dict[key] = self.normalizer['obs'][key].normalize(obs_dict[key])
 
-            mem_key = key + "_mem"
-            obs_dict[mem_key] = sample[mem_key].astype(np.float32)
+            if self.include_history:
+                mem_key = key + "_mem"
+                obs_dict[mem_key] = sample[mem_key].astype(np.float32)
             # obs_dict[mem_key] = self.normalizer['obs'][key].normalize(obs_dict[mem_key])
 
         obs_dict['ep_step'] = sample['ep_step']

@@ -39,6 +39,7 @@ def build_datasets_and_loaders(args):
             conversion_max_inflight_tasks=args.conversion_max_inflight_tasks,
             load_images=True,
             device=args.device,
+            include_history=str(args.history_method) != "no_history",
         )
         sampler = dataset.get_dataset_sampler()
         loader = torch.utils.data.DataLoader(
