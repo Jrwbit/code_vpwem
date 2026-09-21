@@ -9,6 +9,7 @@ output=${MOMART_CURVE_OUTPUT_ROOT:-/oss/sh2/vpwem_outputs/momart_history4_curve_
 seed=${EVAL_SEED:-20260917}
 episodes=${EVAL_EPISODES:-30}
 num_envs=${NUM_ENVS:-10}
+num_video_episodes=${NUM_VIDEO_EPISODES:-1}
 gpu=${GPU:-0}
 python=${VPWEM_PYTHON:-${VPWEM_ENV}/bin/python}
 if [[ ${python} != "${VPWEM_ENV}/bin/python" ]]; then
@@ -21,6 +22,10 @@ tasks=(${EVAL_TASKS:-table_cleanup_to_dishwasher_expert table_cleanup_to_sink_ex
 
 if (( episodes <= 0 || num_envs <= 0 || episodes % num_envs != 0 )); then
     echo "EVAL_EPISODES must be a positive multiple of NUM_ENVS" >&2
+    exit 2
+fi
+if (( num_video_episodes < 0 || num_video_episodes > episodes )); then
+    echo "NUM_VIDEO_EPISODES must be between 0 and EVAL_EPISODES" >&2
     exit 2
 fi
 
@@ -38,8 +43,38 @@ fi
 export WANDB_MODE=offline PYTHONUNBUFFERED=1 OMP_NUM_THREADS=8
 cd "${MOMART_REPO}" || exit 1
 
-printf 'START time=%s seed=%s episodes=%s envs=%s gpu=%s\n' \
-    "$(date -Is)" "${seed}" "${episodes}" "${num_envs}" "${gpu}"
+# The MoMaRT policies were evaluated on BHR with this HDR environment map.
+# Missing it silently disables iGibson PBR and invalidates visual rollouts.
+igibson_source=${MOMART_LOCAL_GIBSON_SOURCE:-/oss/sh2/vpwem_runtime/sources/iGibson-momart}
+hdr=${igibson_source}/gibson2/data/ig_dataset/scenes/background/photo_studio_01_2k.hdr
+expected_hdr_sha=b6178cf04ea2ac9390b8794d3088a04c0254905f335f5f30d2b582c57c40f387
+if [[ ! -s ${hdr} || $(sha256sum "${hdr}" | cut -d' ' -f1) != "${expected_hdr_sha}" ]]; then
+    echo "Missing or incorrect iGibson HDR environment map: ${hdr}" >&2
+    exit 2
+fi
+
+# A known-good 1M checkpoint must first succeed on SH2 before the 800k/900k
+# curve is trusted. Keep the positive control in a separate output directory.
+control=${MOMART_POSITIVE_CONTROL_RESULT:-/oss/sh2/vpwem_outputs/momart_sh2_pbr_positive_control/direct_1m_table_setup_from_dresser_expert/result.npy}
+if [[ ! -s ${control} ]] || ! "${python}" -c '
+import sys
+import numpy as np
+
+result = np.load(sys.argv[1], allow_pickle=True).item()
+assert result["method"] == "direct"
+assert result["checkpoint_step"] == 1000000
+assert result["env_name"] == "table_setup_from_dresser"
+assert result["env_type"] == "expert"
+assert result["eval_seed"] == 20260917
+assert len(result["episode_success"]) == 10
+assert result["mean_success"] >= 0.5
+' "${control}"; then
+    echo "SH2 MoMaRT positive control is absent or failed: ${control}" >&2
+    exit 2
+fi
+
+printf 'START time=%s seed=%s episodes=%s envs=%s videos=%s gpu=%s\n' \
+    "$(date -Is)" "${seed}" "${episodes}" "${num_envs}" "${num_video_episodes}" "${gpu}"
 
 failures=0
 for method in "${methods[@]}"; do
@@ -97,7 +132,7 @@ for method in "${methods[@]}"; do
                 --dataset-path "${data}" --env-name "${env_name}" --env-type "${env_type}" \
                 --work-dir "${local_work}" --result-path "${local_result}" \
                 --seed "${seed}" --num-envs "${num_envs}" \
-                --eval-episodes "${episodes}" --num-video-episodes 0 \
+                --eval-episodes "${episodes}" --num-video-episodes "${num_video_episodes}" \
                 >"${log}" 2>&1
             status=$?
             if (( status == 0 )) && [[ -s ${local_result} ]]; then
