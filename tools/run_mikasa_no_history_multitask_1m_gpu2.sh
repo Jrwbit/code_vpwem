@@ -3,9 +3,9 @@ set -euo pipefail
 
 repo=${MIKASA_REPO:-/home/jrw/code_vpwem_fair_history}
 python_bin=${MIKASA_PYTHON:-/home/jrw/anaconda3/envs/vpwem/bin/python}
-work=${MIKASA_NO_HISTORY_WORK:-/home/jrw/vpwem_outputs/fair_history_mikasa_multitask/no_history_bs16_1m/seed100}
+work=${MIKASA_NO_HISTORY_WORK:-/home/jrw/vpwem_outputs/fair_history_mikasa_multitask/no_history_bs64_1m/seed100}
 gpu=${GPU:-2}
-batch_size=${BATCH_SIZE:-16}
+batch_size=${BATCH_SIZE:-64}
 
 mkdir -p "$work"
 exec 9>"$work/.train.lock"
