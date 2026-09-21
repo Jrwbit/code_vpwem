@@ -80,7 +80,9 @@ def main() -> None:
     bucket = oss2.Bucket(auth, args.endpoint, args.bucket)
 
     candidates = sorted(
-        path for path in args.source_root.glob(args.pattern) if path.is_file()
+        path
+        for path in args.source_root.glob(args.pattern)
+        if path.is_file() and not path.is_symlink()
     )
     selected = candidates[args.shard_index :: args.shard_count]
     print(
