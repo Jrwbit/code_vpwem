@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -37,6 +38,11 @@ def main() -> None:
     parser.add_argument("--shard-count", type=int, required=True)
     parser.add_argument("--multipart-threads", type=int, default=4)
     parser.add_argument("--part-size-mib", type=int, default=64)
+    parser.add_argument(
+        "--daemon-log",
+        type=Path,
+        help="Fork after reading credentials and append output to this log.",
+    )
     args = parser.parse_args()
 
     if not 0 <= args.shard_index < args.shard_count:
@@ -45,6 +51,24 @@ def main() -> None:
     credentials = json.load(sys.stdin)
     if credentials.get("Code") != "Success":
         raise RuntimeError("credential service did not return Success")
+    if args.daemon_log is not None:
+        pid = os.fork()
+        if pid:
+            print(json.dumps({"event": "daemonized", "pid": pid}), flush=True)
+            return
+        os.setsid()
+        args.daemon_log.parent.mkdir(parents=True, exist_ok=True)
+        log_fd = os.open(
+            args.daemon_log,
+            os.O_WRONLY | os.O_CREAT | os.O_APPEND,
+            0o600,
+        )
+        null_fd = os.open(os.devnull, os.O_RDONLY)
+        os.dup2(null_fd, sys.stdin.fileno())
+        os.dup2(log_fd, sys.stdout.fileno())
+        os.dup2(log_fd, sys.stderr.fileno())
+        os.close(null_fd)
+        os.close(log_fd)
     auth = oss2.StsAuth(
         credentials["AccessKeyId"],
         credentials["AccessKeySecret"],
