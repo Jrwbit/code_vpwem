@@ -22,6 +22,10 @@ seed=${EVAL_SEED:-20260917}
 episodes=${EVAL_EPISODES:-30}
 num_envs=${NUM_ENVS:-10}
 poll_seconds=${POLL_SECONDS:-60}
+direct_gpu=${DIRECT_GPU:-7}
+direct_token2_gpu=${DIRECT_TOKEN2_GPU:-3}
+vpwem_gpu=${VPWEM_GPU:-2}
+run_sequential=${RUN_SEQUENTIAL:-0}
 
 mkdir -p "${output_root}/logs"
 cd "${repo}" || exit 1
@@ -126,19 +130,23 @@ run_method() {
   return "$((failures > 0))"
 }
 
-# Keep the evaluation strictly on GPUs 2, 3, and 7, with one method per GPU.
-# Sharing an assigned GPU with an existing training process is intentional.
-run_method direct 7 &
-direct_pid=$!
-run_method direct_token2 3 &
-token_pid=$!
-run_method vpwem 2 &
-vpwem_pid=$!
-
 failed_queues=0
-wait "${direct_pid}" || failed_queues=$((failed_queues + 1))
-wait "${token_pid}" || failed_queues=$((failed_queues + 1))
-wait "${vpwem_pid}" || failed_queues=$((failed_queues + 1))
+if [[ ${run_sequential} == 1 ]]; then
+  run_method direct "${direct_gpu}" || failed_queues=$((failed_queues + 1))
+  run_method direct_token2 "${direct_token2_gpu}" || failed_queues=$((failed_queues + 1))
+  run_method vpwem "${vpwem_gpu}" || failed_queues=$((failed_queues + 1))
+else
+  run_method direct "${direct_gpu}" &
+  direct_pid=$!
+  run_method direct_token2 "${direct_token2_gpu}" &
+  token_pid=$!
+  run_method vpwem "${vpwem_gpu}" &
+  vpwem_pid=$!
+
+  wait "${direct_pid}" || failed_queues=$((failed_queues + 1))
+  wait "${token_pid}" || failed_queues=$((failed_queues + 1))
+  wait "${vpwem_pid}" || failed_queues=$((failed_queues + 1))
+fi
 printf '[%s] FINISHED failed_method_queues=%s\n' "$(date -Is)" "${failed_queues}"
 date -Is > "${output_root}/QUEUE_FINISHED"
 exit "$((failed_queues > 0))"

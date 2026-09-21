@@ -12,4 +12,12 @@ export MOMART_VPWEM_ROOT=${MOMART_TRANSFER_ROOT}/experiments/fair_history_momart
 export MOMART_NO_HISTORY_ROOT=${MOMART_RAW_POLICY_ROOT}/no_history/seed100
 export MOMART_EVAL_OUTPUT_ROOT=/oss/sh2/vpwem_outputs/fair_history_momart_multitask_eval_1m
 
+# The current SH2 instance exposes one GPU. Run method queues serially unless
+# the caller explicitly assigns additional devices.
+export DIRECT_GPU=${DIRECT_GPU:-0}
+export DIRECT_TOKEN2_GPU=${DIRECT_TOKEN2_GPU:-0}
+export VPWEM_GPU=${VPWEM_GPU:-0}
+export GPU=${GPU:-0}
+export RUN_SEQUENTIAL=${RUN_SEQUENTIAL:-1}
+
 cd "${MOMART_REPO}"
