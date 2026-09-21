@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-repo=/home/jrw/code_vpwem_momart_fair
-python_bin=/home/jrw/anaconda3/envs/vpwem/bin/python
-output_root=/home/jrw/vpwem_outputs/fair_history_momart_multitask_eval_1m
-data_root=/home/jrw/vpwem_data/momart
-train_root=/home/jrw/vpwem_outputs/fair_history_momart_multitask/no_history/seed100
+vpwem_root_dir=${VPWEM_ROOT:-/home/jrw/code_vpwem_momart_fair}
+runtime_root=${VPWEM_RUNTIME_ROOT:-/home/jrw/anaconda3/envs/vpwem}
+data_base=${VPWEM_DATA_ROOT:-/home/jrw/vpwem_data}
+output_base=${VPWEM_OUTPUT_ROOT:-/home/jrw/vpwem_outputs}
+transfer_root=${MOMART_TRANSFER_ROOT:-}
+repo=${MOMART_REPO:-${vpwem_root_dir}}
+python_bin=${VPWEM_PYTHON:-${runtime_root}/bin/python}
+output_root=${MOMART_EVAL_OUTPUT_ROOT:-${output_base}/fair_history_momart_multitask_eval_1m}
+data_root=${MOMART_RAW_DATA_ROOT:-${data_base}/momart}
+train_root=${MOMART_NO_HISTORY_ROOT:-${output_base}/fair_history_momart_multitask/no_history/seed100}
+if [[ -n ${transfer_root} ]]; then
+  train_root=${MOMART_NO_HISTORY_ROOT:-${transfer_root}/experiments/fair_history_momart_multitask/no_history/seed100}
+fi
 checkpoint=${train_root}/models/model_1000000.pt
 train_config=${train_root}/.hydra/config.yaml
 seed=${EVAL_SEED:-20260917}

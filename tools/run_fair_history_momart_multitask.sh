@@ -8,9 +8,12 @@ fi
 
 gpu=$1
 shift
-repo=/home/jrw/code_vpwem_momart_fair
-python_bin=/home/jrw/anaconda3/envs/vpwem/bin/python
-output_root=/home/jrw/vpwem_outputs/fair_history_momart_multitask
+vpwem_root_dir=${VPWEM_ROOT:-/home/jrw/code_vpwem_momart_fair}
+runtime_root=${VPWEM_RUNTIME_ROOT:-/home/jrw/anaconda3/envs/vpwem}
+output_base=${VPWEM_OUTPUT_ROOT:-/home/jrw/vpwem_outputs}
+repo=${MOMART_REPO:-${vpwem_root_dir}}
+python_bin=${VPWEM_PYTHON:-${runtime_root}/bin/python}
+output_root=${MOMART_TRAIN_OUTPUT_ROOT:-${output_base}/fair_history_momart_multitask}
 log_root=${output_root}/logs
 supervisor_log=${log_root}/gpu${gpu}_supervisor.log
 

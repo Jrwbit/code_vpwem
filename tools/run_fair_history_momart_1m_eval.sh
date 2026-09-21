@@ -1,13 +1,23 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-repo=/home/jrw/code_vpwem_momart_fair
-python_bin=/home/jrw/anaconda3/envs/vpwem/bin/python
-output_root=/home/jrw/vpwem_outputs/fair_history_momart_multitask_eval_1m
-data_root=/home/jrw/vpwem_data/momart
-context_root=/home/jrw/vpwem_outputs/momart/dpptp
-vpwem_root=/home/jrw/vpwem_outputs/fair_history_momart_multitask_emb/vpwem_bs256/seed100
-raw_root=/home/jrw/vpwem_outputs/fair_history_momart_multitask
+vpwem_root_dir=${VPWEM_ROOT:-/home/jrw/code_vpwem_momart_fair}
+runtime_root=${VPWEM_RUNTIME_ROOT:-/home/jrw/anaconda3/envs/vpwem}
+data_base=${VPWEM_DATA_ROOT:-/home/jrw/vpwem_data}
+output_base=${VPWEM_OUTPUT_ROOT:-/home/jrw/vpwem_outputs}
+transfer_root=${MOMART_TRANSFER_ROOT:-}
+repo=${MOMART_REPO:-${vpwem_root_dir}}
+python_bin=${VPWEM_PYTHON:-${runtime_root}/bin/python}
+output_root=${MOMART_EVAL_OUTPUT_ROOT:-${output_base}/fair_history_momart_multitask_eval_1m}
+data_root=${MOMART_RAW_DATA_ROOT:-${data_base}/momart}
+context_root=${MOMART_CONTEXT_ROOT:-${output_base}/momart/dpptp}
+vpwem_root=${MOMART_VPWEM_ROOT:-${output_base}/fair_history_momart_multitask_emb/vpwem_bs256/seed100}
+raw_root=${MOMART_RAW_POLICY_ROOT:-${output_base}/fair_history_momart_multitask}
+if [[ -n ${transfer_root} ]]; then
+  context_root=${MOMART_CONTEXT_ROOT:-${transfer_root}/context_checkpoints}
+  vpwem_root=${MOMART_VPWEM_ROOT:-${transfer_root}/experiments/fair_history_momart_multitask_emb/vpwem_bs256/seed100}
+  raw_root=${MOMART_RAW_POLICY_ROOT:-${transfer_root}/experiments/fair_history_momart_multitask}
+fi
 seed=${EVAL_SEED:-20260917}
 episodes=${EVAL_EPISODES:-30}
 num_envs=${NUM_ENVS:-10}
