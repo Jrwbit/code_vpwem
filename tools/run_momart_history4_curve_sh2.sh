@@ -25,7 +25,7 @@ flock -n 9 || { echo "MoMaRT curve queue already running" >&2; exit 2; }
 
 export CUDA_VISIBLE_DEVICES="${gpu}"
 export GIBSON_DEVICE_ID="${gpu}"
-export PYTHONPATH="${MOMART_REPO}:${MOMART_REPO}/pipelines"
+export PYTHONPATH="${MOMART_REPO}:${MOMART_REPO}/pipelines:${PYTHONPATH:-}"
 export WANDB_MODE=offline PYTHONUNBUFFERED=1 OMP_NUM_THREADS=8
 cd "${MOMART_REPO}" || exit 1
 
