@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo=${MIKASA_REPO:-/home/jrw/code_vpwem_fair_history}
 python_bin=${MIKASA_PYTHON:-/home/jrw/anaconda3/envs/vpwem/bin/python}
-work=${MIKASA_NO_HISTORY_WORK:-/home/jrw/vpwem_outputs/fair_history_mikasa_multitask/no_history_bs256_1m/seed100}
+work=${MIKASA_NO_HISTORY_WORK:-/home/jrw/vpwem_outputs/fair_history_mikasa_multitask/no_history_bs256_mem1_1m/seed100}
 gpu=${GPU:-2}
 batch_size=${BATCH_SIZE:-256}
 
@@ -28,9 +28,10 @@ printf '[%s] START gpu=%s batch=%s steps=1000000 save_freq=100000 work=%s\n' \
     history_method=no_history \
     batch_size="$batch_size" \
     gradient_steps=1000000 \
+    dataset_maximum_memory_length=1 \
     save_freq=100000 \
     keep_checkpoints=20 \
-    exp_name="no_history/real_bs${batch_size}_1m/seed100" \
+    exp_name="no_history/real_bs${batch_size}_mem1_1m/seed100" \
     work_dir="$work" \
     hydra.run.dir="$work" \
     >"$work/train.log" 2>&1
