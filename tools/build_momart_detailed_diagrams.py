@@ -54,7 +54,11 @@ def raw_current(p: DetailPage, *, include_task: bool = True) -> str:
         p.edge(output, merge)
     mlp = p.node("多模态 MLP", "Linear 2122→256<br>LeakyReLU→Linear 256→256<br>[B,2,256]", 1080, 1195, 310, 135)
     if include_task:
-        task = p.node("任务 embedding", "Embedding(5,256)，逐帧相加<br>[B,2,256]", 1080, 1415, 310, 125, "condition")
+        task_id = p.node("任务 ID", "每个样本 1 个任务编号<br>[B]", 390, 1415, 210, 125, "input")
+        task_emb = p.node("任务 embedding", "Embedding(5,256)<br>[B,256]", 670, 1415, 300, 125, "condition")
+        task = p.node("逐帧相加", "观测 [B,2,256] + 任务 [B,1,256]<br>输出 [B,2,256]", 1080, 1415, 310, 125, "condition")
+        p.edge(task_id, task_emb)
+        p.edge(task_emb, task)
         recent_y = 1610
     else:
         task = None
@@ -95,10 +99,14 @@ def raw_history(p: DetailPage, *, pool_two: bool) -> str:
 
 def vpwem_current(p: DetailPage) -> str:
     emb = p.node("当前 dp_emb", "外部 encoder 预计算<br>[B,2,256]", 75, 290, 305, 125, "input")
-    task = p.node("任务 embedding", "Embedding(5,256)，逐帧相加<br>[B,2,256]", 470, 290, 305, 125, "encoder")
-    recent = p.node("近期观测 token", "2 个全局 token<br>[B,2,256]", 880, 290, 310, 125, "condition")
-    p.edge(emb, task)
-    p.edge(task, recent)
+    task_id = p.node("任务 ID", "每个样本 1 个任务编号<br>[B]", 75, 480, 305, 110, "input")
+    task_emb = p.node("任务 embedding", "Embedding(5,256)<br>[B,256]", 470, 480, 305, 110, "condition")
+    add = p.node("逐帧相加", "dp_emb [B,2,256] + 任务 [B,1,256]<br>输出 [B,2,256]", 880, 290, 310, 125, "condition")
+    recent = p.node("近期观测 token", "2 个全局 token<br>[B,2,256]", 1280, 290, 310, 125, "condition")
+    p.edge(emb, add)
+    p.edge(task_id, task_emb)
+    p.edge(task_emb, add)
+    p.edge(add, recent)
     return recent
 
 
