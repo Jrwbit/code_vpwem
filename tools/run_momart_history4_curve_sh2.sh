@@ -11,6 +11,10 @@ episodes=${EVAL_EPISODES:-30}
 num_envs=${NUM_ENVS:-10}
 gpu=${GPU:-0}
 python=${VPWEM_PYTHON:-${VPWEM_ENV}/bin/python}
+if [[ ${python} != "${VPWEM_ENV}/bin/python" ]]; then
+    export PYTHONPYCACHEPREFIX=/tmp/vpwem-pycache-${UID}
+    export XDG_CACHE_HOME=/tmp/vpwem-cache-${UID}
+fi
 methods=(${EVAL_METHODS:-no_history direct_token2 direct vpwem})
 steps=(${EVAL_STEPS:-800000 900000})
 tasks=(${EVAL_TASKS:-table_cleanup_to_dishwasher_expert table_cleanup_to_sink_expert table_setup_from_dishwasher_expert table_setup_from_dresser_expert})
