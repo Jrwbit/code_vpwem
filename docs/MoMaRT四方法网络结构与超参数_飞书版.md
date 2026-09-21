@@ -280,7 +280,7 @@ Direct 与 Direct-token2 的长期分支只读取历史四路视觉；历史 pro
 
 ## 附录：DP 与 DP-PTP 的模块级张量流
 
-这两页按 MoMaRT 单任务 raw-image 配置绘制；它们没有多任务 task embedding，也不读取长期历史。附件 `dp_dpptp_detailed.drawio` 含 DP、DP-PTP 两个可编辑页面，仓库文件为 `docs/assets/momart_four_methods_1m/dp_dpptp_detailed.drawio`。
+这两页按 MoMaRT 单任务 raw-image 配置及网络类绘制；它们没有多任务 task embedding，也不读取长期历史。附件 `dp_dpptp_detailed.drawio` 含 DP、DP-PTP 两个可编辑页面，仓库文件为 `docs/assets/momart_four_methods_1m/dp_dpptp_detailed.drawio`。DP 的 raw-image 训练入口 `pipelines/dp_momart_image.py` 当前不在仓库中，因此 DP 页是配置与模块的组合示意，不是已核实的可运行入口。
 
 | 输入到输出模块 | 输入内容与尺寸 | 输出内容与尺寸 |
 |---|---|---|
@@ -292,10 +292,14 @@ Direct 与 Direct-token2 的长期分支只读取历史四路视觉；历史 pro
 | 扩散时间步与条件编码 | 时间步 `[B]`；观测 `[B,2,256]` | 时间步 `[B,1,256]`；拼接 `[τ,o₀,o₁]` 为 `[B,3,256]`；位置编码 + 逐 token MLP 后仍为 `[B,3,256]` |
 | 带噪动作编码 | `[B,9,10]` | `Linear 10→256` + 动作位置编码，`[B,9,256]` |
 | 动作 Transformer Decoder | 动作 `[B,9,256]`；条件 `[B,3,256]` | 8 层、4 头、FFN `256→1024→256`，输出 `[B,9,256]` |
-| 预测、采样和执行 | `[B,9,256]` | LayerNorm + `Linear 256→10` 得噪声 `[B,9,10]`；DDPM 50 步得动作 `[B,9,10]`；在线执行前 8 步 `[B,8,10]` |
+| 预测、采样和执行 | `[B,9,256]` | LayerNorm + `Linear 256→10` 得噪声 `[B,9,10]`；DDPM 50 步得动作 `[B,9,10]`；现有 DP-PTP raw 评测执行索引 `1:9` 的 8 步 `[B,8,10]` |
 
 | 可见性差异 | DP | DP-PTP |
 |---|---|---|
 | 动作自注意力 `[9,9]` | 因果掩码 | 因果掩码 |
 | 条件交叉注意力 `[9,3]`，列为 `[τ,o₀,o₁]` | 所有 9 个动作位置均可读取三个条件 token | 动作位置 0 只能读取 `τ,o₀`；位置 1–8 可以读取 `τ,o₀,o₁` |
 | 方法改动 | 条件观测全可见 | 仅改变条件交叉注意力掩码，限制未来观测的可见性 |
+
+### 代码核对：DP 的实际入口与示意图的边界
+
+仓库中实际存在的 DP 训练入口是 `pipelines/dp_momart_image_emb.py`：直接读取预计算 `dp_emb [B,2,256]`，使用 `ChiTransformer(act_dim=10, obs_dim=256, Ta=8, To=2)`，训练动作目标为 `[B,8,10]`，不经过图中的四路 ResNet 与 ScanCore。该入口的 DDPM 采样先验也是 `[B,8,10]`；其评测脚本执行采样结果的索引 `0:8`。因此，不能将本节 raw-image DP 示意图中的 `[B,9,10]` 和四路视觉编码表述为当前 DP 训练入口的真实前向路径。DP 的“条件观测全可见”结论来自 `ChiTransformer` 的交叉注意力掩码；DP-PTP 的 `1:9` 动作切片来自 `pipelines/dpptp_momart_image_eval.py`。
