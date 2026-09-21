@@ -31,6 +31,9 @@ flock -n 9 || { echo "MoMaRT curve queue already running" >&2; exit 2; }
 export CUDA_VISIBLE_DEVICES="${gpu}"
 export GIBSON_DEVICE_ID="${gpu}"
 export PYTHONPATH="${MOMART_REPO}:${MOMART_REPO}/pipelines:${PYTHONPATH:-}"
+if [[ -n ${MOMART_LOCAL_GIBSON_SOURCE:-} ]]; then
+    export PYTHONPATH="${MOMART_LOCAL_GIBSON_SOURCE}:${PYTHONPATH}"
+fi
 export WANDB_MODE=offline PYTHONUNBUFFERED=1 OMP_NUM_THREADS=8
 cd "${MOMART_REPO}" || exit 1
 
@@ -61,6 +64,8 @@ for method in "${methods[@]}"; do
             data=${MOMART_RAW_DATA_ROOT}/${task}.hdf5
             work=${output}/${method}/${step}/${task}
             result=${work}/result.npy
+            local_work=${MOMART_LOCAL_WORK_ROOT:-/tmp/vpwem-momart-curve-${UID}}/${method}/${step}/${task}
+            local_result=${local_work}/result.npy
             log=${output}/logs/${method}_${step}_${task}.log
 
             if [[ -s ${result} ]]; then
@@ -83,17 +88,20 @@ for method in "${methods[@]}"; do
                 context_args=(--context-checkpoint "${context}")
             fi
 
-            mkdir -p "${work}"
+            mkdir -p "${work}" "${local_work}"
             printf 'START %s %s %s %s\n' "$(date -Is)" "${method}" "${step}" "${task}"
             "${python}" pipelines/eval_fair_history_momart_multitask_emb.py \
                 --checkpoint "${checkpoint}" --checkpoint-step "${step}" \
                 --train-config "${config}" "${context_args[@]}" \
                 --dataset-path "${data}" --env-name "${env_name}" --env-type "${env_type}" \
-                --work-dir "${work}" --result-path "${result}" \
+                --work-dir "${local_work}" --result-path "${local_result}" \
                 --seed "${seed}" --num-envs "${num_envs}" \
                 --eval-episodes "${episodes}" --num-video-episodes 0 \
                 >"${log}" 2>&1
             status=$?
+            if (( status == 0 )) && [[ -s ${local_result} ]]; then
+                cp "${local_result}" "${result}" || status=$?
+            fi
             if (( status == 0 )) && [[ -s ${result} ]]; then
                 printf 'DONE %s %s %s %s\n' "$(date -Is)" "${method}" "${step}" "${task}"
             else
