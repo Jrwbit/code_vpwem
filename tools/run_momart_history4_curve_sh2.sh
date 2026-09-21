@@ -10,6 +10,7 @@ seed=${EVAL_SEED:-20260917}
 episodes=${EVAL_EPISODES:-30}
 num_envs=${NUM_ENVS:-10}
 gpu=${GPU:-0}
+python=${VPWEM_PYTHON:-${VPWEM_ENV}/bin/python}
 methods=(${EVAL_METHODS:-no_history direct_token2 direct vpwem})
 steps=(${EVAL_STEPS:-800000 900000})
 tasks=(${EVAL_TASKS:-table_cleanup_to_dishwasher_expert table_cleanup_to_sink_expert table_setup_from_dishwasher_expert table_setup_from_dresser_expert})
@@ -80,7 +81,7 @@ for method in "${methods[@]}"; do
 
             mkdir -p "${work}"
             printf 'START %s %s %s %s\n' "$(date -Is)" "${method}" "${step}" "${task}"
-            "${VPWEM_ENV}/bin/python" pipelines/eval_fair_history_momart_multitask_emb.py \
+            "${python}" pipelines/eval_fair_history_momart_multitask_emb.py \
                 --checkpoint "${checkpoint}" --checkpoint-step "${step}" \
                 --train-config "${config}" "${context_args[@]}" \
                 --dataset-path "${data}" --env-name "${env_name}" --env-type "${env_type}" \
