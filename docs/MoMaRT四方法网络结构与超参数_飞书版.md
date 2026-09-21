@@ -237,4 +237,43 @@ FIFO 观测缓存〔容量 8〕                                       │
 
 ## 可编辑流程图文件
 
-文档附件 **`architectures.drawio`** 含四个独立页面：No-History、Direct、Direct-token2、VPWEM。每个矩形节点、文字标签与箭头都是可编辑对象。下载后可在 diagrams.net 网页版或 draw.io Desktop 中打开，选择顶部页面标签切换方法。该文件在仓库中的路径为 `docs/assets/momart_four_methods_1m/architectures.drawio`。
+文档附件 **`architectures_detailed.drawio`** 含四个独立页面：No-History、Direct、Direct-token2、VPWEM。每条分支从输入到输出逐模块标注内容和张量维度；矩形、文字和箭头均可编辑。下载后可在 [diagrams.net](https://app.diagrams.net/) 网页版打开，选择顶部页面标签切换方法。仓库文件：`docs/assets/momart_four_methods_1m/architectures_detailed.drawio`。旧版 `architectures.drawio` 为概览图。
+
+## 模块级尺寸索引（与详细可编辑图一致）
+
+`B` 为批量，`H` 为本次取用的历史帧数（最多 16），`Tm` 为送入动作网络的历史 token 数。尺寸均按实际张量轴顺序书写。
+
+| 当前观测模块 | 输入内容与尺寸 | 输出内容与尺寸 |
+|---|---|---|
+| 正面/腕部 RGB，各自裁剪 | 各 `[B,2,3,90,120]` | 各 `[B,2,3,75,100]` |
+| 正面/腕部深度，各自裁剪 | 各 `[B,2,1,90,120]` | 各 `[B,2,1,75,100]` |
+| 四路独立 ResNet-18 + 全局池化 | 四路裁剪图像 | 每路 trunk 特征图 `[B,2,512,3,4]`，池化后视觉向量 `[B,2,512]` |
+| 机器人本体状态 / ScanCore | proprio `[B,2,10]`；scan `[B,2,1,100]` | 本体状态 `[B,2,10]`；扫描经 Conv1d `32→64→64` 与 SpatialSoftmax 得 `[B,2,64]` |
+| 特征拼接 + 两层 MLP | `4×512+10+64=2122`，即 `[B,2,2122]` | `[B,2,256]` |
+| 加任务 embedding | `[B,2,256]` + 任务向量 `[B,256]` | 最近观测 token `[B,2,256]` |
+
+以上当前观测链路用于 No-History、Direct、Direct-token2。VPWEM 的当前输入为预计算 `dp_emb [B,2,256]`，加同维任务 embedding 后直接形成 `[B,2,256]` 近期条件。
+
+| 长期历史模块 | 输入内容与尺寸 | 输出内容与尺寸 |
+|---|---|---|
+| No-History | 长期历史关闭 | `Tm=0`，无历史 token |
+| Direct 四路历史视觉 | 各 RGB `[B,H,3,90,120]`、深度 `[B,H,1,90,120]` | 裁剪至 `75×100` → ResNet trunk 特征图 `[B,H,512,3,4]` |
+| Direct 空间池化与投影 | 每路 512 通道特征图 | 每路 4×4=16 个 256 维 token，`[B,H,16,256]` |
+| Direct 视角、空间位置及任务编码 | 四路空间 token | `[B,H,64,256]`；规整至 16 帧并展平为 `[B,1024,256]` |
+| Direct-token2 固定压缩 | 与 Direct 相同的 `[B,1024,256]` | 沿 token 轴平均池化至 `[B,2,256]` |
+| VPWEM 历史预计算向量 | `dp_emb [B,H,256]` | 加任务向量与 episode 正弦时间编码，仍为 `[B,H,256]` |
+| VPWEM FIFO 观测缓存 | 逐帧写入历史向量 | 最多 8 帧 `[B,≤8,1,256]`，展平后 `[B,≤8,256]` |
+| VPWEM 两层 Q-Former | 2 个可学习 query `[B,2,256]`；观测缓存与每层 query 摘要缓存 | 自注意力 → 交叉注意力 → 前馈网络；输出记忆 token `[B,2,256]` |
+
+Direct 与 Direct-token2 的长期分支只读取历史四路视觉；历史 proprio 和 scan 不参与。VPWEM 的每层 query 摘要缓存最多保留 8 个时间位置，每个位置 2 个 256 维 query。
+
+| 共用动作模块 | 输入内容与尺寸 | 输出内容与尺寸 |
+|---|---|---|
+| 条件投影与拼接 | 扩散时间步 `[B,1,256]` + 历史 `[B,Tm,256]` + 近期 `[B,2,256]` | `[B,1+Tm+2,256]`；四法依次为 3、1027、5、5 个条件 token |
+| 条件 MLP | `[B,1+Tm+2,256]` | 加位置编码，逐 token `256→1024→256`（Mish），维度不变 |
+| 带噪动作映射 | 归一化动作 `[B,9,10]` | `Linear 10→256` + 动作位置编码，`[B,9,256]` |
+| PTP Transformer Decoder | 动作 token + 条件 token | 8 层、4 头、FFN `256→1024→256`；动作隐状态 `[B,9,256]` |
+| 噪声预测头 | `[B,9,256]` | LayerNorm + `Linear 256→10`，预测噪声 `[B,9,10]` |
+| 采样和执行 | 预测噪声 `[B,9,10]` | DDPM 反向去噪 50 步，产生 `[B,9,10]`；在线执行前 8 步 `[B,8,10]` |
+
+动作自注意力使用因果掩码；历史 token 对所有动作位置可见；近期第 `j` 帧只对第 `j` 个及以后的动作位置可见。
