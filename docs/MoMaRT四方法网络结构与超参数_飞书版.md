@@ -204,3 +204,33 @@ FIFO 观测缓存〔容量 8〕                                       │
 - 动作去噪网络：`cleandiffuser/nn_diffusion/longmem_chitransformerptp.py`
 - 学习式记忆：`cleandiffuser/nn_memory/qformer_memory.py`
 - 实际 PyTorch 网络打印与参数量：`reports/momart_architecture_prints_20260920/`
+
+## 最终评测：10 项任务 × 四种方法
+
+以下是 **1M checkpoint、训练 seed 100** 的 MoMaRT 多任务评测。每个任务配置各评测 30 个 episode；单元格写为「成功率（成功次数/30）」。`expert` 与 `suboptimal` 是同一语义任务的两种示范数据配置。
+
+| 任务配置 | VPWEM | Direct-token2 | Direct | No-History |
+|---|---:|---:|---:|---:|
+| dwclean / expert | 63.33%（19/30） | 60.00%（18/30） | 63.33%（19/30） | 53.33%（16/30） |
+| dwclean / suboptimal | 13.33%（4/30） | 30.00%（9/30） | 20.00%（6/30） | 40.00%（12/30） |
+| skclean / expert | 70.00%（21/30） | 60.00%（18/30） | 73.33%（22/30） | 73.33%（22/30） |
+| skclean / suboptimal | 33.33%（10/30） | 70.00%（21/30） | 86.67%（26/30） | 66.67%（20/30） |
+| dwsetup / expert | 83.33%（25/30） | 90.00%（27/30） | 96.67%（29/30） | 93.33%（28/30） |
+| dwsetup / suboptimal | 80.00%（24/30） | 96.67%（29/30） | 93.33%（28/30） | 96.67%（29/30） |
+| dssetup / expert | 100.00%（30/30） | 96.67%（29/30） | 93.33%（28/30） | 93.33%（28/30） |
+| dssetup / suboptimal | 76.67%（23/30） | 80.00%（24/30） | 70.00%（21/30） | 60.00%（18/30） |
+| unload / expert | 80.00%（24/30） | 63.33%（19/30） | 66.67%（20/30） | 83.33%（25/30） |
+| unload / suboptimal | 53.33%（16/30） | 70.00%（21/30） | 56.67%（17/30） | 63.33%（19/30） |
+| **十项平均** | **65.33%（196/300）** | **71.67%（215/300）** | **72.00%（216/300）** | **72.33%（217/300）** |
+
+任务缩写：`dwclean` = table_cleanup_to_dishwasher；`skclean` = table_cleanup_to_sink；`dwsetup` = table_setup_from_dishwasher；`dssetup` = table_setup_from_dresser；`unload` = unload_dishwasher_to_dresser。由于各配置均为 30 次评测，十项成功率的宏平均等于 300 次评测的总体成功比例。
+
+### 逐任务柱状图
+
+![MoMaRT 四方法逐任务成功率柱状图](assets/momart_four_methods_1m/task_scores.png)
+
+### 四方法平均柱状图
+
+![MoMaRT 四方法平均成功率柱状图](assets/momart_four_methods_1m/mean_scores.png)
+
+**结果边界**：以上为单个训练 seed 的诊断级结果。No-History、Direct、Direct-token2 使用 raw-image、有效 batch 64；当前 VPWEM 使用预计算 embedding、有效 batch 256。因此表格与图展示的是四个已运行系统的分数，不能把差异单独归因于历史记忆机制。逐项原始汇总见 `reports/momart_1m_four_methods/report_feishu.md` 第 7 节。
