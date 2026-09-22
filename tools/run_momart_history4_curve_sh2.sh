@@ -18,7 +18,8 @@ if [[ ${python} != "${VPWEM_ENV}/bin/python" ]]; then
 fi
 methods=(${EVAL_METHODS:-no_history direct_token2 direct vpwem})
 steps=(${EVAL_STEPS:-800000 900000})
-tasks=(${EVAL_TASKS:-table_cleanup_to_dishwasher_expert table_cleanup_to_sink_expert table_setup_from_dishwasher_expert table_setup_from_dresser_expert})
+# MoMaRT has five task families, each with expert and suboptimal demonstrations.
+tasks=(${EVAL_TASKS:-unload_dishwasher_to_dresser_suboptimal unload_dishwasher_to_dresser_expert table_cleanup_to_sink_suboptimal table_cleanup_to_sink_expert table_cleanup_to_dishwasher_suboptimal table_cleanup_to_dishwasher_expert table_setup_from_dishwasher_suboptimal table_setup_from_dishwasher_expert table_setup_from_dresser_suboptimal table_setup_from_dresser_expert})
 
 if (( episodes <= 0 || num_envs <= 0 || episodes % num_envs != 0 )); then
     echo "EVAL_EPISODES must be a positive multiple of NUM_ENVS" >&2
