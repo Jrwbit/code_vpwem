@@ -52,3 +52,12 @@ For all ten tasks, set `TRAIN_ROOT=/path/to/seed100` and run
 
 No dataset or checkpoint is included in this code folder. The existing
 four-method pipeline and completed 1M run remain separate.
+
+## BS256 x 250k variant
+
+This is a separate sample-budget comparison: 250k updates at batch 256 read
+the same nominal 64 million samples as 1M updates at batch 64. It is not an
+equivalent optimization trajectory. Run with `--config-name config_bs256_250k`
+and a separate `work_dir`. It saves all ten 25k checkpoints. The initial
+learning rate remains 1e-4; the cosine schedule spans 250k updates.
+Measure memory and throughput before any long run on a shared GPU.

@@ -129,8 +129,9 @@ def latest_checkpoint_pair(work_dir):
 
 
 def train(args):
-    if int(args.effective_batch_size) != 64 or int(args.physical_batch_size) != 64:
-        raise ValueError("This baseline fixes physical and effective batch size to 64")
+    if (int(args.effective_batch_size) != int(args.physical_batch_size)
+            or int(args.physical_batch_size) not in (64, 256)):
+        raise ValueError("This baseline requires a physical and effective batch of 64 or 256")
     if int(args.keep_checkpoints) < int(args.gradient_steps) // int(args.save_freq):
         raise ValueError("keep_checkpoints must retain all requested milestones")
     torch.manual_seed(args.seed)
@@ -160,7 +161,8 @@ def train(args):
 
     losses = []
     started = time.time()
-    print("START method=no_history physical_batch=64 effective_batch=64", flush=True)
+    print(f"START method=no_history physical_batch={args.physical_batch_size} "
+          f"effective_batch={args.effective_batch_size}", flush=True)
     while step <= args.gradient_steps:
         name, batch = mux.next(step)
         condition, action = split_batch(args, datasets[name], task_ids[name], batch)
