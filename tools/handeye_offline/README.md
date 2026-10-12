@@ -4,14 +4,16 @@
 
 ## 工控机运行
 
-已验证的解释器：`/data/rhz/conda-envs/ur5_data_collection/bin/python`。此工具不需要海康动态库路径。不要为运行它改动正在控制设备的环境。
+目标工控机：`bit-bhr / 192.168.10.66`。已验证的解释器：`/home/bit-bhr/miniconda3/envs/motor-inspection-1080ti/bin/python`。此工具不需要海康动态库路径。不要为运行它改动正在控制设备的环境。
+
+启动脚本优先选择当前用户的 `motor-inspection-1080ti` 环境，也可通过 `CALIBRATION_PYTHON` 显式指定。
 
 在工具目录执行：
 
 ```bash
-/data/rhz/conda-envs/ur5_data_collection/bin/python calibrate.py check-environment
-/data/rhz/conda-envs/ur5_data_collection/bin/python -B -m unittest -v test_calibrate.py
-/data/rhz/conda-envs/ur5_data_collection/bin/python calibrate.py solve --input datasets/session/dataset.json --output results/session/report.json
+bash run.sh check-environment
+/home/bit-bhr/miniconda3/envs/motor-inspection-1080ti/bin/python -B -m unittest -v test_calibrate.py
+bash run.sh solve --input datasets/session/dataset.json --output results/session/report.json
 ```
 
 退出码 0 表示通过所配置的内部质量检查；2 表示数据、求解或质量检查失败。报告仅保存候选结果，不自动应用到现有控制系统。数据、图像、报告均不提交 Git。
