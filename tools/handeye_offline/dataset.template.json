@@ -1,0 +1,26 @@
+{
+  "mode": "eye-to-hand",
+  "translation_unit": "m",
+  "timestamp_unit": "s",
+  "board": {
+    "squares_x": 12,
+    "squares_y": 9,
+    "square_size_m": 0.015,
+    "marker_size_m": 0.01125,
+    "dictionary": "DICT_5X5_100"
+  },
+  "intrinsics": {
+    "width": 0,
+    "height": 0,
+    "camera_matrix": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+    "distortion_coefficients": [0, 0, 0, 0, 0]
+  },
+  "limits": {
+    "min_samples": 10,
+    "max_time_delta_s": 0.05,
+    "max_reprojection_rms_px": 1.5,
+    "max_fit_translation_mm": 2.0,
+    "max_fit_rotation_deg": 1.0
+  },
+  "samples": []
+}
