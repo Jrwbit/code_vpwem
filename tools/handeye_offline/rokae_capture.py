@@ -97,7 +97,7 @@ def main():
     p.add_argument('--robot-ip', default='192.168.71.161')
     p.add_argument('--robot-class', choices=['xMateErProRobot', 'xMateRobot', 'StandardRobot'], default='xMateErProRobot')
     p.add_argument('--camera-serial', default='00DA8664418')
-    p.add_argument('--camera-local-ip', default='192.168.1.66')
+    p.add_argument('--camera-local-ip', default='192.168.1.67')
     p.add_argument('--session', type=Path, required=True)
     p.add_argument('--config', type=Path, default=Path(__file__).with_name('dataset.template.json'))
     p.add_argument('--once', action='store_true', help='Save a single diagnostic frame and feedback; no robot motion')
