@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=金龙机械臂界面（新版模拟）
+Comment=打开 codex-send-stop 版本的模拟界面
+Exec=/home/bit-bhr/code/jinlong-motor-arm-control-codex-send-stop/open_simulation.sh
+Icon=applications-engineering
+Terminal=false
+Categories=Development;Engineering;
