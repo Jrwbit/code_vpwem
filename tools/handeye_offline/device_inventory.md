@@ -72,3 +72,7 @@ bash online.sh --robot-ip 192.168.71.160 --session datasets/right_handeye --once
 在线采集已更新并部署到 `/home/bit-bhr/handeye_offline`。设置并回读CameraWorkingMode=0、ImageMode=8、OutputRgbd=0、TriggerMode=0后，连续20.23秒收到38帧3200×1944彩色图，未发现深度或RGB-D输出。SDK附带原始灰度辅助帧，仅RGB用于显示与保存。停止／关闭均成功返回0。等待按键期间持续取流，工控机桌面可使用 `--preview` 查看实时RGB。
 
 左臂单张配对诊断保存至 `/tmp/handeye_rgb_pair_20261012`，但0.531秒capture uncertainty仍超过模板0.05秒阈值，未成为有效样本。相比此前约3.1秒已有缩短，但尚未解决配对门槛；不能据此声称可以完成标定。默认直连接口现为192.168.1.68；无机器人运动命令。
+
+## 1秒静态采样阈值复测（2026-10-12）
+
+按用户明确要求，模板max_time_delta_s改为1.0秒并部署。保留原速度／位姿静止检查、RGB常驻与关闭深度。首轮 `/tmp/handeye_rgb_1s_verify_20261012` 因反馈关节速度0.002094rad/s略超0.002rad/s阈值而被拒绝；没有修改静止阈值。第二轮 `/tmp/handeye_rgb_1s_confirm_20261012` capture uncertainty为0.529940秒，保存1组有效样本，板检测通过（valid 1 rejected []），退出码0，Stop和CloseDevice均返回0。13项测试通过。图像与数据仅留在工控机，不提交Git。尚未执行机器人运动或完整多姿态标定。

@@ -57,7 +57,7 @@ class OfflineTests(unittest.TestCase):
 
     def test_sync_motion_and_bad_rotation_rejected(self):
         config = self.config('eye-to-hand')
-        config['samples'][0]['image_timestamp_s'] += 1
+        config['samples'][0]['image_timestamp_s'] += config['limits']['max_time_delta_s'] + 0.1
         config['samples'][1]['robot_stationary'] = False
         config['samples'][2]['base_T_tcp'][0][0] = 5
         with tempfile.TemporaryDirectory() as tmp:

@@ -77,7 +77,7 @@ class CaptureTests(unittest.TestCase):
 
     def test_slow_capture_rejected(self):
         before, after = self.states()
-        after['timestamp_s'] = 101.
+        after['timestamp_s'] = 102.
         config = calibrate.read_json(Path(__file__).with_name('dataset.template.json'))
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaisesRegex(ValueError, 'uncertainty'):

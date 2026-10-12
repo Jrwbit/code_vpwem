@@ -17,7 +17,7 @@
   },
   "limits": {
     "min_samples": 10,
-    "max_time_delta_s": 0.05,
+    "max_time_delta_s": 1.0,
     "max_reprojection_rms_px": 1.5,
     "max_fit_translation_mm": 2.0,
     "max_fit_rotation_deg": 1.0
