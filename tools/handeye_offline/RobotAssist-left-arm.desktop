@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=RobotAssist (Left Arm)
+Name[zh_CN]=珞石 RobotAssist（左臂）
+Comment=Connect to the left AR5 controller
+Comment[zh_CN]=连接左臂 AR5 控制器
+Exec=/home/bit-bhr/apps/UbuntuRobotHMI_3.2_AR/RobotHMI/RobotAssist.sh
+TryExec=/home/bit-bhr/apps/UbuntuRobotHMI_3.2_AR/RobotHMI/RobotAssist.sh
+Path=/home/bit-bhr/apps/UbuntuRobotHMI_3.2_AR/RobotHMI
+Icon=/home/bit-bhr/apps/UbuntuRobotHMI_3.2_AR/RobotHMI/logo.ico
+Terminal=false
+StartupNotify=true
+Categories=Utility;
