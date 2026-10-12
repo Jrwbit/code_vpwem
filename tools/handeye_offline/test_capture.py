@@ -1,4 +1,7 @@
 import tempfile
+import ctypes
+from types import SimpleNamespace
+from unittest.mock import patch
 from pathlib import Path
 import unittest
 import numpy as np
@@ -7,6 +10,46 @@ import rokae_capture as capture
 
 
 class CaptureTests(unittest.TestCase):
+    def fake_camera(self, streams):
+        class Image(ctypes.Structure):
+            _fields_ = [('enStreamType', ctypes.c_int), ('enImageType', ctypes.c_int)]
+        class Frame(ctypes.Structure):
+            _fields_ = [('nImageCount', ctypes.c_uint), ('nValidInfo', ctypes.c_uint),
+                        ('stImageData', Image * 3)]
+        class Camera:
+            calls = 0
+            def MV3D_RGBD_FetchFrame(self, ptr, timeout):
+                self.calls += 1
+                ptr.contents.nImageCount = len(streams)
+                for i, stream in enumerate(streams):
+                    ptr.contents.stImageData[i].enStreamType = stream
+                return 0
+        return Camera(), SimpleNamespace(MV3D_RGBD_FRAME_DATA=Frame, StreamType_Color=2,
+                                             StreamType_Depth=1, StreamType_Rgbd=10,
+                                             ImageType_Depth=100, ImageType_Rgbd=101)
+
+    def test_depth_output_rejected_before_conversion(self):
+        camera, definitions = self.fake_camera([2, 1])
+        with self.assertRaisesRegex(RuntimeError, 'no depth'):
+            capture.fetch_rgb(camera, definitions, lambda *_: self.fail('Converted depth package'))
+
+    def test_rgb_buffer_is_copied(self):
+        camera, definitions = self.fake_camera([2])
+        sdk_buffer = np.zeros((3, 4, 3), dtype=np.uint8)
+        image, timing = capture.fetch_rgb(camera, definitions, lambda *_: sdk_buffer)
+        sdk_buffer[:] = 255
+        self.assertTrue((image == 0).all())
+        self.assertLessEqual(timing['fetch_begin_s'], timing['fetch_end_s'])
+
+    def test_wait_consumes_frames_until_input(self):
+        camera, definitions = self.fake_camera([2])
+        stdin = SimpleNamespace(readline=lambda: '\n')
+        with patch.object(capture.sys, 'stdin', stdin), patch.object(capture.select, 'select',
+                side_effect=[([], [], []), ([], [], []), ([stdin], [], [])]):
+            self.assertTrue(capture.wait_for_capture(camera, definitions,
+                            lambda *_: np.zeros((3, 4, 3), dtype=np.uint8)))
+        self.assertEqual(camera.calls, 3)
+
     def states(self):
         before = dict(timestamp_s=100., read_duration_s=.002, base_T_flange=np.eye(4).tolist(), joint_velocity_rad_s=[0.] * 7)
         after = dict(before, timestamp_s=100.01)

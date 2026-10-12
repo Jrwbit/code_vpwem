@@ -2,9 +2,9 @@
 """Capture Hikrobot images paired with ROKAE feedback; never issues motion commands."""
 import argparse
 from ctypes import pointer
-import json
 from pathlib import Path
 import sys
+import select
 import time
 
 import cv2
@@ -39,6 +39,69 @@ def stationary(before, after):
     return all(np.isfinite(v).all() and np.max(np.abs(v)) < .002 for v in values) and difference['translation_mm'] < .2 and difference['rotation_deg'] < .1
 
 
+def configure_rgb(camera, definitions):
+    """Apply and read back RGB-only, free-running acquisition before Start."""
+    settings = [('CameraWorkingMode', definitions.ParamType_Enum, 0),
+                ('ImageMode', definitions.ParamType_Enum, 8),
+                ('OutputRgbd', definitions.ParamType_Int, 0),
+                ('TriggerMode', definitions.ParamType_Enum, 0)]
+    for key, kind, value in settings:
+        param = definitions.MV3D_RGBD_PARAM()
+        param.enParamType = kind
+        if kind == definitions.ParamType_Enum:
+            param.ParamInfo.stEnumParam.nCurValue = value
+        else:
+            param.ParamInfo.stIntParam.nCurValue = value
+        result = camera.MV3D_RGBD_SetParam(key, pointer(param))
+        if result != 0:
+            raise RuntimeError(f'SetParam({key}) 0x{result:08x}')
+        result = camera.MV3D_RGBD_GetParam(key, pointer(param))
+        actual = (param.ParamInfo.stEnumParam.nCurValue if kind == definitions.ParamType_Enum
+                  else param.ParamInfo.stIntParam.nCurValue)
+        if result != 0 or actual != value:
+            raise RuntimeError(f'Cannot verify {key}={value}: result={result}, actual={actual}')
+        print(f'{key}={actual}', flush=True)
+
+
+def fetch_rgb(camera, definitions, convert):
+    frame = definitions.MV3D_RGBD_FRAME_DATA()
+    begin = time.time()
+    result = camera.MV3D_RGBD_FetchFrame(pointer(frame), 3000)
+    end = time.time()
+    if result != 0 or frame.nValidInfo != 0:
+        raise RuntimeError(f'FetchFrame failed: {result}, validInfo={frame.nValidInfo}')
+    # Mode 0 may include raw mono auxiliary data; reject every depth/RGBD stream.
+    streams = [frame.stImageData[i] for i in range(frame.nImageCount)]
+    if any(int(im.enStreamType) in (definitions.StreamType_Depth, definitions.StreamType_Rgbd)
+           or int(im.enImageType) in (definitions.ImageType_Depth, definitions.ImageType_Rgbd)
+           for im in streams):
+        raise RuntimeError('Expected no depth output; camera returned depth/RGBD')
+    colors = [im for im in streams if im.enStreamType == definitions.StreamType_Color]
+    if len(colors) != 1:
+        raise RuntimeError('Expected one RGB image in package')
+    image = convert(colors[0], definitions)
+    if image is None:
+        raise RuntimeError('No RGB image in package')
+    return image.copy(), {'fetch_begin_s': begin, 'fetch_end_s': end}
+
+
+def wait_for_capture(camera, definitions, convert, preview=False):
+    """Keep consuming RGB frames while waiting for terminal or preview input."""
+    print('RGB live: Enter/s capture stationary pair; q finish > ', flush=True)
+    while True:
+        image, _ = fetch_rgb(camera, definitions, convert)
+        if preview:
+            cv2.imshow('Hand-eye RGB (s: capture, q: quit)', cv2.resize(image, (960, 583)))
+            key = cv2.waitKey(1) & 0xff
+            if key in (ord('s'), 13):
+                return True
+            if key == ord('q'):
+                return False
+        if select.select([sys.stdin], [], [], 0)[0]:
+            line = sys.stdin.readline()
+            return bool(line) and line.strip().lower() != 'q'
+
+
 def acquire(camera, definitions, robot, sdk, convert):
     # Clear old queued frames before pairing robot feedback around a fresh fetch.
     if hasattr(camera, 'MV3D_RGBD_ClearDataBuffer'):
@@ -46,21 +109,9 @@ def acquire(camera, definitions, robot, sdk, convert):
         if result != 0:
             raise RuntimeError(f'ClearDataBuffer: {result}')
     before = snapshot(robot, sdk)
-    frame = definitions.MV3D_RGBD_FRAME_DATA()
-    begin = time.time()
-    result = camera.MV3D_RGBD_FetchFrame(pointer(frame), 3000)
-    end = time.time()
-    if result != 0 or frame.nValidInfo != 0:
-        raise RuntimeError(f'FetchFrame failed: {result}, validInfo={frame.nValidInfo}')
-    image = None
-    for i in range(int(frame.nImageCount)):
-        converted = convert(frame.stImageData[i], definitions)
-        if converted is not None:
-            image = converted.copy()
-    if image is None:
-        raise RuntimeError('No RGB image in package')
+    image, timing = fetch_rgb(camera, definitions, convert)
     after = snapshot(robot, sdk)
-    return image, before, after, {'fetch_begin_s': begin, 'fetch_end_s': end}
+    return image, before, after, timing
 
 
 def save_sample(folder, data, image, before, after, timing):
@@ -97,11 +148,15 @@ def main():
     p.add_argument('--robot-ip', default='192.168.71.161')
     p.add_argument('--robot-class', choices=['xMateErProRobot', 'xMateRobot', 'StandardRobot'], default='xMateErProRobot')
     p.add_argument('--camera-serial', default='00DA8664418')
-    p.add_argument('--camera-local-ip', default='192.168.1.67')
+    p.add_argument('--camera-local-ip', default='192.168.1.68')
     p.add_argument('--session', type=Path, required=True)
     p.add_argument('--config', type=Path, default=Path(__file__).with_name('dataset.template.json'))
     p.add_argument('--once', action='store_true', help='Save a single diagnostic frame and feedback; no robot motion')
+    p.add_argument('--preview', action='store_true', help='Show live RGB on the IPC desktop; s saves, q exits')
+    p.add_argument('--stream-check-seconds', type=float, default=0, help='Check continuous RGB-only frames for this duration, then exit without samples')
     args = p.parse_args()
+    if args.stream_check_seconds < 0 or not np.isfinite(args.stream_check_seconds):
+        p.error('--stream-check-seconds must be finite and nonnegative')
     import xCoreSDK_python as sdk
     from hk_pointcloud_registration.capture_haikang import _load_hk_sdk, _list_devices, _color_to_bgr
     api, definitions = _load_hk_sdk()
@@ -125,6 +180,7 @@ def main():
         if result != 0:
             raise RuntimeError(f'OpenDevice 0x{result:08x}; do not stop another owner automatically')
         opened = True
+        configure_rgb(camera, definitions)
         params = definitions.MV3D_RGBD_CAMERA_PARAM()
         if camera.MV3D_RGBD_GetCameraParam(pointer(params)) != 0:
             raise RuntimeError('Cannot obtain camera intrinsics')
@@ -135,6 +191,15 @@ def main():
         if camera.MV3D_RGBD_Start() != 0:
             raise RuntimeError('Cannot start camera acquisition')
         started = True
+        if args.stream_check_seconds:
+            begin = time.monotonic()
+            frames = 0
+            while time.monotonic() - begin < args.stream_check_seconds:
+                image, timing = fetch_rgb(camera, definitions, _color_to_bgr)
+                frames += 1
+            print(f'RGB-only stream check: {frames} frames / {time.monotonic() - begin:.2f}s, '
+                  f'{image.shape[1]}x{image.shape[0]}, no depth output', flush=True)
+            return
         folder = args.session.resolve()
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / 'dataset.json'
@@ -150,10 +215,9 @@ def main():
                         robot_reference='flange; base_T_tcp is base_T_flange, tcp_T_board is flange_T_board')
             calibrate.write_json(path, data)
         for _ in range(5):
-            frame = definitions.MV3D_RGBD_FRAME_DATA()
-            camera.MV3D_RGBD_FetchFrame(pointer(frame), 3000)
+            fetch_rgb(camera, definitions, _color_to_bgr)
         while True:
-            if not args.once and input('Enter: capture stationary pair; q: finish > ').strip().lower() == 'q':
+            if not args.once and not wait_for_capture(camera, definitions, _color_to_bgr, args.preview):
                 break
             image, before, after, timing = acquire(camera, definitions, robot, sdk, _color_to_bgr)
             if args.once:
@@ -162,20 +226,34 @@ def main():
                 calibrate.write_json(folder / 'diagnostic.json', {'before': before, 'after': after, **timing})
             try:
                 candidate = save_sample(folder, data, image, before, after, timing)
-                _, accepted, rejected = calibrate.load_samples(path)
                 data = candidate
+                _, accepted, rejected = calibrate.load_samples(path)
                 print('Saved', len(data['samples']), 'valid', len(accepted), 'rejected', rejected, flush=True)
             except ValueError as exc:
                 print('Capture rejected:', exc, flush=True)
+                if args.once:
+                    return 2
             if args.once:
                 break
     finally:
-        if started:
-            camera.MV3D_RGBD_Stop()
-        if opened:
-            camera.MV3D_RGBD_CloseDevice()
-        robot.disconnectFromRobot({})
+        try:
+            if started:
+                result = camera.MV3D_RGBD_Stop()
+                print(f'Stop 0x{result:08x}', flush=True)
+                if result != 0:
+                    raise RuntimeError(f'Cannot stop camera: 0x{result:08x}')
+        finally:
+            try:
+                if opened:
+                    result = camera.MV3D_RGBD_CloseDevice()
+                    print(f'CloseDevice 0x{result:08x}', flush=True)
+                    if result != 0:
+                        raise RuntimeError(f'Cannot close camera: 0x{result:08x}')
+            finally:
+                robot.disconnectFromRobot({})
+                if args.preview:
+                    cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
