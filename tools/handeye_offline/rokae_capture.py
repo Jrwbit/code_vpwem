@@ -6,6 +6,8 @@ from pathlib import Path
 import sys
 import select
 import time
+import threading
+import queue
 
 import cv2
 import numpy as np
@@ -85,21 +87,126 @@ def fetch_rgb(camera, definitions, convert):
     return image.copy(), {'fetch_begin_s': begin, 'fetch_end_s': end}
 
 
-def wait_for_capture(camera, definitions, convert, preview=False):
-    """Keep consuming RGB frames while waiting for terminal or preview input."""
+class RGBStream:
+    """One SDK owner consumes frames even while the UI or sample writer is busy."""
+    def __init__(self, camera, definitions, robot, sdk, convert):
+        self.camera, self.definitions = camera, definitions
+        self.robot, self.sdk, self.convert = robot, sdk, convert
+        self.done = threading.Event()
+        self.condition = threading.Condition()
+        self.requests = queue.Queue(maxsize=1)
+        self.responses = queue.Queue(maxsize=1)
+        self.latest = None
+        self.sequence = 0
+        self.error = None
+        self.thread = threading.Thread(target=self._run, name='handeye-rgb', daemon=True)
+
+    def start(self):
+        self.thread.start()
+
+    def _run(self):
+        try:
+            while not self.done.is_set():
+                try:
+                    self.requests.get_nowait()
+                    requested = True
+                except queue.Empty:
+                    requested = False
+                if requested:
+                    packet = acquire(self.camera, self.definitions, self.robot, self.sdk, self.convert)
+                    image = packet[0]
+                    self.responses.put(packet)
+                else:
+                    image, _ = fetch_rgb(self.camera, self.definitions, self.convert)
+                with self.condition:
+                    self.latest = image
+                    self.sequence += 1
+                    self.condition.notify_all()
+        except Exception as exc:
+            with self.condition:
+                self.error = exc
+                self.condition.notify_all()
+
+    def current(self):
+        with self.condition:
+            if self.error:
+                raise self.error
+            return self.latest
+
+    def warmup(self):
+        with self.condition:
+            if not self.condition.wait_for(lambda: self.sequence >= 5 or self.error, timeout=20):
+                raise RuntimeError('RGB warmup timed out')
+            if self.error:
+                raise self.error
+
+    def capture(self):
+        self.current()  # Surface a failed reader before submitting a request.
+        self.requests.put_nowait(True)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            try:
+                return self.responses.get(timeout=.05)
+            except queue.Empty:
+                self.current()
+        raise RuntimeError('Paired capture timed out')
+
+    def stop(self):
+        self.done.set()
+        self.thread.join(timeout=10)
+        if self.thread.is_alive():
+            raise RuntimeError('RGB reader did not stop; do not close its active SDK handle')
+
+
+def preview_canvas(image, status):
+    canvas = np.zeros((700, 960, 3), dtype=np.uint8)
+    height = min(583, round(image.shape[0] * 960 / image.shape[1]))
+    width = round(image.shape[1] * height / image.shape[0])
+    canvas[:height, :width] = cv2.resize(image, (width, height))
+    cv2.rectangle(canvas, (10, 590), (300, 635), (40, 130, 40), -1)
+    cv2.rectangle(canvas, (740, 590), (950, 635), (65, 65, 150), -1)
+    cv2.putText(canvas, 'SAVE SAMPLE (S / Enter)', (20, 620), cv2.FONT_HERSHEY_SIMPLEX, .65, (255, 255, 255), 1)
+    cv2.putText(canvas, 'EXIT (Q)', (775, 620), cv2.FONT_HERSHEY_SIMPLEX, .7, (255, 255, 255), 1)
+    for i in range(2):
+        cv2.putText(canvas, status[i * 105:(i + 1) * 105], (10, 660 + i * 25),
+                    cv2.FONT_HERSHEY_SIMPLEX, .48, (255, 255, 255), 1)
+    return canvas
+
+
+def wait_for_capture(stream, preview=False, status='Ready. Stop the robot, then click SAVE SAMPLE.'):
+    """Poll input independently of the blocking SDK FetchFrame call."""
     print('RGB live: Enter/s capture stationary pair; q finish > ', flush=True)
+    action = {'value': None}
+    window = 'Hand-eye RGB (s: capture, q: quit)'
+    if preview:
+        cv2.namedWindow(window)
+        cv2.moveWindow(window, 80, 60)
+        def on_mouse(event, x, y, flags, param):
+            if event == cv2.EVENT_LBUTTONUP and 590 <= y <= 635:
+                if 10 <= x <= 300:
+                    action['value'] = True
+                elif 740 <= x <= 950:
+                    action['value'] = False
+        cv2.setMouseCallback(window, on_mouse)
     while True:
-        image, _ = fetch_rgb(camera, definitions, convert)
-        if preview:
-            cv2.imshow('Hand-eye RGB (s: capture, q: quit)', cv2.resize(image, (960, 583)))
-            key = cv2.waitKey(1) & 0xff
-            if key in (ord('s'), 13):
-                return True
-            if key == ord('q'):
-                return False
+        image = stream.current()
+        if preview and image is not None:
+            cv2.imshow(window, preview_canvas(image, status))
+            key = cv2.waitKey(20) & 0xff
+            if key in (ord('s'), ord('S'), 13, 10, 32):
+                action['value'] = True
+            if key in (ord('q'), ord('Q'), 27) or cv2.getWindowProperty(window, cv2.WND_PROP_VISIBLE) < 1:
+                action['value'] = False
+        else:
+            time.sleep(.02)
+        if action['value'] is not None:
+            return action['value']
         if select.select([sys.stdin], [], [], 0)[0]:
             line = sys.stdin.readline()
-            return bool(line) and line.strip().lower() != 'q'
+            if not line or line.strip().lower() == 'q':
+                return False
+            if line.strip().lower() in ('', 's'):
+                return True
 
 
 def acquire(camera, definitions, robot, sdk, convert):
@@ -116,7 +223,9 @@ def acquire(camera, definitions, robot, sdk, convert):
 
 def save_sample(folder, data, image, before, after, timing):
     if not stationary(before, after):
-        raise ValueError('Robot moving or feedback changed during image capture')
+        raise ValueError('Robot moving or feedback changed: '
+                         f"max velocity={max(np.max(np.abs(v['joint_velocity_rad_s'])) for v in (before, after)):.6f} rad/s; "
+                         'wait until stationary and retry')
     # Host intervals bracket acquisition, not the sensor exposure timestamp.
     interval = after['timestamp_s'] - before['timestamp_s'] + .5 * (before['read_duration_s'] + after['read_duration_s'])
     if interval < 0 or interval > data['limits']['max_time_delta_s']:
@@ -173,6 +282,7 @@ def main():
     robot = getattr(sdk, args.robot_class)(args.robot_ip)
     camera = api()
     opened = started = False
+    stream = None
     try:
         info = checked(robot, 'robotInfo')
         print('Robot', info.type, 'controller', info.version, 'joints', info.joint_num, flush=True)
@@ -214,12 +324,18 @@ def main():
             data = dict(config, intrinsics=intrinsics, samples=[], devices=identity,
                         robot_reference='flange; base_T_tcp is base_T_flange, tcp_T_board is flange_T_board')
             calibrate.write_json(path, data)
-        for _ in range(5):
-            fetch_rgb(camera, definitions, _color_to_bgr)
+        stream = RGBStream(camera, definitions, robot, sdk, _color_to_bgr)
+        stream.start()
+        stream.warmup()
+        status = f"Ready. Saved {len(data['samples'])} samples. Stop the robot before saving."
         while True:
-            if not args.once and not wait_for_capture(camera, definitions, _color_to_bgr, args.preview):
+            if not args.once and not wait_for_capture(stream, args.preview, status):
                 break
-            image, before, after, timing = acquire(camera, definitions, robot, sdk, _color_to_bgr)
+            if args.preview:
+                image = stream.current()
+                cv2.imshow('Hand-eye RGB (s: capture, q: quit)', preview_canvas(image, 'Capturing... keep the robot stationary.'))
+                cv2.waitKey(1)
+            image, before, after, timing = stream.capture()
             if args.once:
                 if not cv2.imwrite(str(folder / 'diagnostic.png'), image):
                     raise OSError('Cannot save diagnostic image')
@@ -228,15 +344,20 @@ def main():
                 candidate = save_sample(folder, data, image, before, after, timing)
                 data = candidate
                 _, accepted, rejected = calibrate.load_samples(path)
-                print('Saved', len(data['samples']), 'valid', len(accepted), 'rejected', rejected, flush=True)
+                status = (f"SAVED #{data['samples'][-1]['id']} | total {len(data['samples'])} | valid {len(accepted)}"
+                          + (f' | board rejected: {rejected[-1]}' if rejected else ' | board check OK'))
+                print(status, flush=True)
             except ValueError as exc:
-                print('Capture rejected:', exc, flush=True)
+                status = f'NOT SAVED: {exc}'
+                print(status, flush=True)
                 if args.once:
                     return 2
             if args.once:
                 break
     finally:
         try:
+            if stream is not None:
+                stream.stop()
             if started:
                 result = camera.MV3D_RGBD_Stop()
                 print(f'Stop 0x{result:08x}', flush=True)
@@ -244,13 +365,14 @@ def main():
                     raise RuntimeError(f'Cannot stop camera: 0x{result:08x}')
         finally:
             try:
-                if opened:
+                if opened and (stream is None or not stream.thread.is_alive()):
                     result = camera.MV3D_RGBD_CloseDevice()
                     print(f'CloseDevice 0x{result:08x}', flush=True)
                     if result != 0:
                         raise RuntimeError(f'Cannot close camera: 0x{result:08x}')
             finally:
-                robot.disconnectFromRobot({})
+                if stream is None or not stream.thread.is_alive():
+                    robot.disconnectFromRobot({})
                 if args.preview:
                     cv2.destroyAllWindows()
 

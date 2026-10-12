@@ -41,14 +41,51 @@ class CaptureTests(unittest.TestCase):
         self.assertTrue((image == 0).all())
         self.assertLessEqual(timing['fetch_begin_s'], timing['fetch_end_s'])
 
-    def test_wait_consumes_frames_until_input(self):
-        camera, definitions = self.fake_camera([2])
+    def test_wait_handles_input_without_fetching(self):
+        stream = SimpleNamespace(current=lambda: np.zeros((3, 4, 3), dtype=np.uint8))
         stdin = SimpleNamespace(readline=lambda: '\n')
-        with patch.object(capture.sys, 'stdin', stdin), patch.object(capture.select, 'select',
-                side_effect=[([], [], []), ([], [], []), ([stdin], [], [])]):
-            self.assertTrue(capture.wait_for_capture(camera, definitions,
-                            lambda *_: np.zeros((3, 4, 3), dtype=np.uint8)))
-        self.assertEqual(camera.calls, 3)
+        with patch.object(capture.sys, 'stdin', stdin), patch.object(capture.time, 'sleep'), \
+             patch.object(capture.select, 'select', side_effect=[([], [], []), ([stdin], [], [])]):
+            self.assertTrue(capture.wait_for_capture(stream))
+
+    def test_preview_save_button(self):
+        stream = SimpleNamespace(current=lambda: np.zeros((3, 4, 3), dtype=np.uint8))
+        def callback(window, fn):
+            fn(capture.cv2.EVENT_LBUTTONUP, 100, 610, 0, None)
+        with patch.object(capture.cv2, 'namedWindow'), patch.object(capture.cv2, 'moveWindow'), patch.object(capture.cv2, 'setMouseCallback', side_effect=callback), \
+             patch.object(capture.cv2, 'imshow'), patch.object(capture.cv2, 'waitKey', return_value=-1), \
+             patch.object(capture.cv2, 'getWindowProperty', return_value=1):
+            self.assertTrue(capture.wait_for_capture(stream, preview=True))
+
+    def test_stream_pairs_on_reader_thread_and_propagates_errors(self):
+        import threading
+        image = np.zeros((3, 4, 3), dtype=np.uint8)
+        identities = []
+        def fetch(*args):
+            identities.append(threading.get_ident())
+            capture.time.sleep(.005)
+            return image, {}
+        packet = (image, {}, {}, {})
+        stream = capture.RGBStream(None, None, None, None, None)
+        with patch.object(capture, 'fetch_rgb', side_effect=fetch), \
+             patch.object(capture, 'acquire', return_value=packet) as acquire:
+            stream.start()
+            try:
+                stream.warmup()
+                self.assertIs(stream.capture(), packet)
+                acquire.assert_called_once()
+                self.assertTrue(all(ident != threading.get_ident() for ident in identities))
+            finally:
+                stream.stop()
+        self.assertFalse(stream.thread.is_alive())
+        failure = capture.RGBStream(None, None, None, None, None)
+        with patch.object(capture, 'fetch_rgb', side_effect=RuntimeError('camera lost')):
+            failure.start()
+            try:
+                with self.assertRaisesRegex(RuntimeError, 'camera lost'):
+                    failure.warmup()
+            finally:
+                failure.stop()
 
     def states(self):
         before = dict(timestamp_s=100., read_duration_s=.002, base_T_flange=np.eye(4).tolist(), joint_velocity_rad_s=[0.] * 7)
