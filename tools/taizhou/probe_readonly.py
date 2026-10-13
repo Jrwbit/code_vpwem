@@ -68,7 +68,10 @@ def main():
     raw = state.get('raw', {})
     identities = {name: {key: part.get(key) for key in ('controller_id', 'controller_ip', 'type')}
                   for name, part in raw.items() if isinstance(part, dict)}
-    result = {'repositories': {name: repository(root) for name, root in ROOTS.items()},
+    camera = state.get('camera', {})
+    result = {'observed_at_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+              'camera': {key: camera.get(key) for key in ('ok', 'age_s', 'error', 'exposure_us', 'exposure_error', 'cleanup_error')},
+              'repositories': {name: repository(root) for name, root in ROOTS.items()},
               'processes': {'vision': process(ROOTS['vision'] / 'outputs/hik_rgb_fast/service/service.pid'),
                             'hmi': process(Path('/home/bit-bhr/.local/state/jinlong-hmi/real.pid'))},
               'vision_runtime': get(8765, '/api/version'), 'hmi_runtime': state.get('runtime_version'),
