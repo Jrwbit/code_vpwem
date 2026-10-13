@@ -233,3 +233,17 @@ TCP、腰部上电、拖动 Ready、回正重复精度、独立点实际精度�
 2026-10-13 11:15:47 UTC（北京时间 19:15:47）复核 camera.ok=true、曝光 2000 us、新帧 age_s=0.06；磁盘、运行版本与最终交付包源码摘要一致。三部分反馈均 off/manual/idle，未执行运动。当前采用正常 RGB 启动入口；常驻模式按需软触发，首触发前显示等待状态而不返回旧帧。实际检测精度、孔位质量、TCP、接触插入和连续运行仍需现场验收。
 
 最新包与证据：outputs/deployment/taizhou-camera-power-cycle-final-20261013/。其 deployment_record.json 区分本轮 vision 部署与另行观察到的 HMI 版本，保留历史失败及后续成功记录。远程归档位于原备份目录下 power-cycle-final/；原始备份与回滚位置保留。
+
+## 有二维码后的全流程异常与修复（北京时间 19:33:43）
+
+用户提供现场二维码后，自行启动的任务 20261013_192754_2555c3（19:27:54，方案五）实际识别出 JL132-001，qr_same_frame=true。同次触发 RGB／深度均为 frame_num=1，采集耗时 3448.902 ms、二维码解码 43.106 ms。任务 result.success=false、robot_ready=false，错误为 name 'write_geometry_roi_pose_summary_artifacts' is not defined。state=completed 仅表示处理结束，此任务没有获得成功位姿或运动许可。
+
+根因是模块拆分后，summary 和 background 两个 writer 仅在 camera/pipeline_setup.py 的 prepare_pipelines 局部作用域导入，而 camera/live_viewer.py 的 graded 分支直接使用这两个名字。实际融合处理完成后，第一处摘要写入产生 NameError；恢复分支也存在同样的缺失引用。7420299 将该实际分支收拢为 write_graded_geometry_artifacts，并在运行时延迟导入两个 writer，避免 fusion→comparison→viewer 兼容门面的循环导入；移除初始化模块内无人消费的两条导入。
+
+新增回归直接调用 viewer 使用的 graded 写入入口，核对摘要文件、内参、触发身份、失败结果和 robot_ready=false 不被改写，并覆盖 recovery_attempted=true 后后台 writer 的绑定和调度。本机隔离与工控机实际配置下均 263 项通过，包括独立冷启动的 SIGTERM 清理回归；未放宽门限。
+
+另使用该失败任务已保存的 01_rgb_original.png、03_depth_raw.npy、camera_intrinsics.json 及原 resident 参数进行工控机离线重放，未打开 SDK 设备或启动现场检测：再次识别 JL132-001，使用原算法与当前检测标定计算，摘要写入成功，无 NameError，耗时约 0.705 s。离线结果 success=true、视觉几何 quality.robot_ready=true；这是已有图像的算法结果，当前独立标定 accepted=false，不能据此宣称珞石运动、接触或实际检测已验收。离线文件单独位于 outputs/offline_qr_replay/20261013_writer_fix，没有替换生产任务或标定。
+
+最终部署 vision 742029966f051a8bfc2253cf8826732412350a55，源码摘要 f834533af83f740913e7e24a9dc3ea2a5d4fc7b725f6d91ca48e5dfb0c54374a；磁盘、Git、运行版本与交付包一致。19:33:43 相机新帧 age_s=0.09、camera.ok=true、曝光为用户此次检测使用的 100 us；三部分机器人均 off/manual/idle。HMI 保留另行部署的 b93a31a，未修改或重启。本轮仅读取用户实际失败记录、离线修复／重放并部署，未自动重新触发现场全流程。
+
+交付包 outputs/deployment/taizhou-qr-full-writer-fix-20261013/ 保存原失败 JSON、263 项检查日志、已存帧重放结果及运行版本复核；远程原备份下 qr-full-writer-fix/ 存放同一归档，before-qr-writer-fix-service.log 保留重启前服务日志。原备份与回滚入口不变。最新源码修复后现场全流程再次执行的结果仍需用户现场操作确认。
