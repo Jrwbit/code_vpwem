@@ -2,6 +2,7 @@
 
 本映射按本轮实际字段目录、参数验证、命令构造、设置消费代码和路径规划整理。检测根目录见同日审计记录；下述路径以 `app/hk_pointcloud_registration/` 为相对根。保存成功与现场验收是不同条件。
 
+后续现场检查已确认 HeightExtract 必须先启用再写上下限，并经 ZUnit 从毫米转换到原始深度计数；上下限按现值动态决定先后、逐项回读。常驻相机算法节点未应用的回执会进入 camera_settings，页面明确显示未生效，不能视为有效参数。共享 RGB 模式目前无在线写参接口，须切至常驻模式应用曝光、增益和帧率。未编辑表单项保存时保留原矩阵、关节精度及缺省键。详见 [实际按钮检查](taizhou_camera_buttons_20261013.md)。
 ## 工位参数：36 个表单项
 
 入口 `web/rokae_parameters.mjs`（毫米／角度显示与转换）及高级 JSON → POST `/api/robot/config`（expected_revision）→ `robot/rokae_site.py::save_site/validate_site` → `config/rokae_site.json`。默认来源 template；未知扩展保留，前后历史在 outputs/rokae_site_history。
@@ -64,9 +65,9 @@
 | 深度模式曝光<br>`exposure_us` | task_manager._viewer_base → camera/viewer_components.apply_acquisition_settings：相机节点写入／回读 | μs | 24.0..99840.0；有限数值；4/5消费（部分字段按方向／型号／条件分支） |
 | 深度模式增益<br>`gain` | task_manager._viewer_base → camera/viewer_components.apply_acquisition_settings：相机节点写入／回读 | 相机 Gain 原生单位，现场回读核对 | 0.0..39.99；有限数值；4/5消费（部分字段按方向／型号／条件分支） |
 | 相机采集帧率<br>`camera_fps` | task_manager._viewer_base → camera/viewer_components.apply_acquisition_settings：相机节点写入／回读 | 帧/s | 1.0..60.0；有限数值；4/5消费（部分字段按方向／型号／条件分支） |
-| 启用相机端距离截取<br>`camera_height_extract_enable` | task_manager._viewer_base → camera/viewer_components.apply_acquisition_settings：相机节点写入／回读 | 布尔 | 严格布尔；4/5消费（部分字段按方向／型号／条件分支） |
-| 相机端最小距离（mm）<br>`camera_height_extract_min_mm` | task_manager._viewer_base → camera/viewer_components.apply_acquisition_settings：相机节点写入／回读 | mm；视觉深度／物体几何（非SDK基座位置） | 0.0..2000.0；有限数值；4/5消费（部分字段按方向／型号／条件分支） |
-| 相机端最大距离（mm）<br>`camera_height_extract_max_mm` | task_manager._viewer_base → camera/viewer_components.apply_acquisition_settings：相机节点写入／回读 | mm；视觉深度／物体几何（非SDK基座位置） | 10.0..4000.0；有限数值；4/5消费（部分字段按方向／型号／条件分支） |
+| 启用相机端距离截取<br>`camera_height_extract_enable` | task_manager._viewer_base → camera/viewer_components.apply_height_extract_window：相机节点写入／回读 | 布尔 | 严格布尔；4/5消费（部分字段按方向／型号／条件分支） |
+| 相机端最小距离（mm）<br>`camera_height_extract_min_mm` | task_manager._viewer_base → camera/viewer_components.apply_height_extract_window：相机节点写入／回读 | mm；视觉深度／物体几何（非SDK基座位置） | 0.0..2000.0；有限数值；4/5消费（部分字段按方向／型号／条件分支） |
+| 相机端最大距离（mm）<br>`camera_height_extract_max_mm` | task_manager._viewer_base → camera/viewer_components.apply_height_extract_window：相机节点写入／回读 | mm；视觉深度／物体几何（非SDK基座位置） | 10.0..4000.0；有限数值；4/5消费（部分字段按方向／型号／条件分支） |
 | 最小连通域面积<br>`box_min_area` | motor_detection/roi_geometry.py:150；motor_detection/roi_geometry.py:162 | px² | 100..2000000；整数；4/5消费（部分字段按方向／型号／条件分支） |
 | 最小矩形度<br>`box_min_rectangularity` | motor_detection/roi_geometry.py:329 | 无量纲 | 0.05..1.0；有限数值；4/5不使用；前端禁用 |
 | 最小实心度<br>`box_min_solidity` | motor_detection/roi_geometry.py:332 | 无量纲 | 0.05..1.0；有限数值；4/5不使用；前端禁用 |
