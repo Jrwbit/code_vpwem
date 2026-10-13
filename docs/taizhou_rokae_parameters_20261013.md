@@ -62,7 +62,8 @@
 | NMS IoU 阈值<br>`yolo_iou` | task_manager viewer／YOLO任务 → MotorBoxDetector 参数 | 无量纲或算法原生量，见消费代码 | 0.05..0.95；有限数值；4/5不使用；前端禁用 |
 | 推理设备<br>`yolo_device` | task_manager viewer／YOLO任务 → MotorBoxDetector 参数 | 枚举／标签；stride为像素采样间隔 | 枚举 auto／cpu／0；4/5不使用；前端禁用 |
 | 位姿来源策略<br>`pose_source_policy` | motor_detection/fusion.py:150；motor_detection/fusion.py:672 | 枚举／标签；stride为像素采样间隔 | 枚举 yolo-preferred／yolo-required；4/5不使用；前端禁用 |
-| 深度模式曝光<br>`exposure_us` | task_manager._viewer_base → camera/viewer_components.apply_acquisition_settings：相机节点写入／回读 | μs | 24.0..99840.0；有限数值；4/5消费（部分字段按方向／型号／条件分支） |
+| 深度模式曝光<br>`exposure_us` | task_manager._viewer_base → camera/viewer_components.apply_acquisition_settings：ExposureTime 节点写入／回读；不代替彩图曝光 | μs | 24.0..99840.0；有限数值；4/5消费（部分字段按方向／型号／条件分支） |
+| 接线盒彩图曝光／快捷曝光输入<br>`camera_color_exposure_time` | web/app.js exposureInput → task_manager._viewer_base → --gray2d-exp-gain-mode 0／--color-exposure-us → apply_color_exposure_settings → ColorExposureTime 回读 | μs（设备 XML 明确单位） | 默认 10000；50..500000；常驻相机启动前后应用并回读；与深度曝光独立，共享 RGB 模式不支持在线写入 |
 | 深度模式增益<br>`gain` | task_manager._viewer_base → camera/viewer_components.apply_acquisition_settings：相机节点写入／回读 | 相机 Gain 原生单位，现场回读核对 | 0.0..39.99；有限数值；4/5消费（部分字段按方向／型号／条件分支） |
 | 相机采集帧率<br>`camera_fps` | task_manager._viewer_base → camera/viewer_components.apply_acquisition_settings：相机节点写入／回读 | 帧/s | 1.0..60.0；有限数值；4/5消费（部分字段按方向／型号／条件分支） |
 | 启用相机端距离截取<br>`camera_height_extract_enable` | task_manager._viewer_base → camera/viewer_components.apply_height_extract_window：相机节点写入／回读 | 布尔 | 严格布尔；4/5消费（部分字段按方向／型号／条件分支） |

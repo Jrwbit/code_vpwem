@@ -68,9 +68,10 @@ try {
  await mode('working_mode_4_resident');
  const emptyPreview=await evaluate("fetch('/frame.jpg?timeout_ms=1').then(r=>({status:r.status}))");assert(emptyPreview.status===503,'Old RGB served as depth preview');note('resident initial preview','live stale-frame guard',emptyPreview);
  await pause(1300);assert(await text('imageState').then(t=>t.includes('等待首次软触发')),'Missing waiting-trigger state');
+ const expectedColorExposure=Number(await evaluate("document.getElementById('exposureInput').value"))+1;
  await evaluate("(()=>{const i=document.getElementById('exposureInput');i.value=Number(i.value)+1;i.dispatchEvent(new Event('input'));})()");
  await wait("!document.getElementById('applyParametersButton').disabled");await click('applyParametersButton',100);await wait("!document.getElementById('applyParametersButton').disabled",120000);await pause(1600);
- const settings=await evaluate("fetch('/api/camera/mode').then(r=>r.json()).then(s=>s.camera_settings.exposure_us)");assert(settings?.requested===101&&settings.applied===true,'Resident parameter readback failed '+JSON.stringify(settings));note('applyParametersButton','live resident restart and SDK readback',settings);
+ const settings=await evaluate("fetch('/api/camera/mode').then(r=>r.json()).then(s=>s.camera_settings.color_exposure_us)");assert(settings?.requested===expectedColorExposure&&settings.applied===true,'Resident color exposure readback failed '+JSON.stringify(settings));note('applyParametersButton','live resident restart and SDK color readback',settings);
  await click('scanDetectButton',100);await wait("!document.getElementById('scanDetectButton').disabled",120000);const scan=(await evaluate('window.__auditPosts')).filter(e=>e.path==='/api/pipeline/run').at(-1);assert(scan?.blocked,'Real motor detection accidentally allowed');note('scanDetectButton','frontend dispatch only; real detection pending',scan);
  await mode('rgb_preview');
  const schemes=await evaluate("[...document.querySelectorAll('#schemeGrid button')].map(b=>b.querySelector('h3')?.textContent||b.textContent.split('\\n')[0])");
