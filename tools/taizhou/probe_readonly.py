@@ -74,14 +74,19 @@ def main():
               'vision_runtime': get(8765, '/api/version'), 'hmi_runtime': state.get('runtime_version'),
               'hmi_probe_error': state.get('probe_error'), 'hmi_revision_label': state.get('revision'),
               'components': state.get('real', {}).get('components'), 'identities': identities, 'motion': selected_motion,
-              'pipeline': {key: pipeline.get(key) for key in ('id', 'state', 'node', 'scheme', 'active_task_type')},
-              'vision': {key: vision.get(key) for key in ('backend', 'motion_enabled', 'motion_requested', 'busy', 'phase', 'blockers', 'probe_error')},
+              'pipeline': {key: pipeline.get(key) for key in ('id', 'state', 'node', 'scheme', 'active_task_type', 'probe_error')},
+              'vision': {key: vision.get(key) for key in ('backend', 'motion_enabled', 'motion_requested', 'busy', 'safety_failures', 'waist_alignment', 'power_workflow', 'probe_error')},
               'field_files': {name: checksum(path) for name, path in {
                   'calibration': ROOTS['vision'] / 'calibration/rokae_current.json',
                   'site': ROOTS['vision'] / 'config/rokae_site.json',
                   'native_motion': ROOTS['hmi'] / 'helios_hmi/native/xcore_motion',
                   'native_state': ROOTS['hmi'] / 'helios_hmi/native/xcore_state_stream',
                   'desktop_launcher': ROOTS['hmi'] / 'open_real.sh'}.items()}}
+    cal = vision.get('calibration', {})
+    result['vision']['calibration'] = {key: cal.get(key) for key in ('available', 'sha256', 'version', 'error')}
+    result['vision']['calibration']['independent_accepted'] = cal.get('independent_validation', {}).get('accepted') is True
+    plan = vision.get('plan') or {}
+    result['vision']['plan'] = {key: plan.get(key) for key in ('id', 'state', 'motion_type', 'next_stage', 'minimum_duration_s', 'safety_failures')}
     # CSRF tokens, process environments, credentials and camera frames never enter this report.
     print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
 
