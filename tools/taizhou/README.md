@@ -1,6 +1,6 @@
 # 台州本轮部署工具
 
-本轮连接 `bit-bhr@192.168.10.66` 超时，下面是已准备的软件交付和实际恢复连接后的步骤。打包成功不代表部署成功。没有真机动作、报警清除或自动上电步骤。
+首次连接 `bit-bhr@192.168.10.66` 超时；后续检查本机已有 SSH 配置，使用 `jinlong-ipc`（192.168.1.67）连接到同一主机并完成备份和软件部署。见 [实际相机与逐按钮检查记录](../../docs/taizhou_camera_buttons_20261013.md)。打包成功不代表部署成功，仍须核对运行进程。没有真机运动、上电、报警清除或自动重试步骤。
 
 ## 打包已提交的软件
 
@@ -21,8 +21,8 @@ python3 tools/taizhou/package_release.py \
 ## 只读核对
 
 ```bash
-ssh -o BatchMode=yes -o ConnectTimeout=6 bit-bhr@192.168.10.66 \
-  python3 - < tools/taizhou/probe_readonly.py
+ssh -o BatchMode=yes -o ConnectTimeout=6 jinlong-ipc \
+  'export PATH=/home/bit-bhr/.local/bin:$PATH; python3 -' < tools/taizhou/probe_readonly.py
 ```
 
 probe 仅读磁盘、Git、`/proc` 和已有服务 GET，不构造 SDK，不发送 POST，不采图，不读取环境凭据。输出不含 CSRF。PID 文件可能被原桌面入口放到其它位置，此时报告 unavailable，需要按当天进程和监听端口查找，不能凭历史 PID 退出服务。
@@ -39,10 +39,20 @@ probe 仅读磁盘、Git、`/proc` 和已有服务 GET，不构造 SDK，不发�
 6. 通过实际已有 HMI `helios_hmi/run_ipc.sh --enable-write --sessions ...` 启动单一 owner，保留已有 allow-groups 限制。检测使用原 `start.sh start` 的只读默认入口；先检查 HMI 已在线再启动共享预览。不会传 `--enable-robot-motion`，不会修改现场确认状态。原入口采用 nohup 而非假定 systemd；若当天已改 systemd，使用实际查到的单一服务入口。
 7. 重新 probe，核对两个磁盘 Git revision、source_sha256 与 manifest；检测 `/api/version`、HMI state.runtime_version 的 revision／摘要同样一致、dirty=false、started_at 为本次启动；PID 和实际目录一致。再次确认组件、owner、任务与运动状态，核对活动配置／标定和原生二进制哈希未被覆盖。浏览器强制重载并检查新脚本内容／无缓存。记录部署时间、日志、实际回滚位置，完成后才改交付记录为已部署。
 
-步骤 1～7 需在真实 IPC 上执行，本轮未执行；只读 probe 不自动把任何状态评为验收通过。
+步骤 1～7 后续已在真实 IPC 上执行，版本、备份、现场原件哈希及验证日志见最新检查记录。只读 probe 不自动把任何状态评为验收通过。
 
 ## 回滚
 
 停止并确认退出新服务，保存回滚前现场配置和历史。对两个干净 tracked 仓库分别切回**本次现场备份记录的部署前 HEAD**（例如 `git switch --detach <before-head>`），保留 ignored 现场配置；若存在新增现场源码修改，先审阅，不强制覆盖。源码、二进制和入口按本次备份哈希核对；本轮没有改二进制，通常无需替换。依据现场配置是否随后更改，审阅配置历史，不自动覆盖新参数。
 
 重新走原珞石只读软件入口，确认运行进程版本和三部件状态；不启动旧 UR 项目。10 月 12 日旧完整包是历史应急资料，不能替代本次当日备份与真实回滚记录。
+
+## 逐按钮现场检查
+
+`review_buttons.mjs` 使用 Node 22 和 Chrome CDP，指向实际 IPC 的检测页面。先通过已有 SSH 连接转发 8765 到本机 18766，Chrome 19333 使用独立审核 profile。脚本记录实际相机、配置读写、界面与联锁；未授权的真实检测／运动 POST 在浏览器审核实例中截断并明确标记，不能把这些条目视为现场检测成功。
+
+```bash
+node tools/taizhou/review_buttons.mjs
+```
+
+报告默认写 `/tmp/taizhou-live-buttons-20261013.json`。脚本仅允许保持当前参数值的保存；保存后的历史保留，审查语义一致并取得文件锁后恢复原现场文件字节。二维码场景无标签时只能验证失败回执。停止仅验证空闲时的回执；运行中停止、拖动、腰部运动、插入及完整电机流程另待现场授权验收。
