@@ -115,3 +115,14 @@ HMI 提交 `bfa8860` 将 `progress` 留在完整原生日志中，避免进入�
 部署前现场拖动仍在进行；部署程序只执行 GET 等待当前会话正常结束，不发送停止、下电、心跳或运动命令接管用户会话。待所有控制器下电手动空闲且现场流程空闲后才备份、更新及重启。
 
 2026-10-14 北京时间 15:35 完成部署，工控机 214 项检查通过，2 项 Node 浏览器检查因现场缺 Node 跳过，开发机通过。运行版本 `bfa886081aa4cfc78166ed001a43b8884ceecc4d`，源码摘要 `aa7b2dd5303c1afdd353ee0b379425be924ab887407820ceea08627a6026c18e`，dirty=false，HMI PID `3752794`。备份 `/home/bit-bhr/r435-release/backups/handeye-ready-retention-20261014-153354/`，125 个现场文件摘要及全会话样本核对保留，当前会话仍为 9 组；运动二进制未改变。部署及只读复核保存在忽略目录 `outputs/deployment/handeye-ready-retention-20261014/`，重启后相机新鲜、程序空闲。此次未启动拖动或重复采样；部署后长期拖动的实际采样需在用户下一次示教时验证。
+
+
+## 15:43 完成本轮解算并写入电机检测流程
+
+用户确认手眼标定完成并要求核对数据／图片保存、将结果写入电机检测流程。现场会话 `/home/bit-bhr/helios_hmi_sessions/handeye_ipc/20261014_100117_95c3977a42a7` 的 `result.json` 为 `ok=true`、`pass=true`，采用 **18 组有效样本**，HORAUD 方法，平移离散度 1.440742 mm、旋转离散度 0.159829°，最大两姿态旋转覆盖约 49.91°。这些是标定内部一致性指标，不等于真实独立点定位误差。18 个活动编号为 `[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18]`；共保留 22 个采样目录，包含此前剔除的样本，70 个会话文件全部存在并核对摘要。本次对活动样本的 **36 张 JPEG（18 张 rgb.jpg、18 张 detect.jpg）全部成功解码**；每组 `sample.json` 保存左臂关节角、法兰六维位姿、`T_base_flange`、腰部姿态、标定板识别、内参与采集配对时间，根目录保存解算结果及历次回放记录。
+
+在 HMI 无运动／采集／锁定、回放不活动、检测任务空闲且无机器人计划的状态下，先备份旧 `rokae_current.json`、整个原始会话及现场配置到 `/home/bit-bhr/r435-release/backups/handeye-activate-20261014-154340/`。通过检测系统已有的 `scripts/import_rokae_calibration.py` 导入当前 `result.json`，使用既有文件写锁及原子替换，不改代码或工位配置，不覆盖图片、样本或历史会话。旧活动标定版本 `20261012_205422_bde87112dc69` 替换为 `20261014_100117_95c3977a42a7`。使用物理左臂 SDK 基座的 `T_base_cam`，而非未验收的 URDF 基座推导矩阵，单位为米，保持左臂控制器及相机身份绑定。结果文件摘要 `c7f187aa7196134cd3b0fe60068f41d4ea3ea7bd4a01462a2f2899fefaea4618`，活动检测标定摘要 `91176771dcaeb2319e3d199d9e19ab23590488a4e4ca29aa52cac0193da43200`。
+
+检测进程 `/api/robot/status` 已立即读取新版本，available=true、sample_count=18，摘要与活动文件一致；无需重启。通过检测运行环境实际 `load_calibration()` 和 `runtime_paths.HAND_EYE` 再次确认加载路径就是 `/home/bit-bhr/r435-release/r435-vision-1080ti-v1/calibration/rokae_current.json`。检测任务的共享标定入口以及珞石第四／第五方案结果适配器均读取该活动变换，下一次检测使用本轮结果；任务中仍检查标定版本一致性。原会话全部文件和现场配置摘要保持不变。回执与只读复核保存于忽略目录 `outputs/deployment/handeye-activate-20261014/`，不提交图片、实测矩阵或数据集。
+
+本次只完成检测坐标变换更新，没有启动电机检测或机械臂运动，也未将内部解算质量冒充独立实测验收。新标定 `independent_validation.accepted=false`，机械臂自动定位仍需独立实测点与既有工位参数验收；检测系统原有联锁保留。
