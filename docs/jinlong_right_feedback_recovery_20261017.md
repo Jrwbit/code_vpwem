@@ -2,6 +2,8 @@
 
 ## 当前结论
 
+**18:34 用户明确要求继续右臂按键拖动后，复查会话已恢复到 `button_drag / seq=3`，原生回执为 `button_drag_ready`、`group=right_arm`。右臂上电/手动/拖动、腰部上电保持、左臂下电，反馈新鲜；没有重复发送恢复命令。**
+
 **18:19 再次重启设备后，按用户要求重启控制服务和三个 SDK 读取进程，新反馈恢复正常。随后用户明确确认现场净空、扶持准备、急停可操作、原厂无当前报警，并允许腰部保持和右臂拖动；完成三控制器独立只读下电/手动/空闲检查后恢复正常启动设置。18:22 的会话已记录右臂 `button_drag_ready`，随后收到主动 `PAUSE`；最新状态是腰部上电保持、右臂暂停下电，等待澄清后再恢复拖动。** 以下按时间保留故障与恢复经过。
 
 **17:57 用户要求连接右臂并开启拖动示教时，发现右臂有新一轮启动日志，且反馈再次全零。本轮已重新连接原厂客户端，但未开启拖动：最新启动失败点改为 EtherCAT 从站索引 1 的 SII/EEPROM 读取失败。17:44 的恢复结论只适用于那次启动，不能沿用到当前状态。**
@@ -123,6 +125,8 @@ Linux 系统日志 `rc_export/bin/syslog/syslog` 的独立印证：
 18:23:42 实时状态为 `busy=true / phase=waist_holding / waist_drag_arm=right_arm / teaching_seq=2`；右臂和左臂下电，腰部上电/自动/空闲，三组反馈年龄约 0.05 秒。另打开可见 Firefox 操作页面，使用原有页面心跳与停止逻辑；未添加独立后台续租循环。原厂 RobotAssist 已重新连接右臂两项服务。
 
 运行检查、服务日志和阶段回执保存在工控机 `~/.local/state/jinlong-hmi/right-feedback-diagnostics/service-reconnect-20261017-1819/`，包含 `before.json`、`operator-confirmed-all-off-inspect.json`、`after-restart-and-teaching-state.json`，不提交运行数据。软件源码本轮未变更；文档执行 `git diff --check`。
+
+18:34 用户明确回复继续开启右臂按键拖动。检查到原生日志已经追加 `button_drag_ready / seq=3`（文件更新时间 18:34:45），实时服务为 `phase=button_drag / waist_drag_arm=right_arm`，右臂 `on/manual/drag`、腰部 `on/automatic/idle`、左臂下电，右臂反馈年龄 0–0.1 秒；因此仅验证，不重复恢复或重启服务。现场可按住右臂实体末端键拖动，松开停止。可见控制页面保持原有心跳，实体键条件和原生时限守卫仍生效。原生腰部会话整次上限为 900 秒，从 18:22 左右开始的会话约在 18:37 到时退出，不因暂停/恢复重置。页面部分 Ready 文案仍写“左臂”，实际 SDK 身份、所选组与原生回执均已核对为右臂；本轮未在活动会话期间更新页面源码或重载页面。运行回执保存在同目录 `right-drag-ready-seq3.json`。
 
 ## 已部署的软件处理
 
