@@ -13,15 +13,7 @@ if [ "$clip" = current ]; then
     # Keep the current study separate from an older camera-preview browser.
     profile="$HOME/snap/firefox/common/jinlong-hover-profile"
     mkdir -p "$profile"
-    export MOZ_ENABLE_WAYLAND=0
-    if command -v xwininfo >/dev/null; then
-        for candidate in "${DISPLAY:-:0}" :1 :0; do
-            if DISPLAY="$candidate" xwininfo -root >/dev/null 2>&1; then
-                export DISPLAY="$candidate"
-                break
-            fi
-        done
-    fi
+    export MOZ_ENABLE_WAYLAND=1
     test -r "$video"
     exec firefox --profile "$profile" --new-window "file://$video"
 fi
