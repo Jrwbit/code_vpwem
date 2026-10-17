@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=左侧工位三工装仿真（未执行）
+Comment=左侧工位候选：三工装非接触接近、退出及切换，仅视频回放
+Exec=bash /home/bit-bhr/.local/bin/open_jinlong_fixture_replay.sh left
+Icon=video-x-generic
+Terminal=false
+Categories=AudioVideo;Engineering;
