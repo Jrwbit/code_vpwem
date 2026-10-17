@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=本次识别悬停仿真（未执行）
+Comment=当前接线盒识别与右臂新标定生成的候选悬停轨迹，仅视频回放
+Exec=bash /home/bit-bhr/.local/bin/open_jinlong_fixture_replay.sh current
+Icon=video-x-generic
+Terminal=false
+Categories=AudioVideo;Engineering;
