@@ -12,6 +12,13 @@ if [ "$clip" = current ] || [ "$clip" = left ]; then
     video="$HOME/jinlong-fixture-replay/20261017-current-hover/hover.mp4"
     if [ "$clip" = left ]; then
         video="$HOME/jinlong-fixture-replay/20261017-left-layout/three_tool_cycle.mp4"
+        # The camera/hover browser can become unresponsive. Give this replay
+        # its own profile and instance instead of forwarding to that browser.
+        profile="$HOME/snap/firefox/common/jinlong-left-layout-profile"
+        mkdir -p "$profile"
+        export MOZ_ENABLE_WAYLAND=1
+        test -r "$video"
+        exec firefox --new-instance --profile "$profile" --new-window "file://$video"
     fi
     # Keep the current study separate from an older camera-preview browser.
     profile="$HOME/snap/firefox/common/jinlong-hover-profile"
