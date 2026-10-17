@@ -2,6 +2,8 @@
 
 ## 当前结论
 
+**17:57 用户要求连接右臂并开启拖动示教时，发现右臂有新一轮启动日志，且反馈再次全零。本轮已重新连接原厂客户端，但未开启拖动：最新启动失败点改为 EtherCAT 从站索引 1 的 SII/EEPROM 读取失败。17:44 的恢复结论只适用于那次启动，不能沿用到当前状态。**
+
 **17:44 用户重新给设备通电后复查：本次总线已进入 OP，从站 3 识别成功，右臂非零关节反馈恢复，显示同步校验通过。当前伺服仍为下电、手动、空闲；未尝试伺服上电或运动，不能将总线 OP 解读为电机已上电。** 此前启动故障的原始记录仍保留如下。
 
 后续已导出右臂控制器原始日志，定位到 **2026-10-17 11:17 启动时 EtherCAT 从站索引 3 的 SII/EEPROM 读取失败，驱动初始化失败，导致控制器未就绪并拒绝上电**。详细证据见下文“原始日志定位”。尚未定位到具体硬件损坏；不是仅凭 `10012` 通用说明推测急停或力控原因。
@@ -84,6 +86,23 @@ Linux 系统日志 `rc_export/bin/syslog/syslog` 的独立印证：
 复查结束时右臂为 `off/manual/idle`，反馈年龄约 0.03 秒，`motion.latched=true`。本轮没有发出伺服上电、清警、模式切换、控制柜重启或运动命令，因此未验证此前 `10012` 上电拒绝是否在实际伺服上电请求下消失。原厂界面保留右臂状态监控供现场对照。
 
 本次工控机运行证据在 `~/.local/state/jinlong-hmi/right-feedback-diagnostics/after-power-cycle-20261017/`：`feedback-restored.json`、`startup-recheck.json` 和原始归档 `export_20261017_174558.zip`（SHA256 `10e9bfbe57135bda8b9f1c2a37710db7fc42859a26d825eb2f0a468549025a63`）。运行数据及转储未提交 Git。
+
+## 17:57 拖动示教前检查：启动故障复发，尚未开启拖动
+
+用户要求连接右臂并拖动示教。已重新连接 RobotAssist 到 `.160:5050` 与 `.160:4567`，正确选中 R 机型；SDK 读取连接也已建立。然而连续采样七轴精确全零，原厂“状态监控 → 位姿”亦为七轴全零，不能以先前恢复的角度启动会话。
+
+再次从原厂导出最新日志，发现新的 `rcos.log20261017-175709.665.log`：
+
+- 第 2116 行，17:57:13.520019：`The scan bus index = 1 slave eeprom is not read`。
+- 第 2406–2410 行：`DoBusScan failed`，随后 `Init driver failed, ECAT_UNKNOWN ERROR`。
+- 第 2412–2413 行：`Control start up failed, Reason[Failed start driver]`、`Controller can't start normally...`。
+- 本次系统日志第 284 行：17:57:08，`EtherCAT ERROR 0-1: Failed to fetch SII contents.`；第 344 行：17:57:13，该从站报 `0x0016: Invalid mailbox configuration`。
+
+相比早先索引 3 失败，本次失败点为索引 1。故障跨不同启动、不同从站出现，不能认定是固定第 4 个设备或 J4 损坏；应进一步检查共用通信/供电条件及启动时序，具体根因仍未验证。索引 1 也不能未核对映射就直接等同于 J2。
+
+项目现有 `MotionManager.enable_drag` 对右臂返回 `drag_requires_waist_hold`：右臂拖动必须通过腰部上电保持会话，原因是此前腰部下电抱闸时拖右臂曾造成腰 J4 漂移。当前控制锁为 `latched=true`，右臂反馈亦不可信，未解除锁定、伪造现场确认、启用腰部保持或右臂拖动。最后状态：右臂 `right_zero_feedback`、下电/手动/空闲；左臂和本体反馈已恢复，均下电。
+
+本轮现场证据在 `~/.local/state/jinlong-hmi/right-feedback-diagnostics/drag-precheck-20261017-1758/`，含 `precheck.json`、`drag-blocked.json`、`export_20261017_175820.zip`（SHA256 `a33fecfb0cdb1defcbff916ac320141b800b9f254e68ab3377a79d6fba4ae4e5`）。仅提交本诊断文档，不提交运行归档。
 
 ## 已部署的软件处理
 
