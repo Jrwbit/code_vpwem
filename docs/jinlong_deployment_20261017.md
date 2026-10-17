@@ -196,3 +196,25 @@ Git 提交时存在打包 Git 缺少 gc 的提示，提交、内容哈希及干�
 最终现场提交 `4d21bfaa0362fa9a2731f9093a0eb9c8b7d769ce`，备份
 `~/r435-release/backups/feedback-fix-20261017-231947/`；控制器仍在线，
 相机 working_mode_4_resident 已恢复，配置和标定文件摘要不变。
+
+## 按用户明确指令将腰部下电（23:24）
+
+用户询问并授权控制腰部下电。执行前确认视觉任务已结束、轨迹未运行、HMI 无活动执行／回放，
+双臂下电、腰部上电，三个部件均为手动／空闲且反馈新鲜、速度小于 0.01 rad/s。
+原 `/waist/power/off` 仅终止自身持有的上电会话，本次为外部上电，不能通过该入口完成。
+
+增加单次维护工具 `arm_control/tools/waist_power_off.cpp`，源码提交 `b075f2d`。
+工具复用 HMI 的原生执行器设备连接、设备身份和同一排他锁，只发送腰部
+`setPowerState(false)`；不发送上电、移动、模式切换。执行前再次核对三控制器身份、
+手动／空闲、双臂下电和两次停稳采样；执行后核对下电回执、关节漂移和全身速度。
+C++ 无硬件测试覆盖 10 个正常／拒绝条件，生产二进制无确认参数时拒绝运行。
+使用既有 README 指定的官方 SDK v0.7.1，库包 SHA256 与记录一致；SDK、二进制均未提交。
+
+现场工具返回 `ok=true, waist_power=off, manual_idle=true, motion_command_sent=false`。
+之后状态流确认腰部与双臂均下电／手动／空闲。HMI 自动取得真实控制器限位，
+来源变为 `controller`，左臂 J6 为 ±60°、J7 为 ±90°。
+机器人 connected=true，power_workflow.preconditions_met=true、failures=[]。
+现场回执：`~/helios_hmi_sessions/maintenance/waist-off-20261017-232427/record.json`；
+二进制 SHA256：`529be3e43c2f064ed189344876bae731e889d9c908b5c902f9a76403666f6f17`。
+已使用原检测任务发起只读完整路线重算 `bf49517b02f0453ca508449976ecdf7c`，
+未调用轨迹 start；下电操作本身已完成并独立核验。
