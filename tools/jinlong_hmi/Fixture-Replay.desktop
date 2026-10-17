@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=三工装仿真回放
+Comment=JL100、JM160、JL132 三工装切换与插接仿真视频
+Exec=bash /home/bit-bhr/.local/bin/open_jinlong_fixture_replay.sh
+Icon=video-x-generic
+Terminal=false
+Categories=AudioVideo;Engineering;
