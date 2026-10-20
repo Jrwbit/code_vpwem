@@ -91,11 +91,18 @@ def main():
                         for name in ('web_task.json', 'result.json', 'latest.json', 'camera_intrinsics.json', 'latest.jpg'):
                             rel = Path('outputs/hik_web_pipeline')/task/name
                             archive(args.release/rel, rel)
-                    job = (d.get('trajectory') or {}).get('id')
-                    if isinstance(job, str) and re.fullmatch(r'[0-9a-f]{32}', job):
-                        for name in ('input.json', 'plan.json', 'receipt.json', 'scene_used.json', 'planner.log'):
-                            rel = Path('outputs/rokae_trajectory')/job/name
-                            archive(args.release/rel, rel)
+                    hmi = get(opener, 50168, '/inspection/state')
+                    event['hmi_plan'] = sample(hmi)['plan']
+                    loaded = re.fullmatch(r'inspection_([0-9a-f]{32})\.json',
+                                          (hmi.get('plan') or {}).get('name') or '')
+                    jobs = {(d.get('trajectory') or {}).get('id')}
+                    if loaded:
+                        jobs.add(loaded.group(1))
+                    for job in jobs:
+                        if isinstance(job, str) and re.fullmatch(r'[0-9a-f]{32}', job):
+                            for name in ('input.json', 'plan.json', 'receipt.json', 'scene_used.json', 'planner.log'):
+                                rel = Path('outputs/rokae_trajectory')/job/name
+                                archive(args.release/rel, rel)
                     native = (d.get('robot') or {}).get('last_result', {}).get('native_log')
                     if isinstance(native, str):
                         source = Path(native)
