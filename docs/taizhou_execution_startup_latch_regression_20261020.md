@@ -28,3 +28,20 @@ HELIOS_HMI_START_LATCHED只表示进程最初启动时的锁状态。运行中�
 收到确认后应直接调用原有恢复接口，按恢复产生的新控制代次重新生成原返回段，再核对power_workflow与HMI计划预检；不需再请用户重复批准相同的软件锁恢复动作。解除锁不等于已经执行返回。
 
 本地证据摘要保存在Git忽略目录`outputs/diagnostics/taizhou-reset-20261020/execution_lock_regression.json`。本节用于更正已有飞书报告的解释并明确当前恢复边界，不宣称执行能力已经恢复。
+
+
+## 15:02 用户确认后的恢复结果
+
+用户明确确认“已确认，恢复控制”，授权按原接口解除软件锁。本节更新上文等待确认的状态，不撤销前述对重启回归的更正。
+
+已调用原有recover_control接口，回执为`ok=true、status=control_recovered、controller_writes=false`。随后读取确认`latched=false`、`busy=false`、`power_workflow.preconditions_met=true`。
+
+恢复会按原保护流程使旧任务失效，已沿相同来源重新生成返回任务`c4aafd6f59d045c0ad359a90beae9b80`，来源仍是原完整路线`97890770d64940489b9fab7dcc7dcbac`。当前ready，四段13步，已经装载HMI。没有重新搜索任意收臂路径。
+
+对第一段执行了一次原HMI `/plan/preview`，检查通过：segment=0、左臂、关节运动、速度21 mm/s、最大关节变化约1.49°。没有调用`/plan/start`，没有上电、清警或真实运动。临时预检令牌未保存、未消耗，实际执行仍由页面启动时重新取得。
+
+现场截图中HMI已显示“单次下发已开启”，不再显示等待故障恢复。当前页面滚动在恢复区，未据截图声称已看见下方返回按钮；实际可执行条件依据实时接口及第一段预检通过。现场核对路线勾选后可在返回区域点击执行。
+
+![恢复控制后现场状态](../outputs/diagnostics/taizhou-reset-20261020/execution_unblocked.png)
+
+恢复回执与非令牌预检证据见忽略目录`outputs/diagnostics/taizhou-reset-20261020/control_recovery.json`及`execution_unblocked.json`；现场备份目录下保留相同回执。当前执行锁阻塞已解除，本次未执行返回。
