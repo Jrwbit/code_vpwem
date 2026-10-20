@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from independent_route_audit import error, flange, inverse, link_transform, transform
+from independent_route_audit import DIMENSIONS, error, flange, inverse, link_transform, transform
 
 
 class IndependentKinematicsTests(unittest.TestCase):
@@ -41,6 +41,16 @@ class IndependentKinematicsTests(unittest.TestCase):
             t = link_transform(path, 'arm', {'waist': np.pi / 2})
         np.testing.assert_allclose(t[:3, 3], [1, 2, 0], atol=1e-12)
         np.testing.assert_allclose(t[:3, :3], Rotation.from_euler('z', 90, degrees=True).as_matrix())
+
+    def test_inverse_uses_supplied_effective_dimensions(self):
+        rows = np.array(DIMENSIONS, float)
+        rows[2, 2] += 5
+        q = np.radians([-100, -60, 40, 70, 30, 20, -25])
+        bounds = np.radians([[-176,176],[-118,118],[-176,176],[-58,143],[-176,176],[-58,58],[-87,87]])
+        target = flange(q, rows)
+        solved = inverse(target, q + .04, bounds, dimensions=rows)
+        self.assertLess(error(flange(solved, rows), target)['position_mm'], .02)
+        self.assertGreater(error(flange(solved), target)['position_mm'], 1)
 
 
 if __name__ == '__main__':

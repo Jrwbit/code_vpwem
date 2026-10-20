@@ -32,10 +32,10 @@ def transform(rotation=None, translation=None):
     return t
 
 
-def flange(q):
+def flange(q, dimensions=DIMENSIONS):
     """Reconstruct modified DH multiplication directly from device dimensions."""
     t = np.eye(4)
-    for i, (alpha, a, d, theta) in enumerate(DIMENSIONS):
+    for i, (alpha, a, d, theta) in enumerate(dimensions):
         t = t @ transform(Rotation.from_rotvec([np.radians(alpha), 0, 0]).as_matrix(),
                           [a / 1000, 0, 0])
         angle = np.radians(theta) + (q[i] if i < 7 else 0)
@@ -71,11 +71,11 @@ def error(actual, reference):
             'rotation_deg': float(np.degrees(Rotation.from_matrix(reference[:3, :3].T @ actual[:3, :3]).magnitude()))}
 
 
-def inverse(target, seed, bounds, *, restarts=0):
+def inverse(target, seed, bounds, *, restarts=0, dimensions=DIMENSIONS):
     """Bounded numerical IK, with deterministic independent starting guesses."""
     lo, hi = bounds.T
     def residual(q):
-        t = flange(q)
+        t = flange(q, dimensions)
         return np.r_[(t[:3, 3] - target[:3, 3]) * 1000,
                      Rotation.from_matrix(target[:3, :3].T @ t[:3, :3]).as_rotvec() * 200]
     rng = np.random.default_rng(20261020)
@@ -85,7 +85,7 @@ def inverse(target, seed, bounds, *, restarts=0):
     for start in seeds:
         result = least_squares(residual, start, bounds=(lo, hi), max_nfev=350,
                                ftol=1e-11, xtol=1e-11, gtol=1e-9)
-        e = error(flange(result.x), target)
+        e = error(flange(result.x, dimensions), target)
         if e['position_mm'] <= .02 and e['rotation_deg'] <= .005:
             solutions.append(result.x)
             if restarts == 0:
@@ -98,6 +98,14 @@ def inverse(target, seed, bounds, *, restarts=0):
 def calculate(snapshot, urdf, job_id):
     data = snapshot['files'][job_id]['input.json']
     site, cal, state = data['site'], data['calibration'], snapshot['state']
+    model = site.get('controller_kinematics', {}).get('left_arm')
+    dimensions = DIMENSIONS
+    if model is not None:
+        if model['controller_id'] != state['raw']['left_arm']['controller_id']:
+            raise ValueError('Effective DH source does not match actual controller')
+        dimensions = np.asarray(model['dh_deg_mm'], dtype=float)
+        if dimensions.shape != (8, 4) or not np.isfinite(dimensions).all():
+            raise ValueError('Invalid effective DH dimensions')
     # This routine deliberately never reads any saved plan to choose its route.
     q0 = np.asarray(state['raw']['left_arm']['q'])
     waist = np.asarray([state['real']['joints'][f'{i}-Joint'] for i in range(1, 5)])
@@ -119,7 +127,7 @@ def calculate(snapshot, urdf, job_id):
         raise ValueError('Current arm pose outside controller limits with 2 degree margin')
     hover = goal.copy()
     hover[:3, 3] -= box[:3, 2] * .11
-    q_hover = inverse(np.linalg.inv(base) @ hover, q0, limits, restarts=18)
+    q_hover = inverse(np.linalg.inv(base) @ hover, q0, limits, restarts=18, dimensions=dimensions)
     rows = [q0.copy()]
     segments = []
     def append(name, values):
@@ -133,7 +141,7 @@ def calculate(snapshot, urdf, job_id):
     for gap in np.r_[np.arange(100, 9, -10), np.arange(9, -1, -1)]:
         t = goal.copy()
         t[:3, 3] -= box[:3, 2] * gap / 1000
-        q = inverse(np.linalg.inv(base) @ t, approach[-1], limits)
+        q = inverse(np.linalg.inv(base) @ t, approach[-1], limits, dimensions=dimensions)
         if np.max(abs(q - approach[-1])) > np.radians(15):
             raise ValueError('Independent Cartesian path has a branch jump')
         approach.append(q)
@@ -148,18 +156,19 @@ def calculate(snapshot, urdf, job_id):
     sdk = np.array(state['raw']['left_arm']['T_base_flange_rowmajor']).reshape(4, 4)
     return {'kind': 'independent_kinematic_candidate', 'controller_writes': False,
             'executable': False, 'collision_checked': False,
-            'shared_assumptions': 'Same nominal device dimensions, hand-eye and tool definitions; not an independent physical ground truth',
+            'shared_assumptions': 'Same supplied device dimensions, hand-eye and tool definitions; not an independent physical ground truth',
+            'arm_model': 'controller_effective_DH' if model is not None else 'nominal_DH',
             'input_observed_at': snapshot['observed_at'], 'job_id_for_input_only': job_id,
             'fixture': fid, 'waist_model_rad': waist.tolist(),
             'current_q_rad': q0.tolist(), 'bounds_with_margin_rad': limits.tolist(),
             'world_T_camera': world_camera.tolist(), 'world_T_armbase': base.tolist(),
             'world_T_goal_flange': goal.tolist(), 'base_T_goal_flange': (np.linalg.inv(base) @ goal).tolist(),
-            'current_nominal_vs_sdk': error(flange(q0), sdk),
+            'current_model_vs_sdk_cartesian_getter': error(flange(q0, dimensions), sdk),
             'segments': segments, 'contact_index': contact_index,
             'joint_waypoints_rad': route.tolist(),
-            'world_T_flange_waypoints': [(base @ flange(q)).tolist() for q in route],
+            'world_T_flange_waypoints': [(base @ flange(q, dimensions)).tolist() for q in route],
             'endpoint_q_deg': np.degrees(route[contact_index]).tolist(),
-            'endpoint_error': error(base @ flange(route[contact_index]), goal),
+            'endpoint_error': error(base @ flange(route[contact_index], dimensions), goal),
             'returns_to_start': bool(np.allclose(route[-1], q0, atol=1e-12)),
             'all_waypoints_within_limits': bool(np.all((route >= limits[:, 0]) & (route <= limits[:, 1]))),
             'largest_joint_waypoint_step_deg': float(np.degrees(np.max(abs(np.diff(route, axis=0)))))}
@@ -168,6 +177,7 @@ def calculate(snapshot, urdf, job_id):
 def compare_page(result, page, urdf):
     """Read the production route only after independent generation is complete."""
     plan = page['files']['plan.json']
+    dimensions = page['files']['input.json']['site'].get('controller_kinematics', {}).get('left_arm', {}).get('dh_deg_mm', DIMENSIONS)
     goal = np.array(result['world_T_goal_flange'])
     independent_end = np.array(result['world_T_flange_waypoints'][result['contact_index']])
     stages = []
@@ -178,14 +188,14 @@ def compare_page(result, page, urdf):
         base = link_transform(urdf, 'AR5-5_07L_base',
                               dict(zip((f'{i}-Joint' for i in range(1, 5)), waist)))
         end_q = np.array(segment['steps'][-1]['target'])
-        end = base @ flange(end_q)
+        end = base @ flange(end_q, dimensions)
         stages.append({'name': segment['name'], 'steps': len(segment['steps']),
                        'end_q_deg': np.degrees(end_q).tolist(), 'world_T_end_flange': end.tolist()})
         if segment.get('pause_at_target'):
             contact = {'page_endpoint_vs_independent': error(end, independent_end),
                        'page_endpoint_vs_analytic_goal': error(end, goal),
                        'endpoint_joint_difference_deg': (np.degrees(end_q) - np.array(result['endpoint_q_deg'])).tolist(),
-                       'page_endpoint_if_actual_waist_held': error(np.array(result['world_T_armbase']) @ flange(end_q), goal)}
+                       'page_endpoint_if_actual_waist_held': error(np.array(result['world_T_armbase']) @ flange(end_q, dimensions), goal)}
     if 'contact' not in locals():
         raise ValueError('Page plan has no detection pause endpoint')
     independent_rows = np.array(result['joint_waypoints_rad'])

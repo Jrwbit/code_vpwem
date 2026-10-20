@@ -27,6 +27,14 @@ def main():
     from sim.helios_insert import corridor as cr, fixtures as fx, scene as sc
     from hk_pointcloud_registration.robot.corridor_worker import configure_geometry, planning_limits
     from helios_hmi.kinematic_reference import live_vectors
+    from helios_hmi.controller_kinematics import attach_models, signature, apply_collision_model
+    live_site = attach_models({}, state)
+    if signature(data['site']) != signature(live_site):
+        raise ValueError('控制器运动学参数与原路线不一致，请重新规划')
+    if receipt.get('kinematic_sha256') != signature(data['site']):
+        raise ValueError('路线运动学来源摘要不一致')
+    original_build = cr.build
+    cr.build = lambda cfg: apply_collision_model(original_build(cfg), data['site'])
     waist, arm, _ = live_vectors(state)
     for names, values in (([f'{i}-Joint' for i in (5, 6)], data['static_pose']['head']),
                           ([f'AR5-5_07R_joint_{i}' for i in range(1, 8)], data['static_pose']['right_arm'])):
