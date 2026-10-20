@@ -1,5 +1,7 @@
 # 检测与返回全流程记录及偏差分析（2026-10-19）
 
+实验日期：2026-10-19；飞书图文整理：2026-10-20。本文基于已保存记录，不代表新一次现场测试。
+
 ## 结论
 
 本次已记录启动前、接近、检测对位暂停和撤离返回的全部26个运动小步，每一步均取得与指令目标关联的停稳反馈。**在关节反馈与名义运动学模型范围内，本次不支持“运动中腰部移动”是此前约3 mm左右偏差的主要来源。** 不能据此直接认定视觉绝对位置正确，或把剩余误差全部归于某一套算法。
@@ -32,6 +34,12 @@
 | 实物接线盒基准点／中心 | 未取得独立实测坐标 | 当前无法给出视觉绝对定位误差 |
 
 视觉平面RMSE约0.19860 mm，内点比例约99.9877%，质量门通过；这些是平面拟合指标，不是实物中心和机器人定位的误差。此轮相机坐标与早先任务不同，未取得“盒、相机及底盘始终未移动”的独立证据，不将跨任务坐标差直接解释为视觉漂移。
+
+### 图1：本次视觉接线盒识别结果
+
+![本次接线盒外框、参考轴及相机坐标识别叠加图](../outputs/diagnostics/inspection-trace-20261019/inspection-trace-20261019-2308/artifacts/outputs/hik_web_pipeline/20261019_230620_d9d3cd/latest.jpg)
+
+原视觉任务`20261019_230620_d9d3cd`的实际叠加图。图中外框、参考轴和相机XYZ均为算法输出；红色X轴不能直接当作已独立确认的现场左右方向，画框贴合和质量门通过也不代表绝对定位精度已验收。
 
 ## 腰部是否在运动中带偏终点
 
@@ -66,9 +74,13 @@
 ## 记录文件
 
 - 工控机原始目录：`/home/bit-bhr/helios_hmi_sessions/diagnostics/inspection-trace-20261019-2308/`。`joints.jsonl`为100 ms原始采样，`events.jsonl`为视觉／路线元数据，`artifacts/`保留来源，`status.json`记录采样质量，`final-state.json`保存最终结果。
-- [逐时刻关节与目标CSV](../outputs/diagnostics/inspection-trace-20261019/joints_full.csv)：4838行，关节角与速度、源时间、上下电、计划阶段、目标角和视觉盒位。
-- [26步误差分析JSON](../outputs/diagnostics/inspection-trace-20261019/analysis-complete.json)：每步停稳样本、腰姿跨度、指令残差和模型推算。
-- [全流程关节曲线](../outputs/diagnostics/inspection-trace-20261019/full_joint_trace.png)。
+- 逐时刻关节与目标CSV：`outputs/diagnostics/inspection-trace-20261019/joints_full.csv`；4838行，关节角与速度、源时间、上下电、计划阶段、目标角和视觉盒位。
+- 26步误差分析JSON：`outputs/diagnostics/inspection-trace-20261019/analysis-complete.json`；每步停稳样本、腰姿跨度、指令残差和模型推算。
+- 全流程关节曲线及完整记录包：`outputs/diagnostics/inspection-trace-20261019/full_joint_trace.png`、`inspection_trace_20261019.zip`。飞书正文嵌入配图；CSV、JSON和ZIP列出本机来源，本次没有将其上传为飞书附件。
 - 记录和分析工具：`tools/jinlong_hmi/record_inspection_trace.py`、`tools/jinlong_hmi/analyze_inspection_trace.py`，提交`00acea7`。已完成语法检查、现场采集和实际26步关联验证；原始运行数据、图像和CSV均不提交Git。
 
+### 图2：26步全流程关节曲线
+
 ![左臂关节、腰部变化及右臂变化全流程曲线](../outputs/diagnostics/inspection-trace-20261019/full_joint_trace.png)
+
+上图为左臂7轴实际角度，中图为腰部4轴相对记录起点的变化，下图为右臂7轴相对记录起点的变化。三幅图纵轴量级不同；腰部和右臂曲线的放大起伏不能直接与左臂大范围运动比较。横轴为23:09:16开始后的秒数，包含规划等待、检测对位暂停和撤离返回。
