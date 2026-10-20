@@ -139,7 +139,8 @@ def main():
     for r in rounds:
         times = [s['time']-selected[0]['time'] for s in selected if (s.get('plan') or {}).get('name') == f'inspection_{r["job"]}.json']
         for ax in axes: ax.axvline(min(times), color='grey', linestyle=':', alpha=.7)
-        axes[0].text(min(times), axes[0].get_ylim()[1], f'  Round {r["trial"]}', va='top')
+        axes[0].text(min(times), 1.01, f'Round {r["trial"]}',
+                     transform=axes[0].get_xaxis_transform(), fontsize=10, va='bottom')
     for ax, label in zip(axes, ['Left arm (deg)', 'Waist change (deg)', 'Waist effect at target (mm)']):
         ax.set_ylabel(label); ax.grid(alpha=.25)
     axes[0].legend(ncol=7); axes[1].legend(ncol=4); axes[-1].set_xlabel('Elapsed seconds')
