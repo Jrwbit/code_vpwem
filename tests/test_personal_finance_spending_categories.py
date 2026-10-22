@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from tools.personal_finance.spending_categories import annotate_spending_categories
+from tools.personal_finance.spending_categories import annotate_spending_categories, summarize_spending_categories
 
 
 def record(identifier, description="", counterparty="平台商户", **fields):
@@ -94,3 +94,18 @@ def test_specific_retailers_are_recognized_but_university_or_platform_is_not_gue
             record("platform", "订单123", counterparty="抖音生活服务")]
     annotate_spending_categories(rows)
     assert [row["spending_category"] for row in rows] == ["数码家电", "数码家电", "服饰美容", "其他待分", "其他待分"]
+
+
+def test_summary_after_full_refund_exclusion_preserves_existing_labels():
+    rows = [record("purchase", "火车票", amount=5000),
+            record("refund", kind="refund", amount=5000, related_id="purchase"),
+            record("retained", "酒店订单", amount=8000)]
+    before = annotate_spending_categories(rows)
+    labels = [{key: value for key, value in item.items() if key.startswith("spending_category")} for item in rows]
+    rows[0]["kind"] = rows[1]["kind"] = "excluded"
+    after = summarize_spending_categories(rows)
+    assert before["summary"]["net_expense"] == after["summary"]["net_expense"] == 8000
+    assert after["summary"]["spending_count"] == 1
+    assert sum(item["expense"] for item in after["categories"]) == 8000
+    assert sum(item["refund"] for item in after["categories"]) == 0
+    assert [{key: value for key, value in item.items() if key.startswith("spending_category")} for item in rows] == labels

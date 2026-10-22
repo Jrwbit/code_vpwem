@@ -142,6 +142,11 @@ def annotate_spending_categories(transactions: list[dict]) -> dict:
     for row in transactions:
         if row.get("kind") in {"refund", "reimbursement"}:
             classify_return(row, set())
+    return summarize_spending_categories(transactions)
+
+
+def summarize_spending_categories(transactions: list[dict]) -> dict:
+    """Re-total existing labels after accounting exclusions, without relabeling."""
     categories = {label: {"id": label, "label": label, "count": 0, "expense": 0, "refund": 0,
                           "reimbursement": 0, "net_expense": 0, "review_count": 0} for label in CATEGORIES}
     for row in transactions:

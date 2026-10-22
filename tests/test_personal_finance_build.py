@@ -18,6 +18,28 @@ def bank_record(identifier, currency="CNY"):
 
 class BuildTests(unittest.TestCase):
     @patch("tools.personal_finance.build.parse_alipay")
+    def test_full_refund_pair_is_removed_from_both_months_with_evidence_kept(self, parser):
+        purchase = {**bank_record("purchase"), "source": "alipay", "source_label": "支付宝",
+                    "counterparty": "示例酒店", "description": "住宿房费", "transaction_id": "order1",
+                    "payment_method": "亲情卡(付款甲(**甲))"}
+        refund = {**purchase, "id": "refund", "transaction_id": "order1_refund1",
+                  "time": "2026-02-02 12:00:00", "direction": "neutral", "status": "退款成功"}
+        parser.return_value = ([purchase, refund], {"source": "alipay"})
+        with tempfile.TemporaryDirectory() as directory:
+            original, decrypted = Path(directory) / "original", Path(directory) / "decrypted"
+            original.mkdir(); decrypted.mkdir()
+            (original / "支付宝.csv").write_text("synthetic input")
+            data = build_data(original, decrypted, "2026-10-22")
+        self.assertEqual(len(data["transactions"]), 2)
+        self.assertTrue(all(row["kind"] == "excluded" and row["full_refund_removed"] for row in data["transactions"]))
+        self.assertTrue(all(row["evidence"] and row["entity_ids"] for row in data["transactions"]))
+        self.assertTrue(all(row["spending_category"] == "住宿" for row in data["transactions"]))
+        self.assertEqual(data["monthly"]["2026-01"]["expense"], 0)
+        self.assertEqual(data["monthly"]["2026-02"]["refund"], 0)
+        self.assertEqual(data["audit"]["full_refunds"]["summary"]["group_count"], 1)
+        self.assertEqual(sum(row["expense"] for row in data["spending_categories"]), 0)
+
+    @patch("tools.personal_finance.build.parse_alipay")
     def test_categories_and_person_aliases_preserve_reconciled_amounts(self, parser):
         def row(identifier, order, when, amount, direction, party, description, method):
             return {**bank_record(identifier), "source": "alipay", "source_label": "支付宝",

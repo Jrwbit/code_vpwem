@@ -23,8 +23,9 @@ from .parse_apps import parse_alipay, parse_wechat
 from .parse_banks import parse_bank_pdf
 from .parse_douyin import parse_douyin
 from .reconcile import KINDS, fingerprint, monthly_totals, reconcile
+from .refund_cancellations import remove_fully_refunded
 from .self_transfer_audit import audit_self_transfers
-from .spending_categories import annotate_spending_categories
+from .spending_categories import annotate_spending_categories, summarize_spending_categories
 
 
 SOURCE_LABELS = {
@@ -194,8 +195,14 @@ def build_data(input_dir: Path, decrypted_dir: Path, period_end: str,
     self_summary = self_transfer_audit["summary"]
     notes.append(f"已用双向对手账号核对{self_summary['pair_count']}组本人银行互转，共{self_summary['amount_cents'] / 100:.2f}元；双方记账均为内部流转，不计收入或花费。")
     douyin_audit = annotate_douyin_chains(domestic)
-    spending_audit = annotate_spending_categories(transactions)
+    annotate_spending_categories(transactions)
     entities = annotate_entities(transactions, person_aliases=person_aliases)
+    full_refund_audit = remove_fully_refunded(transactions, matches=matches, douyin_chains=douyin_audit)
+    matches.extend({"id": group["id"], "type": "full_refund", "record_ids": group["record_ids"],
+                    "amount": group["expense"], "reason": group["reason"]}
+                   for group in full_refund_audit["groups"])
+    spending_audit = summarize_spending_categories(transactions)
+    notes.extend(full_refund_audit.get("notes", []))
     monthly = monthly_totals(transactions)
     zero_fields = {"income", "expense", "refund", "reimbursement", "internal", "excluded", "review_in",
                    "review_out", "review_neutral", "review_count", "net_expense", "balance"}
@@ -233,7 +240,7 @@ def build_data(input_dir: Path, decrypted_dir: Path, period_end: str,
         "支出用途按订单摘要、明确商户及来源分类自动识别；不明用途保留其他待分。已关联退款沿用原单用途，未关联的AA回款不猜测原消费类别。",
         "人物及支付方式按去重后的交易统计，一笔交易可能同时出现在商户、代付人和亲情卡下；各对象金额不能再相加。人物全年汇总独立于总览月份筛选。",
         "金额统一以整数分运算。来源收支展示原始流水毛额，最终月度表使用跨来源去重后的经济分类。",
-        "商品支出包含亲情卡及他人代付；退款按实际到账月冲减支出。本人账户互转、投资本金和还款不重复计消费。",
+        "商品支出包含亲情卡及他人代付；可核实已全额退款的消费与退款成组剔除，跨月也不再分别计入。其余退款仍按实际到账月冲减支出。本人账户互转、投资本金和还款不重复计消费。",
         "明确发放的利息及余额宝收益计入收入；基金赎回缺少完整持仓成本，不将本金当作收入，未确认的投资损益不作推算。",
         "AA及报销回款按现有证据暂作支出抵减；带待复核标记的项目可在前端逐笔调整，待确认类型暂不计入收入支出。",
         "浏览器内的审核修正仅保存在当前浏览器；请导出审核记录留存，原始文件和命令行汇总不会被改写。",
@@ -258,6 +265,7 @@ def build_data(input_dir: Path, decrypted_dir: Path, period_end: str,
     if applied_decisions:
         notes.append(f"已应用{len(applied_decisions)}项用户明确确认的分类；匹配条件和修改前后信息保存在audit.applied_decisions。")
     audit = {
+        "full_refunds": full_refund_audit,
         "spending_categories": spending_audit,
         "person_aliases": dict(person_aliases or {}),
         "self_transfers": self_transfer_audit,
