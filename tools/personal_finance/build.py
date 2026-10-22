@@ -22,6 +22,7 @@ from .parse_apps import parse_alipay, parse_wechat
 from .parse_banks import parse_bank_pdf
 from .parse_douyin import parse_douyin
 from .reconcile import KINDS, fingerprint, monthly_totals, reconcile
+from .self_transfer_audit import audit_self_transfers
 
 
 SOURCE_LABELS = {
@@ -178,8 +179,17 @@ def build_data(input_dir: Path, decrypted_dir: Path, period_end: str,
     domestic = [row for row in in_period if row["currency"] == "CNY"]
     transactions, matches = reconcile(domestic, owner_names=owner_names)
     foreign_cash_audit = annotate_foreign_cash(transactions, foreign)
-    notes.extend(foreign_cash_audit["notes"])
     applied_decisions = apply_decisions(transactions, decisions if decisions is not None else [])
+    pending_cash = [row for row in transactions if row.get("foreign_cash") and row["kind"] == "review"]
+    confirmed_cash = [row for row in transactions if row.get("foreign_cash") and row["kind"] == "expense"]
+    if pending_cash:
+        notes.extend(foreign_cash_audit["notes"])
+    if confirmed_cash:
+        notes.append(f"用户已确认外币现金用于消费，按实际人民币购汇成本共{sum(row['amount'] for row in confirmed_cash) / 100:.2f}元计入支出；外币提钞本身不再重复计入。")
+    self_transfer_audit = audit_self_transfers(transactions)
+    matches.extend(self_transfer_audit["matches"])
+    self_summary = self_transfer_audit["summary"]
+    notes.append(f"已用双向对手账号核对{self_summary['pair_count']}组本人银行互转，共{self_summary['amount_cents'] / 100:.2f}元；双方记账均为内部流转，不计收入或花费。")
     douyin_audit = annotate_douyin_chains(domestic)
     monthly = monthly_totals(transactions)
     zero_fields = {"income", "expense", "refund", "reimbursement", "internal", "excluded", "review_in",
@@ -217,8 +227,10 @@ def build_data(input_dir: Path, decrypted_dir: Path, period_end: str,
     notes.extend([
         "金额统一以整数分运算。来源收支展示原始流水毛额，最终月度表使用跨来源去重后的经济分类。",
         "商品支出包含亲情卡及他人代付；退款按实际到账月冲减支出。本人账户互转、投资本金和还款不重复计消费。",
+        "明确发放的利息及余额宝收益计入收入；基金赎回缺少完整持仓成本，不将本金当作收入，未确认的投资损益不作推算。",
         "AA及报销回款按现有证据暂作支出抵减；带待复核标记的项目可在前端逐笔调整，待确认类型暂不计入收入支出。",
         "浏览器内的审核修正仅保存在当前浏览器；请导出审核记录留存，原始文件和命令行汇总不会被改写。",
+        "转至本人其他账户的款项不记花费；未提供完整流水的接收账户，其后续消费无法从这些转账记录补全。",
     ])
     supplied_accounts = {(row.get("bank_name"), row.get("account_tail")) for row in domestic if row["source"].startswith("bank_")}
     referenced_accounts = set()
@@ -239,6 +251,7 @@ def build_data(input_dir: Path, decrypted_dir: Path, period_end: str,
     if applied_decisions:
         notes.append(f"已应用{len(applied_decisions)}项用户明确确认的分类；匹配条件和修改前后信息保存在audit.applied_decisions。")
     audit = {
+        "self_transfers": self_transfer_audit,
         "raw_count": len(in_period), "cny_raw_count": len(domestic),
         "canonical_count": len(transactions), "duplicate_count": len(domestic) - len(transactions),
         "internal_count": sum(row["kind"] == "internal" for row in transactions),
