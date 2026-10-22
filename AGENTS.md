@@ -29,3 +29,9 @@
 - Inspect `git status` before staging and again after committing, and report the resulting commit hash.
 - Never commit secrets, credentials, private keys, datasets, model weights, caches, generated runtime output, or other large artifacts. Add an appropriate ignore rule when needed.
 - Run relevant checks before committing whenever practical. If a check cannot be run or fails for a pre-existing reason, record that clearly in the handoff.
+
+## 机器人检测项目长期上下文
+
+- 继续金龙／台州 160、132、100 电机检测任务前，先读 `docs/jinlong_project_context.md`，再读其中指向的最新报告与证据；日期较新的现场记录优先，不把历史快照当实时状态。
+- 目标是三型号从扫码、定位、工装对位、轻触／补偿压入、电测到撤离返回的完整流程；终点有解、机械往返成功、电测验收是不同结论。
+- 更新项目关键结论时同步维护该上下文入口，并按既有规则提交 Git、追加飞书，保留历史证据和更正依据。
