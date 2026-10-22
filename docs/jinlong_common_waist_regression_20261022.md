@@ -52,3 +52,5 @@ IPC新增证据在`~/helios_hmi_sessions/diagnostics/ik160-20261022/`：`histori
 关联[issue #15](https://github.com/thedaosheng/jinlong-motor-arm-control/issues/15)。保留此前原证据，追加本轮共用腰姿复现及对“只换160腰姿”解读的更正，问题仍保持open。
 
 同步与来源核验：原报告在现场回放目录及规划仓库中的SHA256均为`4fef5c6ed63c0cc6b93eecc5f3fcf643507f3a851499a28c04cc65a42997e369`，与当前工位simulation_initial.source_sha256一致。issue #15已追加本轮对照并更新标题，回读正文一致。本文已追加[飞书全流程报告](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO)，保留原1098个顶层块顺序；新增23个顶层块，95个块（含表格单元格）回读文本一致。本轮仅文档变更与离线实验，没有修改生产配置或下发实机动作。
+
+后续按用户提供的40/35/25高度值（按cm理解），保留当前132/160实测位置、−90°真实安装和有效DH，已求得新的三工装共用终点腰姿。100按132降低100 mm估计；最终仍受100/160插接CPU净空检查阻断，不能当作可执行方案。数值解、三图和完整复核见`docs/jinlong_shared_waist_current_20261022.md`，issue #15保持open。
