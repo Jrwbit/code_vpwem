@@ -1,0 +1,75 @@
+# 本地流水对账与月度收支
+
+解析微信 XLSX、支付宝 CSV、抖音支付 PDF 和兴业／招商／中国银行 PDF，保留原始凭证、跨来源匹配依据、月度汇总以及待复核交易。默认生成的页面可完全离线运行；浏览器中的导入、计算及审核不会自动上传。
+
+## 运行
+
+需要 Python 3.10 或更新版本、Poppler 的 `pdftotext` 命令，以及用于银行 PDF 表格解析的 `pymupdf`。先将授权解密后的银行和抖音 PDF 放进独立目录；程序不收集或保存密码，也不重复读取原目录中的 PDF／ZIP。
+
+在仓库根目录运行：
+
+```bash
+python3 -m tools.personal_finance.build \
+  --input /path/to/original-exports \
+  --decrypted-dir /path/to/decrypted-pdfs \
+  --output /path/to/private-results \
+  --owner-name '账户持有人全名' \
+  --period-end 2026-10-22
+```
+
+`--owner-name` 可重复传入，仅用于识别交易对方全名一致的本人账户转移。统计范围从截止日期所在年份的 1 月 1 日开始；本批默认截止日期为 `2026-10-22`。原目录中的微信文件名应含“微信”且扩展名为 `.xlsx`，支付宝文件名应含“支付宝”且扩展名为 `.csv`。抖音 PDF 文件名应以 `dy_` 开头或含“抖音”；其他解密 PDF 通过正文辨认银行类型。
+
+用户明确确认某笔资金性质后，可增加 `--decisions /path/to/private-decisions.json`。文件保存在用户私有目录，不提交 Git。格式为以下数组，其中 `amount` 必须使用整数分；`category` 和 `match.counterparty` 可省略，其余字段必填：
+
+```json
+[
+  {
+    "match": {"source": "bank_boc", "date": "2026-01-02", "amount": 1234, "direction": "out", "counterparty": "示例对方"},
+    "kind": "internal",
+    "category": "借款本金",
+    "reason": "用户确认是归还借款本金"
+  }
+]
+```
+
+程序在去重后匹配最终交易或其原始凭证，只有恰好命中一笔最终交易才应用分类并解除复核标记。无命中、多命中、或不同规则要求同一笔采用冲突分类时，会终止构建，不写出部分应用结果。实际应用的条件、目标记录及修改前分类保存在私有输出的 `audit.applied_decisions`；随后重新计算月度汇总。
+
+只有 `--output` 目录会写入结果：
+
+- `index.html`：可直接双击打开的离线账本，内嵌数据，支持筛选、逐笔核对和导出。
+- `finance-data.json`：人民币标准记录、匹配关系、原始证据、外币独立记录及来源覆盖信息。
+- `monthly.csv`：月度收入、毛支出、退款、AA／报销、净花费及待确认金额，单位为元。
+- `audit.json`：每文件解析核对、覆盖缺口、抖音月付链路、数量统计和错误详情。
+
+输出目录权限设为 `700`，输出文件权限设为 `600`。真实流水、生成文件、解密密码及第三方依赖不要提交 Git；建议输出目录始终位于仓库之外。原始文件不会被修改。
+
+## 统计与复核
+
+内部统一以整数分计算。消费包含为本人购买商品的亲情卡和他人代付；退款按到账月份冲减支出，不能把退款当收入。本人账户互转、投资本金和还款另列。AA／报销及性质不明确的转账保留复核标记，前端可以修改分类并立即重算。
+
+支付宝全额退款订单可能显示“交易关闭”，若存在可关联的退款，仍保留原支付日期和退款日期。支付宝页头金额可能为扣退款后的净额，解析审计同时保存原始毛额和净额核对结果。抖音月付后续核销存在重复记账风险，`douyin_audit.py` 输出逐组金额等式及候选关联；单号末四位不视为完整订单外键。
+
+外币不自动换算成人民币，存入 `foreign_transactions`，不进入人民币主汇总。因此人民币汇总不等于全币种折算总额。来源少于预期六个、解析失败或部分来源截止时间更早时，页面明确标记资料不完整。原目录中未提供的其他银行账户无法凭 App 账单补全其独立收支。
+
+`foreign_audit.py` 将同账户、同分钟且唯一配对的人民币购汇与外币入账核对；若随后30分钟内全额取现且无其他流水，人民币兑换成本列为现金待核。取现不能证明消费，后续用户确认可覆盖该分类。
+
+私有 Sites 发布使用 `render_site.py`，以页面模板和本地账本 JSON 生成忽略于 Git 的 `dist/index.html`。发布会将该渲染产物上传至仅本人可访问的站点。只提交模板、构建脚本与托管配置；流水 JSON、密码和包含真实数据的构建产物都不提交 Git。修改站点访问范围需用户明确授权。
+
+解析失败会保留其他成功来源的结果，并把异常写入 `errors`；命令返回 `2`。缺失预期来源也返回 `2`；构建或写入失败返回 `1`。只有覆盖截止差异时仍可成功生成，`meta.incomplete` 及备注保留缺口。重复内容文件会跳过；不同文件中同一交易由对账层继续辨认。
+
+前端审核修改仅保存在当前浏览器，需用“导出审核记录”另存。它不会修改原始流水，也不会自动回写命令行生成的 CSV。重新构建后应核对账本指纹再恢复审核记录。
+
+## 验证
+
+测试使用合成数据，不依赖真实流水：
+
+```bash
+python3 -m unittest discover -s tests -p test_personal_finance_apps.py -v
+python3 -m unittest discover -s tests -p test_personal_finance_douyin.py -v
+python3 -m unittest discover -s tests -p test_personal_finance_douyin_audit.py -v
+python3 -m unittest discover -s tests -p test_personal_finance_build.py -v
+```
+
+银行和对账规则的测试另见相应测试文件。修改解析器后应同时检查行数、金额或余额连续性；不能仅以页面成功打开判断财务结果正确。
+
+完整合成测试：`python3 -m pytest -q tests/test_personal_finance*.py tools/personal_finance/test_parse_banks.py`（需安装 pytest）。

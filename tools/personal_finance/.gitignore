@@ -1,0 +1,7 @@
+/private/
+/out/
+/dist/
+/.venv/
+/finance-data.json
+/audit.json
+/monthly.csv
