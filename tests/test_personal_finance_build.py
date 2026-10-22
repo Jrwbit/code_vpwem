@@ -17,6 +17,35 @@ def bank_record(identifier, currency="CNY"):
 
 
 class BuildTests(unittest.TestCase):
+    @patch("tools.personal_finance.build.parse_alipay")
+    def test_categories_and_person_aliases_preserve_reconciled_amounts(self, parser):
+        def row(identifier, order, when, amount, direction, party, description, method):
+            return {**bank_record(identifier), "source": "alipay", "source_label": "支付宝",
+                    "transaction_id": order, "time": when, "amount": amount, "direction": direction,
+                    "counterparty": party, "description": description, "payment_method": method}
+        purchase = row("purchase", "order1", "2026-01-02 12:00:00", 10000, "out",
+                       "示例酒店", "酒店住宿房费", "亲情卡(付款甲(**甲))")
+        refund = row("refund", "order1_refund1", "2026-02-03 12:00:00", 2000, "neutral",
+                     "示例酒店", "退款", "退款")
+        refund["status"] = "退款成功"
+        transfer = row("transfer", "order2", "2026-03-04 12:00:00", 30000, "in",
+                       "测试甲", "转账收入", "余额")
+        transfer["transaction_type"] = "转账"
+        parser.return_value = ([purchase, refund, transfer], {"source": "alipay"})
+        with tempfile.TemporaryDirectory() as directory:
+            original, decrypted = Path(directory) / "original", Path(directory) / "decrypted"
+            original.mkdir(); decrypted.mkdir()
+            (original / "支付宝.csv").write_text("synthetic input")
+            data = build_data(original, decrypted, "2026-10-22", person_aliases={"付款甲": "测试甲"})
+        self.assertEqual(sum(month["income"] for month in data["monthly"].values()), 30000)
+        self.assertEqual(sum(month["net_expense"] for month in data["monthly"].values()), 8000)
+        transactions = {row["transaction_id"]: row for row in data["transactions"]}
+        self.assertEqual(transactions["order1"]["spending_category"], "住宿")
+        self.assertEqual(transactions["order1_refund1"]["spending_category"], "住宿")
+        person = next(entity for entity in data["entities"] if entity["label"] == "测试甲")
+        self.assertTrue(all(person["id"] in row["entity_ids"] for row in data["transactions"]))
+        self.assertEqual(len(data["transactions"]), 3)
+
     def test_user_decision_can_uniquely_match_merged_evidence(self):
         evidence = bank_record("bank-evidence")
         transaction = {**bank_record("canonical"), "source": "wechat", "kind": "expense",

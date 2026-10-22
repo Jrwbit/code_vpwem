@@ -18,11 +18,13 @@ from zoneinfo import ZoneInfo
 
 from .douyin_audit import annotate_douyin_chains
 from .foreign_audit import annotate_foreign_cash
+from .entities import annotate_entities
 from .parse_apps import parse_alipay, parse_wechat
 from .parse_banks import parse_bank_pdf
 from .parse_douyin import parse_douyin
 from .reconcile import KINDS, fingerprint, monthly_totals, reconcile
 from .self_transfer_audit import audit_self_transfers
+from .spending_categories import annotate_spending_categories
 
 
 SOURCE_LABELS = {
@@ -134,7 +136,8 @@ def apply_decisions(transactions: list[dict], decisions: list[dict]) -> list[dic
 
 
 def build_data(input_dir: Path, decrypted_dir: Path, period_end: str,
-               owner_names: tuple[str, ...] = (), decisions: list[dict] | None = None) -> dict:
+               owner_names: tuple[str, ...] = (), decisions: list[dict] | None = None,
+               person_aliases: dict[str, str] | None = None) -> dict:
     end_date = date.fromisoformat(period_end)
     period_start = f"{end_date.year}-01-01"
     all_records, errors, file_audits, notes = [], [], [], []
@@ -191,6 +194,8 @@ def build_data(input_dir: Path, decrypted_dir: Path, period_end: str,
     self_summary = self_transfer_audit["summary"]
     notes.append(f"已用双向对手账号核对{self_summary['pair_count']}组本人银行互转，共{self_summary['amount_cents'] / 100:.2f}元；双方记账均为内部流转，不计收入或花费。")
     douyin_audit = annotate_douyin_chains(domestic)
+    spending_audit = annotate_spending_categories(transactions)
+    entities = annotate_entities(transactions, person_aliases=person_aliases)
     monthly = monthly_totals(transactions)
     zero_fields = {"income", "expense", "refund", "reimbursement", "internal", "excluded", "review_in",
                    "review_out", "review_neutral", "review_count", "net_expense", "balance"}
@@ -225,6 +230,8 @@ def build_data(input_dir: Path, decrypted_dir: Path, period_end: str,
             "files": source_files.get(source, []), "currency": "CNY", "foreign_count": len(rows) - len(cny_rows),
         })
     notes.extend([
+        "支出用途按订单摘要、明确商户及来源分类自动识别；不明用途保留其他待分。已关联退款沿用原单用途，未关联的AA回款不猜测原消费类别。",
+        "人物及支付方式按去重后的交易统计，一笔交易可能同时出现在商户、代付人和亲情卡下；各对象金额不能再相加。人物全年汇总独立于总览月份筛选。",
         "金额统一以整数分运算。来源收支展示原始流水毛额，最终月度表使用跨来源去重后的经济分类。",
         "商品支出包含亲情卡及他人代付；退款按实际到账月冲减支出。本人账户互转、投资本金和还款不重复计消费。",
         "明确发放的利息及余额宝收益计入收入；基金赎回缺少完整持仓成本，不将本金当作收入，未确认的投资损益不作推算。",
@@ -251,6 +258,8 @@ def build_data(input_dir: Path, decrypted_dir: Path, period_end: str,
     if applied_decisions:
         notes.append(f"已应用{len(applied_decisions)}项用户明确确认的分类；匹配条件和修改前后信息保存在audit.applied_decisions。")
     audit = {
+        "spending_categories": spending_audit,
+        "person_aliases": dict(person_aliases or {}),
         "self_transfers": self_transfer_audit,
         "raw_count": len(in_period), "cny_raw_count": len(domestic),
         "canonical_count": len(transactions), "duplicate_count": len(domestic) - len(transactions),
@@ -272,6 +281,7 @@ def build_data(input_dir: Path, decrypted_dir: Path, period_end: str,
             "missing_sources": missing_sources,
         },
         "sources": sources, "transactions": transactions, "matches": matches, "monthly": monthly,
+        "entities": entities, "spending_categories": spending_audit["categories"],
         "foreign_transactions": foreign, "outside_period_transactions": outside_period,
         "audit": audit, "errors": errors,
     }
@@ -318,10 +328,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--owner-name", action="append", default=[], help="Exact account-holder name; repeat for known aliases")
     parser.add_argument("--period-end", default="2026-10-22", help="Inclusive ISO end date (default: 2026-10-22)")
     parser.add_argument("--decisions", type=Path, help="Private JSON file containing explicit user classification decisions")
+    parser.add_argument("--person-aliases", type=Path, help="Private JSON object mapping confirmed person aliases to canonical names")
     args = parser.parse_args(argv)
     try:
         decisions = json.loads(args.decisions.read_text(encoding="utf-8-sig")) if args.decisions else None
-        data = build_data(args.input, args.decrypted_dir, args.period_end, tuple(args.owner_name), decisions)
+        person_aliases = json.loads(args.person_aliases.read_text(encoding="utf-8-sig")) if args.person_aliases else None
+        data = build_data(args.input, args.decrypted_dir, args.period_end, tuple(args.owner_name), decisions, person_aliases)
         write_outputs(data, args.output)
     except Exception as exc:
         print(f"构建失败：{type(exc).__name__}: {exc}", file=sys.stderr)
