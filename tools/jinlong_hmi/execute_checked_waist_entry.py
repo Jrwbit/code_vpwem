@@ -84,8 +84,10 @@ def main():
         stages = [("left_arm", sol["left_stow_rad"])] + [("waist", w) for w in waist_route[1:]]
         for stage, (group, final) in enumerate(stages):
             initial = expected[group][:]
-            step_deg = 10 if group == "left_arm" else 20
-            speed = 5 if group == "left_arm" else 1
+            step_deg = 10 if group == "left_arm" else 8
+            speed = 5 if group == "left_arm" else 2
+            if delta(initial, final) < math.radians(.1):
+                continue
             pieces = max(1, math.ceil(delta(initial, final) / math.radians(step_deg)))
             for piece in range(1, pieces+1):
                 target = [a + (b-a)*piece/pieces for a, b in zip(initial, final)]
