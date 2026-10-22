@@ -36,3 +36,5 @@
 现场原规划归档：`/home/bit-bhr/r435-release/r435-vision-1080ti-v1/outputs/rokae_trajectory/290616353cc640708739055f2daa0e11/`。离线审计及状态：`/home/bit-bhr/helios_hmi_sessions/diagnostics/ik160-20261022/endpoint_audit.json`等。本地副本在Git忽略目录`outputs/diagnostics/ik160-20261022/`；原始运行数据与私有配置不提交Git，也不冒充飞书下载附件。本轮无新配图或必要附件。
 
 飞书同步核验：已追加到[既有全流程报告](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO)，保留原995个顶层块顺序；新增20个文本块逐块回读一致。
+
+后续更正与跟踪：用户明确反馈本姿态此前仿真已测试有解，已提交[issue #15](https://github.com/thedaosheng/jinlong-motor-arm-control/issues/15)，固定现场目标、腰姿、工具矩阵和证据摘要，优先对照成功仿真与现场的坐标链、模型、约束及分支差异。本文约束审计只描述本次有限采样的拒绝结果，不构成实物摆放不可达的证明，也不应据此直接要求调整电机摆放。
