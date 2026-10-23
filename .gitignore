@@ -238,3 +238,6 @@ cvpr_final
 /reports/**/feishu_url.txt
 /reports/*TRANSFER_COMPLETE*
 /reports/*transfer_summary*.tsv
+
+# MuJoCo runtime diagnostics (reproduce through the offline study scripts).
+/MUJOCO_LOG.TXT

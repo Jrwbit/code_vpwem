@@ -1,0 +1,48 @@
+{
+  "design_only": true,
+  "description": "Proposed 40mm upward-facing QR patches, not measured existing label locations. Rigidly attached to indexed motor supports, 10mm outside the box outline.",
+  "models": {
+    "JM160": {
+      "proposed_QR_patch": {
+        "bounds_box_mm": [
+          [
+            87.29999999999998,
+            -20.0
+          ],
+          [
+            127.3,
+            20.0
+          ]
+        ]
+      }
+    },
+    "JL132": {
+      "proposed_QR_patch": {
+        "bounds_box_mm": [
+          [
+            -20.0,
+            65.99999999999999
+          ],
+          [
+            20.0,
+            106.0
+          ]
+        ]
+      }
+    },
+    "JL100": {
+      "proposed_QR_patch": {
+        "bounds_box_mm": [
+          [
+            -20.0,
+            -101.75
+          ],
+          [
+            20.0,
+            -61.749999999999986
+          ]
+        ]
+      }
+    }
+  }
+}

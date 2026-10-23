@@ -1,0 +1,81 @@
+{
+  "design_only": true,
+  "description": "Offline design input: one motor at a time at model-specific indexed poses; fixed waist, actual Rz(-90 deg) mounting; endpoint 30mm before historical nominal target. No physical-contact or electrical acceptance.",
+  "waist_model_deg": [
+    -15.0,
+    5.0,
+    5.0,
+    -60.0
+  ],
+  "common_nominal_flange_pose": [
+    [
+      0.5000000000000001,
+      0.8660254037844386,
+      0.0,
+      0.42
+    ],
+    [
+      0.8660254037844386,
+      -0.5000000000000001,
+      0.0,
+      0.04
+    ],
+    [
+      0.0,
+      0.0,
+      -1.0,
+      0.94
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "world_T_camera": [
+    [
+      0.9962296056781429,
+      -8.673617379884035e-19,
+      -0.08675582268857888,
+      0.469242922063904
+    ],
+    [
+      0.004020025110430518,
+      -0.9989258533416171,
+      0.04616252726870464,
+      0.004337752501709799
+    ],
+    [
+      -0.08666263421154269,
+      -0.04633723692369228,
+      -0.9951595089762214,
+      1.47877
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "endpoint_retract_mm": 30,
+  "rises_mm": [
+    30
+  ],
+  "escape_azimuths_deg": [
+    120
+  ],
+  "escape_mm": 280,
+  "seed_left_rad": [
+    1.6210446699897523,
+    -1.2510399557426803,
+    -0.7869092960134846,
+    1.475021943442612,
+    1.1692754755727142,
+    -0.8003644297036525,
+    0.38183778868292323
+  ],
+  "units": "Rigid-transform translation in metres; model joint degrees except seed_left_rad.",
+  "waist_controller_conversion": "Joint 2 controller degrees = model degrees - 90. These values are not controller commands."
+}
