@@ -125,3 +125,13 @@
 当前可采用的技术路线是：**优先这一套固定腰、分型号定位托座、共用相机／手臂路线的工位；再以真实套筒／地针尺寸和独立端子坐标完成接触段。** 整体90°角码不是当前已通过非接触方案的前提，也不能单独消除工具头内部的位置／长度问题。没有操作机器人、移动相机或部署生产规划代码；此前J4失电保持问题仍单独保留。
 
 报告按要求追加至[既有飞书全流程报告](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO)，保留此前正文并补充上述更正。
+
+## 5. 三型号仿真视频
+
+用户要求的视频已导出为[本地MP4](../outputs/diagnostics/full-solve-20261023/video/三型号固定腰非接触往返仿真.mp4)，并上传为[飞书真实视频附件](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnd7ekrCUGGAHzs8Y13uEkq5)。44秒，1440×848，24fps，H.264，1056帧，2,091,726字节。
+
+顺序为JM160→JL132→JL100，每种型号展示等待／拍照位置、水平接近、垂直接近、非接触停留、垂直撤离和原路返回。左侧全局视角，右侧工装／接线盒近景。沿用本报告已检查的关节线段及固定腰姿，不重新搜索轨迹；画面一直注明实际Rz(-90°)安装、旧名义目标前30mm终点和未验证实物插接／电测。演示时长不是实机执行周期。
+
+导出脚本为`tools/jinlong_hmi/render_fixed_waist_video.py`；执行命令为`/home/wjr/.local/share/jinlong-gpu-planner/venv/bin/python tools/jinlong_hmi/render_fixed_waist_video.py`。渲染时几何与原结果哈希核对一致，视频已完整解码检查并目视检查关键帧。上传脚本`append_video_to_feishu.py`保留原文1585个根块，追加视频和说明，再下载附件逐字节哈希核对。
+
+视频SHA256：`9bf04fab04d9ab96f685605cda9b3b2a23dac939d1d2a145bb4246ff456fd706`。渲染与上传回执分别在`video/video_manifest.json`和`video/feishu_video_receipt.json`，二进制视频及运行回执未写入Git。
