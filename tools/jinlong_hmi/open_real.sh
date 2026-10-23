@@ -40,7 +40,17 @@ fi
 import json, urllib.request
 with urllib.request.urlopen('http://127.0.0.1:50168/state', timeout=3) as response:
     state = json.load(response)
-if state.get('revision') != 'codex-send-stop-ipc' or state.get('write_enabled') is not True:
+# Release revisions change independently of the real-HMI mode and physical roles.
+roles = state.get('arm_roles', {})
+if (state.get('write_enabled') is not True
+        or not isinstance(state.get('real'), dict)
+        or not isinstance(state['real'].get('components'), dict)
+        or not isinstance(state.get('motion'), dict)
+        or not isinstance(roles, dict)
+        or not isinstance(roles.get('left_arm'), dict)
+        or not isinstance(roles.get('right_arm'), dict)
+        or roles['left_arm'].get('ip') != '192.168.71.161'
+        or roles['right_arm'].get('ip') != '192.168.71.160'):
     raise SystemExit('Port 50168 belongs to another mode; close it before starting real HMI.')
 PY
 flock -u 9
