@@ -80,7 +80,7 @@ def plot(candidate, result, intr, output):
     a.plot(poses[:, 0], poses[:, 1], 'k.-', lw=1, label='Shared flange path')
     a.annotate('HOME / SCAN', poses[-1, :2], xytext=(6, 8), textcoords='offset points')
     camera = np.array(candidate['world_T_camera'])[:3, 3] * 1000
-    a.plot(*camera[:2], 'rx', ms=10, label='Camera vertical axis')
+    a.plot(*camera[:2], 'rx', ms=10, label='Camera position (XY)')
     a.set(xlabel='World X (mm, robot front)', ylabel='World Y (mm)',
           title='Three indexed placements, one motor loaded at a time')
     a.axis('equal'); a.grid(alpha=.2); a.legend(loc='best', fontsize=8)
