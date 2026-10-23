@@ -30,6 +30,27 @@ def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def camera_lift_label(result):
+    """Describe only a verified laboratory-Z camera relocation in the result."""
+    meta = result.get('frame_metadata') or {}
+    lift_mm = float(meta.get('camera_lift_design_mm', 0))
+    if not np.isfinite(lift_mm) or lift_mm < 0:
+        raise ValueError('Camera lift metadata must be finite and nonnegative')
+    if lift_mm == 0:
+        return None
+    calibrated = np.asarray(meta['calibration_lab_T_camera'], float)
+    candidate = np.asarray(meta['lab_T_camera'], float)
+    if (calibrated.shape != (4, 4) or candidate.shape != (4, 4)
+            or not np.isfinite(calibrated).all() or not np.isfinite(candidate).all()
+            or not np.allclose(calibrated[3], [0, 0, 0, 1], atol=1e-10, rtol=0)):
+        raise ValueError('Camera lift requires finite homogeneous laboratory transforms')
+    expected = calibrated.copy()
+    expected[2, 3] += lift_mm / 1000
+    if not np.allclose(candidate, expected, atol=1e-10, rtol=0):
+        raise ValueError('Camera lift changed XY or orientation, or disagrees with saved height')
+    return f'相机仅竖直抬高 {lift_mm:g} mm，水平位置与朝向不变'
+
+
 def study_args(result, output):
     """Restore typed arguments from the validated run, changing only output."""
     from solve_shared_motor_station import argument_parser
@@ -276,6 +297,7 @@ def main():
     a.output = a.output.resolve()
     result = json.loads(a.result.read_text())
     c = check_result(result, design_candidate=a.design_candidate)
+    lift_label = camera_lift_label(result)
     retract_mm = c['endpoint_retract_mm']
     a.output.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault('MUJOCO_GL', 'egl')
@@ -332,7 +354,12 @@ def main():
             (480, DESIGN_CANDIDATE_LABEL, 26, '#f1c16e'),
             (636, '机身至盒口位置及输出轴正负方向仍为设计候选，未完成实物配准。', 23, '#a8b5c5'),
         ])
-    emit(card(intro_lines, fonts), 3*a.fps)
+    if lift_label:
+        intro_lines.append((688, lift_label, 26, '#8cd8e6'))
+    intro_frame = card(intro_lines, fonts)
+    if lift_label:
+        Image.fromarray(intro_frame).save(a.output/'intro_preview.png')
+    emit(intro_frame, 3*a.fps)
     waist_label = '[' + ', '.join(f'{v:g}°' for v in c['waist_model_deg']) + ']'
     station_mm = study.station[:3, 3] * 1000
     table_height_mm = (study.station[2, 3] - study.base['floor_z']) * 1000
@@ -387,6 +414,9 @@ def main():
                               font=fonts[26], fill='#edbc79')
                     draw.text((24, 802), f'本型往返 {samples} 点复核通过  |  腰部变化 0°  |  固定台面距地面 {table_height_mm:.1f} mm',
                               font=fonts[23], fill='#b8c5d5')
+                    if lift_label:
+                        draw.rectangle((0, 711, WIDTH, 751), fill='#111923')
+                        draw.text((24, 716), lift_label, font=fonts[26], fill='#8cd8e6')
                     progress = (index+frame_index/max(1, len(frames)-1))/3
                     draw.rectangle((0, HEIGHT-5, WIDTH*progress, HEIGHT), fill=COLOURS[fid])
                     if frame_index in (0, endpoint_index):
@@ -426,6 +456,9 @@ def main():
             'All saved common-home model cycles are checked; physical insertion and electrical tests remain unaccepted.',
         ] if a.design_candidate else []),
     }
+    if lift_label:
+        manifest.update(every_frame_camera_lift_label=lift_label,
+                        camera_installation_metadata=result['frame_metadata'])
     if encoder:
         manifest.update(video_sha256=sha(video), video_bytes=video.stat().st_size)
     (a.output/'video_manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n')
