@@ -23,6 +23,7 @@ from render_fixed_waist_video import WIDTH, HEIGHT, PANEL_HEIGHT, FONT, COLOURS,
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ('JM160', 'JL132', 'JL100')
+DESIGN_CANDIDATE_LABEL = '实扫盒体／CAD底座候选，未实物配准'
 
 
 def sha(path):
@@ -41,14 +42,18 @@ def study_args(result, output):
     return SimpleNamespace(**values)
 
 
-def check_result(result):
+def check_result(result, *, design_candidate=False):
     if not result.get('full_common_home_cycles_verified') or not result.get('full_noncontact_cycles_verified'):
         raise ValueError('All three validated common-home noncontact cycles are required')
-    if not result.get('station_geometry_confirmed'):
+    if design_candidate:
+        if result.get('station_geometry_confirmed') is not False or result.get('physical_motor_registration_confirmed') is not False:
+            raise ValueError('Design candidate mode requires explicitly unconfirmed station geometry and physical registration')
+    elif not result.get('station_geometry_confirmed'):
         raise ValueError('Provisional intrinsic motor geometry cannot be presented as a solution')
     c = result['candidate']
-    if c.get('endpoint_retract_mm') != 30:
-        raise ValueError('This presentation describes a 30 mm noncontact endpoint')
+    retract = c.get('endpoint_retract_mm')
+    if not isinstance(retract, (int, float)) or not np.isfinite(retract) or retract <= 0:
+        raise ValueError('A positive, finite saved noncontact endpoint standoff is required')
     if not c['common_home_validation']['passed']:
         raise ValueError('Common-home validation did not pass')
     source_hashes = result['sources_sha256_at_load']
@@ -131,16 +136,24 @@ def check_geometry(result, study):
 def build_with_spec(study, fid, boxes, world_camera, folder):
     """Retain the builder's MjSpec without changing its compiled model."""
     captured = []
-    original = study.geometry.modify_spec
+    geometry_hook = study.geometry
+    if not hasattr(geometry_hook, 'modify_spec'):
+        # The observed-frame adapter delegates compilation to this exact hook.
+        # Capture that delegated MjSpec without bypassing frame/SHA validation.
+        if getattr(geometry_hook, 'SCHEMA_VERSION', None) != 'observed-terminal-geometry/v1':
+            raise ValueError('Unknown geometry adapter: cannot capture its verified compilation')
+        import build_measured_box_geometry
+        geometry_hook = build_measured_box_geometry
+    original = geometry_hook.modify_spec
     def capture(spec, scene, model_id):
         result = original(spec, scene, model_id)
         captured.append(result)
         return result
-    study.geometry.modify_spec = capture
+    geometry_hook.modify_spec = capture
     try:
         ctx = study.build(fid, boxes, world_camera, folder)
     finally:
-        study.geometry.modify_spec = original
+        geometry_hook.modify_spec = original
     if len(captured) != 2:
         raise ValueError('Expected zone-model and robot-model compilations')
     # Controller DH frames, terminal selection and contact horizons are applied
@@ -149,7 +162,7 @@ def build_with_spec(study, fid, boxes, world_camera, folder):
     return ctx, captured[-1]
 
 
-def display_model(mujoco, original, spec, station, fid, visual, tool_visual, folder):
+def display_model(mujoco, original, spec, station, fid, visual, tool_visual, folder, *, observed_box=False):
     """Add a visual motor without editing any original contact property."""
     source = Path(visual['path'])
     if (visual['units'], visual['frame'], visual['visual_only']) != ('metres', 'station', True):
@@ -217,6 +230,14 @@ def display_model(mujoco, original, spec, station, fid, visual, tool_visual, fol
                 raise ValueError('Visual construction changed original collision property: '+name+'/'+field)
         if name == 'motor_body' or name.startswith('motor_fitting_'):
             display.geom_rgba[j, 3] = 0
+        if observed_box and name.startswith('box_' + fid + '_'):
+            # Reveal the independently measured six studs inside the occupied
+            # scan columns. This changes appearance only, never collision.
+            display.geom_rgba[j, 3] = .18
+        if observed_box and name.startswith('term_' + fid + '_'):
+            display.geom_rgba[j] = ([.15, .85, .35, 1] if name.endswith('_gnd')
+                                    else [.92, .35, .15, 1] if '_stud_' in name
+                                    else [.95, .75, .20, 1])
         if any(name.startswith('term_'+other+'_') for other in FIXTURES if other != fid):
             display.geom_rgba[j, 3] = 0
         if name == 'tool_plate_visual':
@@ -244,6 +265,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--fps', type=int, default=24)
     parser.add_argument('--preview-only', action='store_true')
+    parser.add_argument('--design-candidate', action='store_true',
+                        help='Render verified common-home cycles with observed scan boxes and explicitly unregistered nominal CAD station')
     a = parser.parse_args()
     if not 1 <= a.fps <= 60:
         parser.error('FPS must be in [1, 60]')
@@ -252,12 +275,15 @@ def main():
     a.tool_visual = a.tool_visual.resolve()
     a.output = a.output.resolve()
     result = json.loads(a.result.read_text())
-    c = check_result(result)
+    c = check_result(result, design_candidate=a.design_candidate)
+    retract_mm = c['endpoint_retract_mm']
     a.output.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault('MUJOCO_GL', 'egl')
     from solve_shared_motor_station import SharedStationStudy
     import mujoco
     study = SharedStationStudy(study_args(result, a.output/'scenes'))
+    if a.design_candidate and getattr(study.geometry, 'SCHEMA_VERSION', None) != 'observed-terminal-geometry/v1':
+        raise ValueError('Design candidate presentation requires the independent observed-terminal geometry adapter')
     for path, value in study.loaded_source_hashes.items():
         if result['sources_sha256_at_load'].get(path) != value:
             raise ValueError('Renderer loaded an unvalidated source: '+path)
@@ -292,15 +318,21 @@ def main():
                 encoder.stdin.write(np.ascontiguousarray(frame).tobytes())
                 total_frames += 1
 
-    emit(card([
+    intro_lines = [
         (136, '三型号电机 · 同一固定工位', 48, '#f3f7fb'),
         (240, '160 / 132 / 100   一次上一个电机', 38, '#8cd8e6'),
         (324, '共用底脚定位中心、摆放方向和固定台面', 29, '#d3dce7'),
         (378, '电机轴水平 · 接线盒口朝上、位于远离机器人一侧', 29, '#d3dce7'),
         (432, '共同等待位与固定腰姿；不同型号使用各自接近路线', 29, '#d3dce7'),
-        (532, '终点在旧名义配合目标前 30 mm；尚未验证真实插接及电测。', 26, '#edbc79'),
+        (532, f'终点在名义配合目标前 {retract_mm:g} mm；尚未验证真实插接及电测。', 26, '#edbc79'),
         (586, '使用存档 CAD 的机身外观；播放速度不代表实机执行周期。', 26, '#a8b5c5'),
-    ], fonts), 3*a.fps)
+    ]
+    if a.design_candidate:
+        intro_lines.extend([
+            (480, DESIGN_CANDIDATE_LABEL, 26, '#f1c16e'),
+            (636, '机身至盒口位置及输出轴正负方向仍为设计候选，未完成实物配准。', 23, '#a8b5c5'),
+        ])
+    emit(card(intro_lines, fonts), 3*a.fps)
     waist_label = '[' + ', '.join(f'{v:g}°' for v in c['waist_model_deg']) + ']'
     station_mm = study.station[:3, 3] * 1000
     table_height_mm = (study.station[2, 3] - study.base['floor_z']) * 1000
@@ -309,8 +341,11 @@ def main():
         for index, fid in enumerate(FIXTURES):
             folder = a.output/'scenes'/fid
             ctx, spec = build_with_spec(study, fid, boxes, world_camera, folder)
+            if a.design_candidate and (ctx.cfg.get('physical_motor_registration_confirmed') is not False or ctx.cfg.get('terminals') is not False):
+                raise ValueError('Candidate scene must retain independent terminals and unconfirmed physical registration')
             check_geometry(result, study)
-            model, visual_evidence[fid] = display_model(mujoco, ctx.robot.m, spec, study.station, fid, visuals[fid], tool_visual, folder)
+            model, visual_evidence[fid] = display_model(mujoco, ctx.robot.m, spec, study.station, fid, visuals[fid], tool_visual, folder,
+                                                       observed_box=a.design_candidate)
             data = mujoco.MjData(model)
             view = mujoco.Renderer(model, PANEL_HEIGHT, WIDTH//2)
             opt = mujoco.MjvOption(); opt.sitegroup[:] = 0
@@ -341,11 +376,14 @@ def main():
                     im.paste(Image.fromarray(panels), (0, 112))
                     draw = ImageDraw.Draw(im)
                     draw.text((24, 12), f'{fid}  |  {phase}', font=fonts[38], fill=COLOURS[fid])
+                    if a.design_candidate:
+                        draw.text((800, 23), DESIGN_CANDIDATE_LABEL, font=fonts[23], fill='#f1c16e')
                     draw.text((25, 65), f'固定腰姿 {waist_label}   |   原工装安装 Rz(-90°)   |   离线仿真',
                               font=fonts[26], fill='#e1e7ef')
                     draw.text((22, 123), '共同工位全景', font=fonts[23], fill='white', stroke_width=1, stroke_fill='#111923')
-                    draw.text((743, 123), '水平电机 / 工装 / 接线盒', font=fonts[23], fill='white', stroke_width=1, stroke_fill='#111923')
-                    draw.text((24, 762), '共用固定底座与台面；终点在旧名义配合目标前 30 mm，尚非真实插接 / 电测。',
+                    close_label = '实测六柱 / 透明扫描包络' if a.design_candidate else '水平电机 / 工装 / 接线盒'
+                    draw.text((743, 123), close_label, font=fonts[23], fill='white', stroke_width=1, stroke_fill='#111923')
+                    draw.text((24, 762), f'共用固定底座与台面；终点在名义配合目标前 {retract_mm:g} mm，尚非真实插接 / 电测。',
                               font=fonts[26], fill='#edbc79')
                     draw.text((24, 802), f'本型往返 {samples} 点复核通过  |  腰部变化 0°  |  固定台面距地面 {table_height_mm:.1f} mm',
                               font=fonts[23], fill='#b8c5d5')
@@ -373,9 +411,20 @@ def main():
         'world_T_station': c['world_T_station'], 'station_origin_world_mm': station_mm.tolist(),
         'table_height_above_floor_mm': table_height_mm, 'routes': route_manifest,
         'controller_execution_timing': False, 'physical_or_electrical_acceptance': False,
+        'design_candidate': a.design_candidate,
+        'station_geometry_confirmed': result['station_geometry_confirmed'],
+        'physical_motor_registration_confirmed': result.get('physical_motor_registration_confirmed', False),
+        'station_geometry_scope': result.get('station_geometry_scope'),
+        'every_frame_candidate_label': DESIGN_CANDIDATE_LABEL if a.design_candidate else None,
         'placement': 'Same foot-hole rectangle centre, shaft direction and level tabletop; one motor at a time.',
         'route': 'Saved validated per-model edges and shared-home connectors, fixed common waist.',
-        'endpoint': '30mm before old nominal mating target, not 30mm from measured rim or actual contact.',
+        'endpoint_retract_mm': retract_mm,
+        'endpoint': f'{retract_mm:g}mm before the saved nominal mating target, not that distance from measured rim or actual contact.',
+        'candidate_limitations': ([
+            'Observed local box surfaces and terminals are displayed with archived CAD motor bodies.',
+            'Motor-foot-to-box translation and positive output-shaft sign remain nominal design assumptions, not physical registration.',
+            'All saved common-home model cycles are checked; physical insertion and electrical tests remain unaccepted.',
+        ] if a.design_candidate else []),
     }
     if encoder:
         manifest.update(video_sha256=sha(video), video_bytes=video.stat().st_size)

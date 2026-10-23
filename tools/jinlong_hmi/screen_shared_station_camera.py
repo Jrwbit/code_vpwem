@@ -37,16 +37,26 @@ def rebuild(result, output):
     return study
 
 
+def geometry_depth_mm(geometry):
+    """Depth in the registered box frame, including rotated scan cells."""
+    depths = []
+    if 'bounds_box_mm' in geometry:
+        depths.append(float(geometry['bounds_box_mm'][1][2]))
+    depths.extend((float(b['center'][2]) + float(b['half_size'][2])) * 1000
+                  for b in geometry.get('boxes', []))
+    depths.extend(float(np.max(np.asarray(p['vertices'], float)[:, 2])) * 1000
+                  for p in geometry.get('parts', []))
+    if not depths or not np.isfinite(depths).all() or max(depths) <= 0:
+        raise ValueError('Box geometry does not establish a positive depth envelope')
+    return max(depths)
+
+
 def evaluate_measured_depths(candidate, intr, geometry_files):
     result = evaluate(candidate, intr)
     for fid, row in result["models"].items():
         path = geometry_files[fid]
         geometry = json.loads(path.read_text())
-        if "bounds_box_mm" in geometry:
-            depth = float(geometry["bounds_box_mm"][1][2])
-        else:
-            depth = max((float(b["center"][2]) + float(b["half_size"][2])) * 1000
-                        for b in geometry["boxes"])
+        depth = geometry_depth_mm(geometry)
         T = np.asarray(row["camera_T_box"])
         T[:3, 3] += T[:3, 2] * depth / 1000
         half = np.asarray(SIZES[fid]) / 2000

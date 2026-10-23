@@ -421,8 +421,16 @@ class Study:
             if "bounds_box_mm" in geometry:
                 bounds = np.asarray(geometry["bounds_box_mm"], float)[:, :2] / 1000
             else:
-                lo = np.array([np.asarray(b["center"]) - np.asarray(b["half_size"]) for b in geometry["boxes"]])
-                hi = np.array([np.asarray(b["center"]) + np.asarray(b["half_size"]) for b in geometry["boxes"]])
+                minima = [np.asarray(b["center"]) - np.asarray(b["half_size"])
+                          for b in geometry.get("boxes", [])]
+                maxima = [np.asarray(b["center"]) + np.asarray(b["half_size"])
+                          for b in geometry.get("boxes", [])]
+                for part in geometry.get("parts", []):
+                    vertices = np.asarray(part["vertices"], float)
+                    minima.append(vertices.min(0)); maxima.append(vertices.max(0))
+                if not minima:
+                    raise ValueError("Camera visibility requires nonempty registered box geometry")
+                lo, hi = np.asarray(minima), np.asarray(maxima)
                 bounds = np.array([lo.min(0)[:2], hi.max(0)[:2]])
             samples = [[0., 0., 0.]]
             labels = ["rim_center"]
