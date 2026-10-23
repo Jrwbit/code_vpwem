@@ -65,6 +65,9 @@ class SharedStationStudy(base.Study):
             for f, path_data in c.get('paths', {}).items():
                 self.seed_cache[f].insert(0, np.asarray(path_data['outward_arm_rad'][0]))
         self.station_design = json.loads(args.station_design.read_text()) if args.station_design else {}
+        self.fixed_world_T_camera = None
+        if getattr(args, 'fixed_camera_calibration', None):
+            self.load_fixed_camera_calibration(args.fixed_camera_calibration)
         for f, q in self.station_design.get('endpoint_seed_arm_rad', {}).items():
             self.seed_cache[f].insert(0, np.asarray(q, float))
         for key in ('endpoint_retract_mm', 'rises_mm', 'escape_azimuths_deg', 'escape_mm'):
@@ -75,7 +78,34 @@ class SharedStationStudy(base.Study):
             if path:
                 self.loaded_source_hashes[str(path.resolve())] = hashlib.sha256(path.read_bytes()).hexdigest()
 
+    def load_fixed_camera_calibration(self, path):
+        """Freeze the external camera using its calibration-reference waist."""
+        from helios_hmi import urdf_kin
+        calibration = json.loads(path.read_text())
+        if (calibration.get('base_frame') != 'rokae_left_sdk_base'
+                or calibration.get('translation_unit') != 'm'):
+            raise ValueError('Fixed camera requires rokae_left_sdk_base calibration in metres')
+        reference_waist = np.asarray(calibration['waist_model_rad'], float)
+        if reference_waist.shape != (4,) or not np.isfinite(reference_waist).all():
+            raise ValueError('Fixed camera requires four finite calibration-reference waist angles')
+        base_camera = constraints._transform(calibration['base_T_camera'], 'calibrated base_T_camera')
+        urdf_path = urdf_kin.default_urdf_path()
+        kin = urdf_kin.UrdfKinematics(urdf_path)
+        world_camera = kin.link_pose('AR5-5_07L_base', dict(zip(
+            urdf_kin.WAIST_JOINTS, reference_waist))) @ base_camera
+        designed_camera = self.station_design.get('world_T_camera')
+        if designed_camera is not None and not np.allclose(
+                constraints._transform(designed_camera, 'design world_T_camera'),
+                world_camera, atol=1e-8, rtol=0):
+            raise ValueError('Station design camera conflicts with the fixed calibrated camera')
+        self.fixed_world_T_camera = world_camera
+        for source in (path, Path(urdf_kin.__file__), urdf_path):
+            source = Path(source).resolve()
+            self.loaded_source_hashes[str(source)] = hashlib.sha256(source.read_bytes()).hexdigest()
+
     def camera_pose(self, boxes):
+        if self.fixed_world_T_camera is not None:
+            return self.fixed_world_T_camera.copy()
         if self.station_design.get('world_T_camera') is not None:
             return np.asarray(self.station_design['world_T_camera'], float)
         T = super().camera_pose(boxes)
@@ -240,6 +270,17 @@ class SharedStationStudy(base.Study):
             if not all(r['ok'] for r in static.values()):
                 trials.append({'home_source': source, 'static_checks': static, 'connectors': {}})
                 continue
+            visibility = None
+            if getattr(self.args, 'require_camera_visible_home', False):
+                first = next(iter(contexts.values()))
+                visibility = self.home_camera_visibility(contexts, waist, {
+                    'world_T_camera': first.cfg['camera_T_base_link'],
+                    'world_T_boxes': {f: c.cfg['box_T_base_link'] for f, c in contexts.items()},
+                    'path': {'home_arm_rad': home}})
+                if not visibility['all_sample_rays_clear']:
+                    trials.append({'home_source': source, 'static_checks': static,
+                                   'camera_visibility': visibility, 'connectors': {}})
+                    continue
             connectors = {}; connector_rows = {}
             print('COMMON_HOME_TRY', source, flush=True)
             for fid, ctx in contexts.items():
@@ -269,7 +310,8 @@ class SharedStationStudy(base.Study):
                 connector_rows[fid] = connector
                 if not check['ok']:
                     break
-            trials.append({'home_source': source, 'connectors': connectors})
+            trials.append({'home_source': source, 'connectors': connectors,
+                           'camera_visibility': visibility})
             if len(connectors) != 3 or not all(c['ok'] for c in connectors.values()):
                 continue
             checks = {}
@@ -296,7 +338,7 @@ class SharedStationStudy(base.Study):
                 path['common_home_cycle_segments'] = segments
             if all(c['ok'] for c in checks.values()):
                 return {'passed': True, 'common_home_arm_rad': home, 'home_source': source,
-                        'fixtures': checks, 'trials': trials}
+                        'fixtures': checks, 'camera_visibility': visibility, 'trials': trials}
         return {'passed': False, 'trials': trials}
 
     def run(self):
@@ -423,6 +465,10 @@ def argument_parser():
     p.description = __doc__
     p.add_argument('--station-geometry', type=Path)
     p.add_argument('--station-design', type=Path)
+    p.add_argument('--fixed-camera-calibration', type=Path,
+                   help='Keep the external camera at the saved left-SDK-base calibration, using its reference waist')
+    p.add_argument('--require-camera-visible-home', action='store_true',
+                   help='Reject common homes that block sampled box/QR rays; image projection is checked separately')
     p.add_argument('--ik-only', action='store_true')
     p.add_argument('--camera-offset-xy-mm', type=float, nargs=2, default=[0,0])
     p.add_argument('--random-seeds', type=int, default=2)
