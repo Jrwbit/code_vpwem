@@ -38,6 +38,16 @@ def robot_installation_transform(xy_mm, fixed_camera_calibration):
     return station_transform([xy[0] / 1000, xy[1] / 1000, 0], 0)
 
 
+def validate_camera_lift(lift_mm, fixed_camera_calibration):
+    """Validate an explicit offline vertical relocation from saved calibration."""
+    lift = np.asarray(lift_mm, float)
+    if lift.shape != () or not np.isfinite(lift) or lift < 0:
+        raise ValueError('Camera lift requires one finite nonnegative height in mm')
+    if lift != 0 and not fixed_camera_calibration:
+        raise ValueError('Nonzero camera lift requires a fixed camera calibration')
+    return float(lift)
+
+
 def provisional_geometry():
     boxes = {}
     motors = {}
@@ -78,6 +88,10 @@ class SharedStationStudy(base.Study):
         self.lab_T_robot = robot_installation_transform(
             getattr(args, 'robot_installation_xy_mm', [0, 0]),
             getattr(args, 'fixed_camera_calibration', None))
+        self.camera_lift_design_mm = validate_camera_lift(
+            getattr(args, 'camera_lift_mm', 0),
+            getattr(args, 'fixed_camera_calibration', None))
+        self.calibration_lab_T_camera = None
         self.lab_T_camera = None
         self.fixed_world_T_camera = None
         if getattr(args, 'fixed_camera_calibration', None):
@@ -93,7 +107,7 @@ class SharedStationStudy(base.Study):
                 self.loaded_source_hashes[str(path.resolve())] = hashlib.sha256(path.read_bytes()).hexdigest()
 
     def load_fixed_camera_calibration(self, path):
-        """Freeze the external camera using its calibration-reference waist."""
+        """Freeze a candidate installation, optionally raised in laboratory Z."""
         from helios_hmi import urdf_kin
         calibration = json.loads(path.read_text())
         if (calibration.get('base_frame') != 'rokae_left_sdk_base'
@@ -105,17 +119,20 @@ class SharedStationStudy(base.Study):
         base_camera = constraints._transform(calibration['base_T_camera'], 'calibrated base_T_camera')
         urdf_path = urdf_kin.default_urdf_path()
         kin = urdf_kin.UrdfKinematics(urdf_path)
-        lab_camera = kin.link_pose('AR5-5_07L_base', dict(zip(
+        calibration_lab_camera = kin.link_pose('AR5-5_07L_base', dict(zip(
             urdf_kin.WAIST_JOINTS, reference_waist))) @ base_camera
-        # The hardware camera stays in the original lab frame. Only the robot
-        # installation origin changes; solver "world" keys remain robot-model
-        # coordinates and must not be mistaken for laboratory coordinates.
+        lab_camera = calibration_lab_camera.copy()
+        lab_camera[2, 3] += self.camera_lift_design_mm / 1000
+        # The explicit lift is physical design movement in laboratory Z;
+        # it never rotates or tracks a station/working waist. Robot installation
+        # changes only the model origin. Neither operation edits calibration.
         model_camera = np.linalg.inv(self.lab_T_robot) @ lab_camera
         designed_camera = self.station_design.get('world_T_camera')
         if designed_camera is not None and not np.allclose(
                 constraints._transform(designed_camera, 'design world_T_camera'),
                 model_camera, atol=1e-8, rtol=0):
-            raise ValueError('Station design camera conflicts with the fixed calibrated camera')
+            raise ValueError('Station design camera conflicts with the calibrated camera and explicit lift')
+        self.calibration_lab_T_camera = calibration_lab_camera
         self.lab_T_camera = lab_camera
         self.fixed_world_T_camera = model_camera
         for source in (path, Path(urdf_kin.__file__), urdf_path):
@@ -123,7 +140,7 @@ class SharedStationStudy(base.Study):
             self.loaded_source_hashes[str(source)] = hashlib.sha256(source.read_bytes()).hexdigest()
 
     def frame_metadata(self, station=None, boxes=None, camera=None):
-        """Prove that a model-frame camera change is only a change of origin."""
+        """Separate explicit physical lift from robot-coordinate origin changes."""
         if self.lab_T_camera is None:
             return None
         model_camera = self.fixed_world_T_camera if camera is None else np.asarray(camera, float)
@@ -138,14 +155,21 @@ class SharedStationStudy(base.Study):
             'robot_installation_translation_xy_mm': (self.lab_T_robot[:2, 3] * 1000).tolist(),
             'robot_installation_rotation_and_height_unchanged': True,
             'lab_T_robot': self.lab_T_robot.tolist(),
+            'calibration_lab_T_camera': self.calibration_lab_T_camera.tolist(),
             'lab_T_camera': self.lab_T_camera.tolist(),
             'lab_T_station': None if station is None else (self.lab_T_robot @ np.asarray(station)).tolist(),
             'lab_T_boxes': None if boxes is None else {
                 f: (self.lab_T_robot @ np.asarray(T)).tolist() for f, T in boxes.items()},
             'camera_fixed_in_lab': True,
-            'physical_camera_movement_mm': 0.,
+            'camera_fixed_during_cycle': True,
+            'camera_lift_design_mm': self.camera_lift_design_mm,
+            'camera_unchanged_from_calibration': self.camera_lift_design_mm == 0,
+            'vertical_only_design': True,
+            'camera_installation_design_only': self.camera_lift_design_mm != 0,
+            'physical_camera_movement_mm': self.camera_lift_design_mm,
+            'physical_camera_translation_mm': [0., 0., self.camera_lift_design_mm],
             'physical_camera_rotation_deg': 0.,
-            'camera_model_transform_change_is_coordinate_change_only': True,
+            'camera_model_transform_change_is_coordinate_change_only': self.camera_lift_design_mm == 0,
             'chassis_joints_changed': False,
         }
 
@@ -515,7 +539,9 @@ def argument_parser():
     p.add_argument('--station-geometry', type=Path)
     p.add_argument('--station-design', type=Path)
     p.add_argument('--fixed-camera-calibration', type=Path,
-                   help='Keep the external camera at the saved left-SDK-base calibration, using its reference waist')
+                   help='Reference external camera installation from saved left-SDK-base calibration; unchanged unless an explicit vertical design lift is supplied')
+    p.add_argument('--camera-lift-mm', type=float, default=0,
+                   help='Offline camera lift in laboratory Z only; finite nonnegative mm, requires fixed camera calibration, does not edit it')
     p.add_argument('--robot-installation-xy-mm', type=float, nargs=2, default=[0, 0],
                    help='Offline robot installation XY translation in the calibration lab frame; camera stays fixed, direction/height unchanged')
     p.add_argument('--require-camera-visible-home', action='store_true',

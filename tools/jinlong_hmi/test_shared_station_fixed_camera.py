@@ -9,7 +9,8 @@ from unittest.mock import patch
 
 import numpy as np
 
-from solve_shared_motor_station import FIXTURES, SharedStationStudy, robot_installation_transform
+from solve_shared_motor_station import (FIXTURES, SharedStationStudy, argument_parser,
+                                       robot_installation_transform, validate_camera_lift)
 
 
 class FixedCameraTests(unittest.TestCase):
@@ -54,6 +55,8 @@ class FixedCameraTests(unittest.TestCase):
         self.study.station_design = {}
         self.study.loaded_source_hashes = {}
         self.study.lab_T_robot = np.eye(4)
+        self.study.camera_lift_design_mm = 0.
+        self.study.calibration_lab_T_camera = None
         self.study.lab_T_camera = None
         self.study.fixed_world_T_camera = None
 
@@ -108,6 +111,9 @@ class FixedCameraTests(unittest.TestCase):
         self.assertTrue(meta['camera_fixed_in_lab'])
         self.assertFalse(meta['chassis_joints_changed'])
         self.assertEqual(meta['physical_camera_movement_mm'], 0)
+        self.assertTrue(meta['camera_unchanged_from_calibration'])
+        self.assertTrue(meta['camera_model_transform_change_is_coordinate_change_only'])
+        self.assertEqual(meta['camera_lift_design_mm'], 0)
         for T in meta['lab_T_boxes'].values():
             np.testing.assert_allclose(T, meta['lab_T_station'])
         meta['lab_T_camera'][0][3] += 1
@@ -122,6 +128,80 @@ class FixedCameraTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     robot_installation_transform(xy, calibration)
         np.testing.assert_array_equal(robot_installation_transform([0, 0], None), np.eye(4))
+
+    def test_vertical_lift_changes_only_lab_z_and_preserves_calibration(self):
+        # A tilted optical axis distinguishes laboratory Z from camera-local Z.
+        self.calibration['base_T_camera'] = [
+            [1, 0, 0, 0], [0, .8, -.6, -.42], [0, .6, .8, 0], [0, 0, 0, 1]]
+        self.calibration_path.write_text(json.dumps(self.calibration))
+        original_bytes = self.calibration_path.read_bytes()
+        self.study.load_fixed_camera_calibration(self.calibration_path)
+        calibrated = self.study.lab_T_camera.copy()
+        self.study.camera_lift_design_mm = validate_camera_lift(100, self.calibration_path)
+        self.study.load_fixed_camera_calibration(self.calibration_path)
+        expected = calibrated.copy()
+        expected[2, 3] += .1
+        np.testing.assert_array_equal(self.study.calibration_lab_T_camera, calibrated)
+        np.testing.assert_array_equal(self.study.lab_T_camera, expected)
+        np.testing.assert_array_equal(self.study.camera_pose({}), expected)
+        self.assertEqual(self.calibration_path.read_bytes(), original_bytes)
+        meta = self.study.frame_metadata()
+        self.assertEqual(meta['camera_lift_design_mm'], 100)
+        self.assertEqual(meta['physical_camera_movement_mm'], 100)
+        self.assertEqual(meta['physical_camera_translation_mm'], [0, 0, 100])
+        self.assertEqual(meta['physical_camera_rotation_deg'], 0)
+        self.assertTrue(meta['vertical_only_design'])
+        self.assertTrue(meta['camera_fixed_during_cycle'])
+        self.assertTrue(meta['camera_installation_design_only'])
+        self.assertFalse(meta['camera_unchanged_from_calibration'])
+        self.assertFalse(meta['camera_model_transform_change_is_coordinate_change_only'])
+        self.study.args = SimpleNamespace(waist_deg=[90, 0, 0, -150])
+        self.study.station = np.diag([1., 1., 1., 1.])
+        self.study.station[:3, 3] = [.8, -.4, .6]
+        np.testing.assert_array_equal(self.study.camera_pose(
+            {f: self.study.station.copy() for f in FIXTURES}), expected)
+        # Re-reading calibration cannot compound the design lift.
+        self.study.load_fixed_camera_calibration(self.calibration_path)
+        np.testing.assert_array_equal(self.study.lab_T_camera, expected)
+
+    def test_lift_composes_with_robot_xy_and_design_uses_model_coordinates(self):
+        self.study.load_fixed_camera_calibration(self.calibration_path)
+        calibrated = self.study.lab_T_camera.copy()
+        self.study.camera_lift_design_mm = validate_camera_lift(100, self.calibration_path)
+        self.study.lab_T_robot = robot_installation_transform([-100, 25], self.calibration_path)
+        self.study.load_fixed_camera_calibration(self.calibration_path)
+        expected_lab = calibrated.copy()
+        expected_lab[2, 3] += .1
+        expected_model = expected_lab.copy()
+        expected_model[:2, 3] += [.1, -.025]
+        np.testing.assert_allclose(self.study.camera_pose({}), expected_model)
+        meta = self.study.frame_metadata()
+        np.testing.assert_array_equal(meta['calibration_lab_T_camera'], calibrated)
+        np.testing.assert_array_equal(meta['lab_T_camera'], expected_lab)
+        np.testing.assert_allclose(self.study.lab_T_robot @ self.study.camera_pose({}), expected_lab)
+        for wrong_camera in (calibrated, expected_lab):
+            self.study.station_design = {'world_T_camera': wrong_camera.tolist()}
+            with self.assertRaisesRegex(ValueError, 'conflicts'):
+                self.study.load_fixed_camera_calibration(self.calibration_path)
+        self.study.station_design = {'world_T_camera': expected_model.tolist()}
+        self.study.load_fixed_camera_calibration(self.calibration_path)
+        moved = self.study.camera_pose({})
+        moved[2, 3] += .001
+        with self.assertRaisesRegex(ValueError, 'moved in the lab frame'):
+            self.study.frame_metadata(camera=moved)
+
+    def test_camera_lift_rejects_invalid_values_and_missing_calibration(self):
+        for lift, calibration in [(-1, self.calibration_path),
+                                  (float('nan'), self.calibration_path),
+                                  (float('inf'), self.calibration_path),
+                                  ([100], self.calibration_path),
+                                  ('invalid', self.calibration_path),
+                                  (100, None)]:
+            with self.subTest(lift=lift, calibration=calibration):
+                with self.assertRaises(ValueError):
+                    validate_camera_lift(lift, calibration)
+        self.assertEqual(validate_camera_lift(0, None), 0)
+        self.assertEqual(argument_parser().get_default('camera_lift_mm'), 0)
 
     def test_lab_camera_mutation_and_design_lab_model_mixup_are_rejected(self):
         self.study.lab_T_robot = robot_installation_transform([-100, 25], self.calibration_path)
