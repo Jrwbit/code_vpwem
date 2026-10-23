@@ -96,6 +96,9 @@ class SharedStationStudy(base.Study):
         folder.mkdir(parents=True, exist_ok=True)
         doc = copy.deepcopy(self.base)
         doc.pop('viz_boxes', None)
+        # Observed box frames require the shared foot datum explicitly; a bare
+        # box pose cannot distinguish the old CAD frame from the RGB-D frame.
+        doc['world_T_station'] = self.station.tolist()
         old_box = np.asarray(self.base['box_T_base_link'])
         delta = boxes[fid] @ np.linalg.inv(old_box)
         table_z = float(self.station[2, 3])
@@ -394,6 +397,11 @@ class SharedStationStudy(base.Study):
                 break
         result = {'candidate': chosen, 'attempts': self.log, 'elapsed_s': time.monotonic()-self.started,
                   'station_geometry_confirmed': self.station_geometry.get('intrinsic_geometry_confirmed', False),
+                  'station_geometry_scope': self.station_geometry.get('confirmation_scope'),
+                  'physical_motor_registration_confirmed': bool(
+                      self.station_geometry.get('model_datums') and all(
+                          d.get('physical_motor_to_box_registration_confirmed') is True
+                          for d in self.station_geometry['model_datums'].values())),
                   'full_noncontact_cycles_verified': bool(chosen and chosen.get('full_noncontact_cycles_verified')),
                   'mating_verified': False, 'electrical_test_verified': False, 'physical_execution_verified': False,
                   'controller_writes': False,

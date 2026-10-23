@@ -261,5 +261,7 @@
     "sha256": "5c907e4c0b4543a395f4ff539fcf7e04e95df7b4aa8e25618fe0fdd43c11c78f",
     "scope": "Archived B3 CAD foot datum extraction; field registration remains unverified."
   },
-  "coordinate_note": "World metres and model radians/degrees. Controller waist J2 = model J2 - 90 deg. This file is offline design, never a controller command."
+  "coordinate_note": "World metres and model radians/degrees. Controller waist J2 = model J2 - 90 deg. This file is offline design, never a controller command.",
+  "recommendation_status": "withdrawn_pending_observed_motor_frame_correction",
+  "withdrawal_reason": "Actual terminal observation frames were not independently registered to full-motor CAD. Historical conditional routes remain evidence only; revalidate with independently observed six-stud templates and corrected motor orientation."
 }
