@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from solve_shared_motor_station import FIXTURES, SharedStationStudy
+from solve_shared_motor_station import FIXTURES, SharedStationStudy, robot_installation_transform
 
 
 class FixedCameraTests(unittest.TestCase):
@@ -53,6 +53,8 @@ class FixedCameraTests(unittest.TestCase):
         self.study = SharedStationStudy.__new__(SharedStationStudy)
         self.study.station_design = {}
         self.study.loaded_source_hashes = {}
+        self.study.lab_T_robot = np.eye(4)
+        self.study.lab_T_camera = None
         self.study.fixed_world_T_camera = None
 
     def test_reference_waist_freezes_camera_across_station_and_working_waist(self):
@@ -83,6 +85,55 @@ class FixedCameraTests(unittest.TestCase):
 
     def test_matching_design_camera_is_accepted(self):
         self.study.load_fixed_camera_calibration(self.calibration_path)
+        self.study.station_design = {'world_T_camera': self.study.camera_pose({}).tolist()}
+        self.study.load_fixed_camera_calibration(self.calibration_path)
+
+    def test_robot_moves_back_100mm_while_lab_camera_is_unchanged(self):
+        self.study.load_fixed_camera_calibration(self.calibration_path)
+        lab_camera = self.study.lab_T_camera.copy()
+        old_model_camera = self.study.camera_pose({})
+        self.study.lab_T_robot = robot_installation_transform([-100, 0], self.calibration_path)
+        self.study.load_fixed_camera_calibration(self.calibration_path)
+        np.testing.assert_array_equal(self.study.lab_T_camera, lab_camera)
+        model_camera = self.study.camera_pose({})
+        self.assertAlmostEqual(model_camera[0, 3], old_model_camera[0, 3] + .1)
+        np.testing.assert_array_equal(model_camera[:3, :3], old_model_camera[:3, :3])
+        station = np.eye(4)
+        station[:3, 3] = [.475, 0, .5]
+        boxes = {f: station.copy() for f in FIXTURES}
+        meta = self.study.frame_metadata(station, boxes, model_camera)
+        np.testing.assert_allclose(np.asarray(meta['lab_T_station'])[:3, 3], [.375, 0, .5])
+        np.testing.assert_allclose(np.asarray(meta['lab_T_robot']) @ model_camera, meta['lab_T_camera'])
+        self.assertTrue(meta['legacy_world_keys_are_model_frame'])
+        self.assertTrue(meta['camera_fixed_in_lab'])
+        self.assertFalse(meta['chassis_joints_changed'])
+        self.assertEqual(meta['physical_camera_movement_mm'], 0)
+        for T in meta['lab_T_boxes'].values():
+            np.testing.assert_allclose(T, meta['lab_T_station'])
+        meta['lab_T_camera'][0][3] += 1
+        np.testing.assert_array_equal(self.study.lab_T_camera, lab_camera)
+
+    def test_installation_rejects_missing_camera_and_invalid_xy(self):
+        for xy, calibration in [([-100, 0], None), ([0, 20], None),
+                                 ([0], self.calibration_path),
+                                 ([0, 0, 0], self.calibration_path),
+                                 ([float('nan'), 0], self.calibration_path)]:
+            with self.subTest(xy=xy, calibration=calibration):
+                with self.assertRaises(ValueError):
+                    robot_installation_transform(xy, calibration)
+        np.testing.assert_array_equal(robot_installation_transform([0, 0], None), np.eye(4))
+
+    def test_lab_camera_mutation_and_design_lab_model_mixup_are_rejected(self):
+        self.study.lab_T_robot = robot_installation_transform([-100, 25], self.calibration_path)
+        self.study.load_fixed_camera_calibration(self.calibration_path)
+        for axis in range(3):
+            moved = self.study.camera_pose({})
+            moved[axis, 3] += .001
+            with self.assertRaisesRegex(ValueError, 'moved in the lab frame'):
+                self.study.frame_metadata(camera=moved)
+        self.study.station_design = {'world_T_camera': self.study.lab_T_camera.tolist()}
+        with self.assertRaisesRegex(ValueError, 'conflicts'):
+            self.study.load_fixed_camera_calibration(self.calibration_path)
         self.study.station_design = {'world_T_camera': self.study.camera_pose({}).tolist()}
         self.study.load_fixed_camera_calibration(self.calibration_path)
 

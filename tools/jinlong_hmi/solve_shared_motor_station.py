@@ -28,6 +28,16 @@ def station_transform(xyz, yaw_deg):
     return T
 
 
+def robot_installation_transform(xy_mm, fixed_camera_calibration):
+    """Candidate robot installation in the original calibration lab frame."""
+    xy = np.asarray(xy_mm, float)
+    if xy.shape != (2,) or not np.isfinite(xy).all():
+        raise ValueError('Robot installation requires two finite XY translations in mm')
+    if np.any(xy != 0) and not fixed_camera_calibration:
+        raise ValueError('Nonzero robot installation XY requires a fixed camera calibration')
+    return station_transform([xy[0] / 1000, xy[1] / 1000, 0], 0)
+
+
 def provisional_geometry():
     boxes = {}
     motors = {}
@@ -65,6 +75,10 @@ class SharedStationStudy(base.Study):
             for f, path_data in c.get('paths', {}).items():
                 self.seed_cache[f].insert(0, np.asarray(path_data['outward_arm_rad'][0]))
         self.station_design = json.loads(args.station_design.read_text()) if args.station_design else {}
+        self.lab_T_robot = robot_installation_transform(
+            getattr(args, 'robot_installation_xy_mm', [0, 0]),
+            getattr(args, 'fixed_camera_calibration', None))
+        self.lab_T_camera = None
         self.fixed_world_T_camera = None
         if getattr(args, 'fixed_camera_calibration', None):
             self.load_fixed_camera_calibration(args.fixed_camera_calibration)
@@ -91,17 +105,49 @@ class SharedStationStudy(base.Study):
         base_camera = constraints._transform(calibration['base_T_camera'], 'calibrated base_T_camera')
         urdf_path = urdf_kin.default_urdf_path()
         kin = urdf_kin.UrdfKinematics(urdf_path)
-        world_camera = kin.link_pose('AR5-5_07L_base', dict(zip(
+        lab_camera = kin.link_pose('AR5-5_07L_base', dict(zip(
             urdf_kin.WAIST_JOINTS, reference_waist))) @ base_camera
+        # The hardware camera stays in the original lab frame. Only the robot
+        # installation origin changes; solver "world" keys remain robot-model
+        # coordinates and must not be mistaken for laboratory coordinates.
+        model_camera = np.linalg.inv(self.lab_T_robot) @ lab_camera
         designed_camera = self.station_design.get('world_T_camera')
         if designed_camera is not None and not np.allclose(
                 constraints._transform(designed_camera, 'design world_T_camera'),
-                world_camera, atol=1e-8, rtol=0):
+                model_camera, atol=1e-8, rtol=0):
             raise ValueError('Station design camera conflicts with the fixed calibrated camera')
-        self.fixed_world_T_camera = world_camera
+        self.lab_T_camera = lab_camera
+        self.fixed_world_T_camera = model_camera
         for source in (path, Path(urdf_kin.__file__), urdf_path):
             source = Path(source).resolve()
             self.loaded_source_hashes[str(source)] = hashlib.sha256(source.read_bytes()).hexdigest()
+
+    def frame_metadata(self, station=None, boxes=None, camera=None):
+        """Prove that a model-frame camera change is only a change of origin."""
+        if self.lab_T_camera is None:
+            return None
+        model_camera = self.fixed_world_T_camera if camera is None else np.asarray(camera, float)
+        if not np.allclose(self.lab_T_robot @ model_camera, self.lab_T_camera,
+                           atol=1e-10, rtol=0):
+            raise ValueError('Candidate camera moved in the lab frame')
+        return {
+            'lab_frame': 'Robot base_link at the saved camera calibration installation',
+            'model_frame': 'Robot base_link at the candidate XY installation',
+            'legacy_world_keys_are_model_frame': True,
+            'robot_installation_design_only': True,
+            'robot_installation_translation_xy_mm': (self.lab_T_robot[:2, 3] * 1000).tolist(),
+            'robot_installation_rotation_and_height_unchanged': True,
+            'lab_T_robot': self.lab_T_robot.tolist(),
+            'lab_T_camera': self.lab_T_camera.tolist(),
+            'lab_T_station': None if station is None else (self.lab_T_robot @ np.asarray(station)).tolist(),
+            'lab_T_boxes': None if boxes is None else {
+                f: (self.lab_T_robot @ np.asarray(T)).tolist() for f, T in boxes.items()},
+            'camera_fixed_in_lab': True,
+            'physical_camera_movement_mm': 0.,
+            'physical_camera_rotation_deg': 0.,
+            'camera_model_transform_change_is_coordinate_change_only': True,
+            'chassis_joints_changed': False,
+        }
 
     def camera_pose(self, boxes):
         if self.fixed_world_T_camera is not None:
@@ -150,6 +196,7 @@ class SharedStationStudy(base.Study):
         doc['_note'] = 'Offline shared foot datum/table study; no model-specific motor movement. Motor and box source limitations are recorded in shared station geometry.'
         doc['box_T_base_link'] = boxes[fid].tolist()
         self.cr.apply_camera(doc, camera, center='camera', half_xy=.35, below_lens=.05)
+        doc['frame_metadata'] = self.frame_metadata(self.station, boxes, camera)
         doc['terminal_fixture'] = fid
         doc['left_arm_soft_limits_rad'] = {'lower': [self.limits[n][0] for n in self.sc.LEFT],
                                           'upper': [self.limits[n][1] for n in self.sc.LEFT]}
@@ -397,6 +444,7 @@ class SharedStationStudy(base.Study):
             camera = self.camera_pose(boxes)
             candidate = {'world_T_station': station, 'station_T_boxes': self.local_boxes, 'world_T_boxes': boxes,
                          'world_T_camera': camera, 'waist_model_deg': wd, 'solutions': solutions,
+                         'frame_metadata': self.frame_metadata(station, boxes, camera),
                          'endpoint_retract_mm': a.endpoint_retract_mm, 'box_far_side_offset_m': far_side, 'fixed_station_intrinsic_geometry': self.station_geometry,
                          'fixture_placement_mode': 'same foot datum, direction and table; one motor loaded at a time'}
             print('STRUCTURAL_CANDIDATE', index, 'elapsed', round(time.monotonic()-self.started,2), flush=True)
@@ -438,6 +486,7 @@ class SharedStationStudy(base.Study):
             if candidate.get('full_common_home_cycles_verified'):
                 break
         result = {'candidate': chosen, 'attempts': self.log, 'elapsed_s': time.monotonic()-self.started,
+                  'frame_metadata': chosen.get('frame_metadata') if chosen else self.frame_metadata(),
                   'station_geometry_confirmed': self.station_geometry.get('intrinsic_geometry_confirmed', False),
                   'station_geometry_scope': self.station_geometry.get('confirmation_scope'),
                   'physical_motor_registration_confirmed': bool(
@@ -467,6 +516,8 @@ def argument_parser():
     p.add_argument('--station-design', type=Path)
     p.add_argument('--fixed-camera-calibration', type=Path,
                    help='Keep the external camera at the saved left-SDK-base calibration, using its reference waist')
+    p.add_argument('--robot-installation-xy-mm', type=float, nargs=2, default=[0, 0],
+                   help='Offline robot installation XY translation in the calibration lab frame; camera stays fixed, direction/height unchanged')
     p.add_argument('--require-camera-visible-home', action='store_true',
                    help='Reject common homes that block sampled box/QR rays; image projection is checked separately')
     p.add_argument('--ik-only', action='store_true')
