@@ -1,0 +1,3 @@
+# Preserve reference CAD/drawings byte-for-byte, including original STEP whitespace.
+cad/* -text -diff
+drawings/**/*.pdf -text -diff

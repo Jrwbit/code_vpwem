@@ -199,6 +199,7 @@ cvpr_final
 # Downloaded research binaries. Keep Markdown/HTML indexes and notes trackable.
 *.pdf
 *.docx
+!docs/reference/jinlong_terminal_boxes/drawings/**/*.pdf
 /literature/**/*.webp
 /literature/**/*.png
 /literature/**/*.json

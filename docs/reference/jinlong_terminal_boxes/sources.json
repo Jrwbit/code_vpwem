@@ -1,0 +1,159 @@
+{
+  "recorded_on": "2026-10-23",
+  "source_root": "/home/wjr/code/r435/台州项目",
+  "files": [
+    {
+      "model": "JM160",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JM-160/接线盒/5JL.064.6003：接线板JM-160-180-.pdf",
+      "bytes": 88916,
+      "sha256": "940a0ce7ad5ad091d344f4d735fe562b065880239fc86882b193d32a8d0524c3",
+      "archive_path": "drawings/JM160/5JL.064.6003：接线板JM-160-180-.pdf"
+    },
+    {
+      "model": "JM160",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JM-160/接线盒/5JL.354.6003：接线盒JM-160-180-.pdf",
+      "bytes": 121172,
+      "sha256": "57ce4e158b3c685f513a58f368cd4daf911d3f2c98648fe7290283ab76dea19b",
+      "archive_path": "drawings/JM160/5JL.354.6003：接线盒JM-160-180-.pdf"
+    },
+    {
+      "model": "JM160",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JM-160/接线盒/8JL.354.6006：接线盒盖JM-160-180-.pdf",
+      "bytes": 80296,
+      "sha256": "ca2a2a517b07dba3e2b92ef62cc2ae75ea6ca9cf59c7621ff1a9752624a2d07a",
+      "archive_path": "drawings/JM160/8JL.354.6006：接线盒盖JM-160-180-.pdf"
+    },
+    {
+      "model": "JM160",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JM-160/接线盒/8JL.354.6007：接线盒座JM-160-180-.pdf",
+      "bytes": 95523,
+      "sha256": "efd98af4bc03fa6cea0582ebe1f280926117edc9ae0c7b88fe91d793ad535efc",
+      "archive_path": "drawings/JM160/8JL.354.6007：接线盒座JM-160-180-.pdf"
+    },
+    {
+      "model": "JL132",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JL-132/接线盒/5JL3540019-JL112-132-接线盒-.pdf",
+      "bytes": 137827,
+      "sha256": "8e1746d0e4a625b6fc397f7715b683e9908245d90e34286b74190f9534dc8514",
+      "archive_path": "drawings/JL132/5JL3540019-JL112-132-接线盒-.pdf"
+    },
+    {
+      "model": "JL132",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JL-132/接线盒/JL-112-132接线盒座8JL.354.0013.pdf",
+      "bytes": 128403,
+      "sha256": "491962b1eea752eed300f1b0ac5dcce3c144c3bdaa56b2dd7b33dccb878c6285",
+      "archive_path": "drawings/JL132/JL-112-132接线盒座8JL.354.0013.pdf"
+    },
+    {
+      "model": "JL132",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JL-132/接线盒/JL-112-132接线盒盖8JL.354.0012.pdf",
+      "bytes": 172514,
+      "sha256": "c931c60858b4adb6dcb70981aa2cca48e13a81a55f754e4fb6a1a6f00921fdf5",
+      "archive_path": "drawings/JL132/JL-112-132接线盒盖8JL.354.0012.pdf"
+    },
+    {
+      "model": "JL132",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JL-132/接线盒/JL112～132接线板5JL.064.0016.pdf",
+      "bytes": 167104,
+      "sha256": "ef06004263fb1a9a8131b49f0091704576e8f91ba351b9dad3ae8120c6ec1186",
+      "archive_path": "drawings/JL132/JL112～132接线板5JL.064.0016.pdf"
+    },
+    {
+      "model": "JL100",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JL-100/接线盒/5JL3540016-JL-90-100-接线盒.pdf",
+      "bytes": 140436,
+      "sha256": "fd0b13df5ea9915cec1d87dce4ce8b4642cf189850ee47915ec7b9d8bbc3b45d",
+      "archive_path": "drawings/JL100/5JL3540016-JL-90-100-接线盒.pdf"
+    },
+    {
+      "model": "JL100",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JL-100/接线盒/8JL.354.0031：接线盒座JL-90~100.pdf",
+      "bytes": 104831,
+      "sha256": "5090cee32698e80f9e0894323d287a2a2af3e5b2024e3f27a1781a073c133fd8",
+      "archive_path": "drawings/JL100/8JL.354.0031：接线盒座JL-90~100.pdf"
+    },
+    {
+      "model": "JL100",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JL-100/接线盒/8JL.354.0032：接线盒盖JL-90-100 (2).pdf",
+      "bytes": 129614,
+      "sha256": "a7479df1ef8a99f1d0fd4cc9ce51f8a499abbd5c765b4b070051e80633c3bade",
+      "archive_path": "drawings/JL100/8JL.354.0032：接线盒盖JL-90-100 (2).pdf"
+    },
+    {
+      "model": "JL100",
+      "role": "manufacturer_drawing",
+      "source_path": "北京理工大学需求提供资料/产品图纸/JL-100/接线盒/接线板5JL.064.0009-.pdf",
+      "bytes": 219607,
+      "sha256": "9ee2dee8ceb65b1e8bf75bdf7906962ff30993670c2aac19404d0aecc2445359",
+      "archive_path": "drawings/JL100/接线板5JL.064.0009-.pdf"
+    },
+    {
+      "model": "JM160",
+      "role": "full_assembly_reference_only",
+      "source_path": "建模/JL-160M-B3.stp",
+      "bytes": 22159366,
+      "sha256": "fec03e270ebecd78fce76c0679b5177788e15f3a1406896922c7caf813add151",
+      "archive_path": null
+    },
+    {
+      "model": "JL132",
+      "role": "full_assembly_reference_only",
+      "source_path": "建模/JL-132M-B3.step",
+      "bytes": 12246776,
+      "sha256": "ba0f431d5a82f6c1823f767e02ec6bce848afc259d5f2db3832cd58180cf52eb",
+      "archive_path": null
+    },
+    {
+      "model": "JL100",
+      "role": "full_assembly_reference_only",
+      "source_path": "建模/JL-100-B3.step",
+      "bytes": 11514674,
+      "sha256": "79eb11e8f0dfbcaa466ae3da1dbf39ef947a17cad17c8f9b03616d3ca67cee06",
+      "archive_path": null
+    },
+    {
+      "model": "JM160",
+      "role": "existing_box_component_reference",
+      "source_path": "建模/JL160MB070.step",
+      "bytes": 1014645,
+      "sha256": "8032f63916d4ed4219cf6e7c95011c9ac5a6152111c6f145942a43f570096710",
+      "archive_path": "cad/JL160MB070.step"
+    },
+    {
+      "model": "JL100",
+      "role": "existing_box_component_reference",
+      "source_path": "建模/JL100B3.step",
+      "bytes": 249109,
+      "sha256": "6ee2240fcc3cdf29f6ecd372c1797640668f795485117ad3f6fd64c4618cb68e",
+      "archive_path": "cad/JL100B3.step"
+    },
+    {
+      "model": "JL100",
+      "role": "existing_box_component_reference",
+      "source_path": "建模/JL100B3.FCStd",
+      "bytes": 54861,
+      "sha256": "7741ff9662a2314550864bf5a0db4ec40546c931e7d99898541c07a0d46146fc",
+      "archive_path": "cad/JL100B3.FCStd"
+    },
+    {
+      "model": "JL132",
+      "role": "existing_box_base_mesh_reference_not_step",
+      "source_path": "建模/132外壳.stl",
+      "bytes": 646684,
+      "sha256": "a60aaafd51a8bcf1d23e00498d1846e9feb27b5d4e13326fd2d331e84a5e145c",
+      "archive_path": "cad/JL132_box_base_reference.stl",
+      "note": "二进制STL，12932三角形；原坐标范围[128.5,-56,128]到[180.5,56,240]，与STEP盒座候选顶点范围相符。STL自身不存单位，按与原STEP一致解释为mm；非完整STEP、非参数实体，未完成现场配准。"
+    }
+  ]
+}
