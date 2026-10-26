@@ -3,7 +3,8 @@
 
 Retains camera XY/orientation, robot installation, shared station, waist and
 the three measured box envelopes. Does not open a camera or operate a robot.
-The 300--700 mm depth window is a software setting, not a hardware limit.
+The depth window is configurable; the historical 300--700 mm default is not
+a camera hardware specification.
 """
 from __future__ import annotations
 
@@ -16,6 +17,8 @@ from pathlib import Path
 import numpy as np
 
 from screen_shared_station_camera import evaluate_measured_depths
+from screen_cycle_camera import (validate_depth_window, HISTORICAL_DEPTH_WINDOW_MM,
+                                 DEPTH_WINDOW_HELP)
 
 
 def digest(path):
@@ -39,17 +42,21 @@ def lift_in_lab(candidate, lift_mm):
 
 
 def projection_summary(screen):
+    lower, upper = validate_depth_window(screen['software_depth_window_mm'])
     rows = {}
     for fid, model in screen['models'].items():
         planes = [model['rim'], model['conservative_geometry_depth_envelope'],
                   model['proposed_QR_patch']['screen']]
         maximum = max(plane['depth_range_mm'][1] for plane in planes)
+        minimum = min(plane['depth_range_mm'][0] for plane in planes)
         rows[fid] = {
             'projection_passed': model['projection_passed'],
             'rim_depth_range_mm': model['rim']['depth_range_mm'],
             'bottom_envelope_depth_range_mm': model['conservative_geometry_depth_envelope']['depth_range_mm'],
             'maximum_optical_depth_mm': maximum,
-            'remaining_upper_depth_window_mm': 700 - maximum,
+            'minimum_optical_depth_mm': minimum,
+            'remaining_upper_depth_window_mm': upper - maximum,
+            'remaining_lower_depth_window_mm': minimum - lower,
             'all_outlines_inside_image': all(plane['all_samples_inside_image'] for plane in planes),
             'minimum_pixel_border_margin': min(plane['minimum_pixel_border_margin'] for plane in planes),
             'proposed_qr_side': model['proposed_QR_patch']['side'],
@@ -67,12 +74,16 @@ def plot(result, output):
     x = [step['lift_lab_z_mm'] for step in steps]
     for fid, colour in [('JM160', '#c76328'), ('JL132', '#247e99'), ('JL100', '#7554a6')]:
         axes[0].plot(x, [step['models'][fid]['maximum_optical_depth_mm'] for step in steps],
-                     'o-', color=colour, label=fid)
+                     'o-', color=colour, label=fid + ' maximum')
+        axes[0].plot(x, [step['models'][fid]['minimum_optical_depth_mm'] for step in steps],
+                     ':', color=colour, label=fid + ' minimum')
         axes[1].plot(x, [step['models'][fid]['minimum_pixel_border_margin'] for step in steps],
                      'o-', color=colour, label=fid)
-    axes[0].axhline(700, color='red', linestyle='--', label='Software depth upper bound')
+    lower, upper = result['software_depth_window_mm']
+    axes[0].axhline(upper, color='red', linestyle='--', label=f'Screen upper bound {upper:g} mm')
+    axes[0].axhline(lower, color='red', linestyle='-.', label=f'Screen lower bound {lower:g} mm')
     axes[0].axvline(result['depth_lift_limit']['maximum_theoretical_lift_mm'], color='gray', linestyle=':')
-    axes[0].set(ylabel='Largest sampled optical depth (mm)', title='Rim / geometry bottom / proposed QR')
+    axes[0].set(ylabel='Sampled optical depth range (mm)', title='Rim / geometry bottom / proposed QR')
     axes[1].set(ylabel='Smallest image border margin (px)', title='All three outlined targets stay in image')
     for axis in axes:
         axis.set_xlabel('Camera lift along laboratory Z (mm)')
@@ -91,7 +102,10 @@ def main():
     parser.add_argument('--intrinsics', type=Path, required=True)
     parser.add_argument('--lifts-mm', type=float, nargs='+', default=[0, 40, 60, 80, 100, 110, 120, 150])
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--depth-window-mm', nargs=2, type=float, default=HISTORICAL_DEPTH_WINDOW_MM,
+                        help=DEPTH_WINDOW_HELP)
     args = parser.parse_args()
+    depth_window_mm = validate_depth_window(args.depth_window_mm)
     if not np.isfinite(args.lifts_mm).all() or any(v < 0 for v in args.lifts_mm):
         parser.error('Camera lifts must be finite and nonnegative')
     args.output.mkdir(parents=True, exist_ok=True)
@@ -105,7 +119,7 @@ def main():
             raise ValueError('Expected one unchanged registered collision geometry for ' + fid)
         geometry_files[fid] = matches[0]
 
-    baseline = evaluate_measured_depths(candidate, intr, geometry_files)
+    baseline = evaluate_measured_depths(candidate, intr, geometry_files, depth_window_mm)
     _, lab_T_camera = lift_in_lab(candidate, 0)
     slope = -float(lab_T_camera[2, 2])
     if slope <= 0:
@@ -113,11 +127,11 @@ def main():
     baseline_summary = projection_summary(baseline)
     limiting_fid = max(baseline_summary, key=lambda fid: baseline_summary[fid]['maximum_optical_depth_mm'])
     deepest = baseline_summary[limiting_fid]['maximum_optical_depth_mm']
-    depth_limit = (700 - deepest) / slope
+    depth_limit = (depth_window_mm[1] - deepest) / slope
     steps = []
     for lift in sorted(set(args.lifts_mm)):
         lifted, camera = lift_in_lab(candidate, lift)
-        screen = evaluate_measured_depths(lifted, intr, geometry_files)
+        screen = evaluate_measured_depths(lifted, intr, geometry_files, depth_window_mm)
         filename = f'lift_{lift:g}mm_projection.json'
         (args.output / filename).write_text(json.dumps(screen, indent=2, allow_nan=False) + '\n')
         steps.append({
@@ -133,11 +147,11 @@ def main():
     checks = []
     for offset in [-.001, .001]:
         lifted, _ = lift_in_lab(candidate, depth_limit + offset)
-        result = evaluate_measured_depths(lifted, intr, geometry_files)
+        result = evaluate_measured_depths(lifted, intr, geometry_files, depth_window_mm)
         largest = max(row['maximum_optical_depth_mm'] for row in projection_summary(result).values())
         checks.append({'lift_mm': depth_limit + offset, 'maximum_depth_mm': largest,
                        'all_projection_gates_pass': result['all_projection_gates_pass']})
-    if not checks[0]['maximum_depth_mm'] < 700 < checks[1]['maximum_depth_mm']:
+    if not checks[0]['maximum_depth_mm'] < depth_window_mm[1] < checks[1]['maximum_depth_mm']:
         raise AssertionError('Depth-limit analytic and numerical calculations disagree')
 
     paths = [args.result, args.intrinsics, Path(__file__),
@@ -154,20 +168,21 @@ def main():
         'lab_T_camera_baseline': lab_T_camera.tolist(),
         'shared_station_world_T': candidate['world_T_station'],
         'waist_model_deg': candidate['waist_model_deg'],
-        'software_depth_window_mm': [300, 700],
+        'software_depth_window_mm': depth_window_mm,
+        'depth_window_note': DEPTH_WINDOW_HELP,
         'evaluated_lifts': steps,
         'depth_lift_limit': {
             'maximum_theoretical_lift_mm': depth_limit,
             'limiting_model': limiting_fid,
             'baseline_largest_optical_depth_mm': deepest,
             'depth_increase_per_mm_lab_z_lift': slope,
-            'formula': '(700 - baseline largest optical depth) / (-lab_T_camera[2,2])',
+            'formula': '(configured upper depth bound - baseline largest optical depth) / (-lab_T_camera[2,2])',
             'numerical_boundary_checks': checks,
             'scope': 'Depth-window boundary only, with zero reserve; not an installation recommendation',
         },
         'optical_candidate_note': 'Compare the remaining depth-window reserve at each passing lift; route feasibility must be checked separately.',
         'limitations': [
-            '300--700 mm is the unchanged software filter, not a camera hardware specification.',
+            'The selected depth window is an offline screening input; the historical 300--700 mm default is not a camera hardware specification.',
             'Optical depth is measured along camera Z, not the vertical lens-to-table distance.',
             'A visible projection is not a guarantee of real depth completeness, QR detection or measurement accuracy.',
             'QR patch location is proposed; target self-occlusion and wire obstacles are not measured.',

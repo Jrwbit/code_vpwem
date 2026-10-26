@@ -11,7 +11,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 import numpy as np
-from screen_cycle_camera import evaluate, SIZES, COLOURS
+from screen_cycle_camera import (evaluate, SIZES, COLOURS, validate_depth_window,
+                                 HISTORICAL_DEPTH_WINDOW_MM, DEPTH_WINDOW_HELP)
 from check_layout_camera import screen as project_outline
 from solve_shared_motor_station import SharedStationStudy, argument_parser
 
@@ -51,8 +52,10 @@ def geometry_depth_mm(geometry):
     return max(depths)
 
 
-def evaluate_measured_depths(candidate, intr, geometry_files):
-    result = evaluate(candidate, intr)
+def evaluate_measured_depths(candidate, intr, geometry_files,
+                             depth_window_mm=HISTORICAL_DEPTH_WINDOW_MM):
+    depth_window_mm = validate_depth_window(depth_window_mm)
+    result = evaluate(candidate, intr, depth_window_mm)
     for fid, row in result["models"].items():
         path = geometry_files[fid]
         geometry = json.loads(path.read_text())
@@ -60,7 +63,7 @@ def evaluate_measured_depths(candidate, intr, geometry_files):
         T = np.asarray(row["camera_T_box"])
         T[:3, 3] += T[:3, 2] * depth / 1000
         half = np.asarray(SIZES[fid]) / 2000
-        cavity = project_outline(intr, T, (-half, half), 100, [300, 700])
+        cavity = project_outline(intr, T, (-half, half), 100, depth_window_mm)
         row.pop("conservative_90mm_depth_envelope")
         row["conservative_geometry_depth_envelope"] = cavity
         row["geometry_depth_mm"] = depth
@@ -99,7 +102,8 @@ def plot(candidate, result, intr, path):
     a.axis("equal"); a.grid(alpha=.2); a.legend(fontsize=8)
     b.set(xlim=(0,intr["width"]), ylim=(intr["height"],0), xlabel="Image u (px)", ylabel="Image v (px)", title="Distorted projection / fixed camera")
     b.set_aspect("equal"); b.grid(alpha=.2); b.legend(fontsize=8)
-    fig.suptitle("Common foot datum and table / waist " + str(candidate["waist_model_deg"]) + " deg")
+    fig.suptitle("Common foot datum and table / waist " + str(candidate["waist_model_deg"]) + " deg"
+                 + "\nOptical-depth screen: " + str(result["software_depth_window_mm"]) + " mm")
     fig.text(.04,.02,"Each model is loaded separately, with no change of foot datum or table height. QR patch positions are proposals.",fontsize=9)
     fig.tight_layout(rect=(0,.04,1,.96)); fig.savefig(path,dpi=170); plt.close(fig)
 
@@ -109,6 +113,8 @@ def main():
     p.add_argument("--result",type=Path,required=True)
     p.add_argument("--intrinsics",type=Path,required=True)
     p.add_argument("--output",type=Path,required=True)
+    p.add_argument("--depth-window-mm",nargs=2,type=float,default=HISTORICAL_DEPTH_WINDOW_MM,
+                   help=DEPTH_WINDOW_HELP)
     a=p.parse_args(); a.output=a.output.resolve(); a.output.mkdir(parents=True,exist_ok=True)
     result=json.loads(a.result.read_text()); candidate=result["candidate"]
     if not result["full_common_home_cycles_verified"]:
@@ -122,7 +128,7 @@ def main():
         if digest(matches[0]) != result["geometry_sha256_at_build"][str(matches[0])]:
             raise ValueError("Box geometry changed")
         geometry_files[fid] = matches[0]
-    screen=evaluate_measured_depths(candidate,intr,geometry_files)
+    screen=evaluate_measured_depths(candidate,intr,geometry_files,a.depth_window_mm)
     screen["limitations"][1]="One model loaded at the same physical foot datum and table at a time."
     screen["limitations"][4]="Robot/tool occlusion is checked separately at the common home; target self-occlusion and cables are not measured."
     qr_path=a.output/"camera_projection.json"

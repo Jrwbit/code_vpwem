@@ -17,25 +17,37 @@ from check_layout_camera import screen
 
 SIZES = {'JM160': [154.6, 149.4], 'JL132': [112., 112.], 'JL100': [103.5, 103.5]}
 COLOURS = {'JM160': '#c76328', 'JL132': '#247e99', 'JL100': '#7554a6'}
+HISTORICAL_DEPTH_WINDOW_MM = (300., 700.)
+DEPTH_WINDOW_HELP = ('Optical-depth screening interval MIN MAX in mm; historical default '
+                     '300 700 is not a camera hardware specification')
 
 
-def evaluate(candidate, intr):
+def validate_depth_window(depth_window_mm):
+    window = np.asarray(depth_window_mm, float)
+    if (window.shape != (2,) or not np.isfinite(window).all()
+            or not 0 < window[0] < window[1]):
+        raise ValueError('Depth window requires two finite positive increasing values in mm')
+    return window.tolist()
+
+
+def evaluate(candidate, intr, depth_window_mm=HISTORICAL_DEPTH_WINDOW_MM):
+    depth_window_mm = validate_depth_window(depth_window_mm)
     camera = np.asarray(candidate['world_T_camera'])
     results = {}
     for fid, pose in candidate['world_T_boxes'].items():
         T = np.linalg.inv(camera) @ pose
         half = np.array(SIZES[fid]) / 2000
-        box = screen(intr, T, (-half, half), 100, [300, 700])
+        box = screen(intr, T, (-half, half), 100, depth_window_mm)
         bottom = T.copy()
         bottom[:3, 3] += bottom[:3, 2] * .09
-        cavity = screen(intr, bottom, (-half, half), 100, [300, 700])
+        cavity = screen(intr, bottom, (-half, half), 100, depth_window_mm)
         labels = []
         for axis in (0, 1):
             for sign in (-1, 1):
                 center = np.zeros(2)
                 center[axis] = sign * (half[axis] + .030)
                 lo, hi = center - .020, center + .020
-                projection = screen(intr, T, (lo, hi), 100, [300, 700])
+                projection = screen(intr, T, (lo, hi), 100, depth_window_mm)
                 labels.append({'side': ('X', 'Y')[axis] + ('+' if sign > 0 else '-'),
                                'bounds_box_mm': [(lo * 1000).tolist(), (hi * 1000).tolist()],
                                'screen': projection})
@@ -47,7 +59,8 @@ def evaluate(candidate, intr):
                         cavity['projection_sample_gates_pass'] and label['screen']['projection_sample_gates_pass']}
     return {'models': results, 'all_projection_gates_pass': all(r['projection_passed'] for r in results.values()),
             'world_T_camera': camera.tolist(), 'sampled_outline_points_per_plane': 400,
-            'software_depth_window_mm': [300, 700], 'actual_detection_tested': False,
+            'software_depth_window_mm': depth_window_mm,
+            'depth_window_note': DEPTH_WINDOW_HELP, 'actual_detection_tested': False,
             'limitations': ['Outer envelope dimensions, not inferred free interior dimensions.',
                             'Only one motor occupies its indexed position at a time.',
                             'QR patches are proposed upward-facing 40mm labels, 10mm from the box outer edge.',
@@ -87,7 +100,8 @@ def plot(candidate, result, intr, output):
     b.set(xlim=(0, intr['width']), ylim=(intr['height'], 0), xlabel='Image u (px)', ylabel='Image v (px)',
           title='Archived intrinsics / proposed camera pose')
     b.set_aspect('equal'); b.grid(alpha=.2); b.legend(loc='best', fontsize=8)
-    fig.suptitle('Fixed waist: ' + str(candidate['waist_model_deg']) + ' deg; actual tool mount Rz(-90 deg)')
+    fig.suptitle('Fixed waist: ' + str(candidate['waist_model_deg']) + ' deg; actual tool mount Rz(-90 deg)'
+                 + '\nOptical-depth screen: ' + str(result['software_depth_window_mm']) + ' mm')
     fig.text(.05, .02, 'Offline geometry only. Dashed patches are proposed label positions. '
              'Overlaid models do not occupy the station simultaneously.', fontsize=9)
     fig.tight_layout(rect=(0, .04, 1, .96))
@@ -100,10 +114,12 @@ def main():
     p.add_argument('--result', type=Path, required=True)
     p.add_argument('--intrinsics', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--depth-window-mm', nargs=2, type=float, default=HISTORICAL_DEPTH_WINDOW_MM,
+                   help=DEPTH_WINDOW_HELP)
     a = p.parse_args()
     candidate = json.loads(a.result.read_text())['candidate']
     intr = json.loads(a.intrinsics.read_text())
-    result = evaluate(candidate, intr)
+    result = evaluate(candidate, intr, a.depth_window_mm)
     result['sources_sha256'] = {str(path.resolve()): hashlib.sha256(path.read_bytes()).hexdigest()
                                 for path in (a.result, a.intrinsics, Path(__file__))}
     a.output.mkdir(parents=True, exist_ok=True)
