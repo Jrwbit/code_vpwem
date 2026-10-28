@@ -1,5 +1,7 @@
 # 金龙／台州三型号电机检测：长期上下文入口
 
+**10月28日右臂标定准备：** [工控机连接与示教器检查](jinlong_right_handeye_preparation_20261028.md)已恢复工控机IPv6远程访问并打开RobotAssist，连接页填入右臂`192.168.71.160`。当次机器人网口`eno1`及另一个有线口`enp3s0`均`NO-CARRIER`，本机无`192.168.71.157`，三部件无新鲜反馈，相机停止；右臂连接、上电/拖动和新标定尚未完成。用户回复接线后复读仍未检测到链路，待核对网线两端及交换机。不要用10月26日的缓存检查代替当前状态。[飞书续报](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnbim6wAneUc1mUrQwPpfcff)正文、表格和界面图已回读核对。
+
 最新飞书续报：[10月26日实机原位上电检查与全流程准备度](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnE8FfRaydO0laBbCyDbShLe)，两次上电与退出回执、当前现场状态及自动持腰／电测缺口已追加，正文与表格回读核对通过。
 
 相机要求续报：[10月26日400–800mm工作距离及检测范围更正](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcn1NRxQSPVnRIm9f7TmGprLg)，正文、表格及投影图已回读核对，原正文保留。
