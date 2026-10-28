@@ -53,3 +53,7 @@
 最终输出根目录：训练目录下 `eval_online_combined_blend_250k_seed100_triplicate_20261028`，五轮各用表中独立子目录。启动器：`tools/run_momart_boxed_250k_seed100_triplicate_20261028.sh`，服务器副本 `/home/jrw/vpwem_jobs/`。bash -n通过，supervisor PID=2944211，持有独占锁，记录阶段切换和退出状态。
 
 当前是已提交运行计划与启动核验，尚无五轮最终成功率。之前0/1/7上的中间checkpoint评测保持运行。
+
+## 后续新增四步队列（2026-10-28 21:23）
+
+用户新增250k、预测9步执行4步、评测seed100/200/300各一轮。已另建协调器PID3051605，等待本页既有五轮八步队列的supervisor锁释放后再按GPU3/4/6排队；没有替换或停止本页任务。新任务共900回合，沿用本页旧tracker与计分协议，便于按执行长度对照。详情及结果入口见 `docs/momart_boxed_250k_action4_queue_20261028.md` 和[飞书排队记录](https://feishu.cn/docx/Jhhed9zpcoNFdsxS1dvcC5SFntd)；飞书正文及表格已回读核对。提交时新任务仍为waiting_predecessor，未产生成功率。
