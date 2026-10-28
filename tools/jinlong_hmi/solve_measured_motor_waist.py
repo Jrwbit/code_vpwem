@@ -18,9 +18,32 @@ import numpy as np
 
 from solve_shared_motor_station import SharedStationStudy, argument_parser
 from solve_fixed_waist_cycle import save
+from connect_fixed_camera_home import rrt_connect
 
 
 MODELS = ("JM160", "JL132", "JL100")
+
+
+def connect_rrt(ctx, start, end, rng, validator, *, seconds, n_samples, seed_arm_rows):
+    """Adapt the existing dense-validated RRT without changing its policy."""
+    del n_samples
+    start, end = np.asarray(start), np.asarray(end)
+    waist = start[:4]
+    if not np.allclose(waist, end[:4], atol=1e-12, rtol=0):
+        raise ValueError("RRT connection must keep one waist")
+    names = [f"AR5-5_07L_joint_{i}" for i in range(1, 8)]
+    lower = np.array([ctx.robot.lim[n][0] for n in names]) + .05
+    upper = np.array([ctx.robot.lim[n][1] for n in names]) - .05
+    def check(a, b, strict):
+        policy = validator.ClearancePolicy() if strict else validator.ClearancePolicy(sample_deg=2.)
+        return validator.check_segment(ctx, np.r_[waist, a], np.r_[waist, b],
+                                       "transit", ctx.fixture, policy, waist=waist)
+    seeds = [np.asarray(q)[-7:] for q in seed_arm_rows]
+    result = rrt_connect(start[4:], end[4:], lower, upper, check, rng,
+                         seconds=seconds, seed_rows=seeds)
+    if result["ok"]:
+        result["rows"] = [np.r_[waist, q] for q in result["arm_rows"]]
+    return result
 
 
 def rigid(value):
@@ -172,7 +195,8 @@ def run(args):
         if len(checks) == 3 and all(c["passed"] for c in checks.values()):
             trial["common_home_validation"] = study.unify_homes(
                 contexts, waist, paths, connector_seconds=args.connector_seconds,
-                connector_samples=args.connector_samples)
+                connector_samples=args.connector_samples,
+                connector_fn=connect_rrt if args.connector_method == "rrt" else None)
         trial["full_common_home_cycles_verified"] = trial.get("common_home_validation", {}).get("passed", False)
         trials.append(trial)
         print("MEASURED", degrees, "local", list(checks),
@@ -182,6 +206,8 @@ def run(args):
             chosen = trial
             break
     result = {"chosen": chosen, "trials": trials,
+              "elapsed_s": time.monotonic() - study.started,
+              "run_arguments": json.loads(json.dumps(vars(args), default=str)),
               "search_budget_exhausted": time.monotonic() >= study.deadline,
               "world_T_boxes": boxes, "world_T_camera": study.fixed_world_T_camera,
               "calibration_sha256": calibration_sha,
@@ -213,6 +239,7 @@ def main():
     p.add_argument("--rises-mm", type=float, nargs="+")
     p.add_argument("--connector-seconds", type=float, default=25)
     p.add_argument("--connector-samples", type=int, default=128)
+    p.add_argument("--connector-method", choices=("roadmap", "rrt"), default="roadmap")
     p.add_argument("--waist-deg", type=float, nargs=4, action="append", required=True)
     args = p.parse_args()
     args.output = args.output.resolve()

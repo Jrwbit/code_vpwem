@@ -5,10 +5,12 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 
-from solve_measured_motor_waist import load_observations, measured_scene, rigid
+from solve_measured_motor_waist import connect_rrt, load_observations, measured_scene, rigid
 
 
 class MeasuredSceneTests(unittest.TestCase):
@@ -92,6 +94,32 @@ class ObservationTests(unittest.TestCase):
         self.document["models"].pop("JL100")
         with self.assertRaisesRegex(ValueError, "three"):
             self.load()
+
+
+class ConnectionTests(unittest.TestCase):
+    def test_rrt_adapter_keeps_waist_and_preserves_dense_policy(self):
+        limits = {f"AR5-5_07L_joint_{i}": (-2., 2.) for i in range(1, 8)}
+        ctx = SimpleNamespace(robot=SimpleNamespace(lim=limits), fixture="JL132")
+        calls = []
+        validator = SimpleNamespace(
+            ClearancePolicy=lambda **kw: kw or {"dense": True},
+            check_segment=lambda *a, **kw: calls.append((a, kw)) or {"ok": True})
+        a = np.r_[[.1, .2, .3, .4], np.zeros(7)]
+        b = a.copy(); b[4:] = .5
+        def planner(start, end, lo, hi, check, rng, **kw):
+            check(start, end, True)
+            return {"ok": True, "arm_rows": [start, end]}
+        with patch("solve_measured_motor_waist.rrt_connect", planner):
+            result = connect_rrt(ctx, a, b, None, validator,
+                                 seconds=1, n_samples=1, seed_arm_rows=[])
+        np.testing.assert_allclose(result["rows"], [a, b])
+        self.assertEqual(calls[0][0][5], {"dense": True})
+        np.testing.assert_allclose(calls[0][1]["waist"], a[:4])
+
+    def test_rrt_adapter_rejects_changing_waist(self):
+        with self.assertRaisesRegex(ValueError, "one waist"):
+            connect_rrt(None, np.zeros(11), np.ones(11), None, None,
+                        seconds=1, n_samples=1, seed_arm_rows=[])
 
 
 if __name__ == "__main__":
