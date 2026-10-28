@@ -1,4 +1,4 @@
-"""Queue three 250k boxed No-History evaluations after the existing action-8 queue."""
+"""Queue three 250k boxed No-History evaluations on independently available GPUs."""
 import argparse
 import datetime as dt
 import fcntl
@@ -13,12 +13,11 @@ import time
 REPO = Path('/home/jrw/code_vpwem_boxed_250k_action4_20261028')
 TRAIN = Path('/home/jrw/vpwem_outputs/momart_boxed_no_history_bs256_250k_continued_20261027/seed100')
 OUTPUT = TRAIN / 'eval_online_combined_blend_250k_action4_seeds100_200_300_20261028'
-PREDECESSOR = TRAIN / 'eval_online_combined_blend_250k_seed100_triplicate_20261028'
 REFERENCE_REPO = Path('/home/jrw/code_vpwem_boxed_continue_20261027')
 BUNDLE = Path('/home/jrw/vpwem_outputs/bbox_strategies_20261020/comparison_v2/detector_bundle.json')
 PYTHON = '/home/jrw/anaconda3/envs/vpwem/bin/python'
 SOURCE_COMMIT = 'bada2c03478689be3854c3efa40afd74314f6640'
-ASSIGNMENTS = {100: 3, 200: 4, 300: 6}
+ASSIGNMENTS = {100: 0, 200: 1, 300: 7}
 TASKS = [
     'unload_dishwasher_to_dresser_suboptimal', 'unload_dishwasher_to_dresser_expert',
     'table_cleanup_to_sink_suboptimal', 'table_cleanup_to_sink_expert',
@@ -102,8 +101,7 @@ def prepare():
         prediction_horizon=9, obs_steps=2, training_action_steps=8, execution_action_steps=4,
         sample_steps=50, episodes_per_task=30, num_envs=10, max_environment_steps=1500,
         assignments=ASSIGNMENTS, tasks=TASKS, total_episodes=900,
-        predecessor_lock=str(PREDECESSOR / '.supervisor.lock'),
-        predecessor_policy='wait for release, regardless of prior experiment outcome',
+        predecessor_lock=None, predecessor_policy='independent GPU gates; do not wait for action-8 queue',
         strict_cpu_model_and_ema_load=True)
     write_json(OUTPUT / 'manifest.json', manifest)
     print(json.dumps(manifest, ensure_ascii=False), flush=True)
@@ -197,24 +195,46 @@ def worker(seed):
     return int(failed)
 
 
+def reschedule():
+    """Migrate only a stopped, still-waiting coordinator; preserve input provenance."""
+    with (OUTPUT / '.supervisor.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        state = json.loads((OUTPUT / 'queue_status.json').read_text())
+        if state['state'] != 'waiting_predecessor' or state.get('worker_pids'):
+            raise ValueError('Only a predecessor-waiting coordinator without workers can be migrated')
+        if list(OUTPUT.glob('seed*/step_250000/*/result.npy')):
+            raise ValueError('Cannot migrate this queue after results have been produced')
+        manifest = json.loads((OUTPUT / 'manifest.json').read_text())
+        manifest.setdefault('scheduling_history', []).append(dict(
+            replaced_at=now(), queue_status=state,
+            assignments=manifest['assignments'], predecessor_lock=manifest['predecessor_lock'],
+            predecessor_policy=manifest['predecessor_policy']))
+        manifest.update(assignments=ASSIGNMENTS, predecessor_lock=None,
+                        predecessor_policy='independent GPU gates; do not wait for action-8 queue',
+                        coordinator_script_sha256=sha(Path(__file__).resolve()), rescheduled_at=now())
+        write_json(OUTPUT / 'manifest.json', manifest)
+        write_json(OUTPUT / 'queue_status.json', dict(
+            state='rescheduled_not_started', assignments=ASSIGNMENTS, rescheduled_at=now()))
+        print(json.dumps(manifest, ensure_ascii=False), flush=True)
+
+
 def supervise():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     with (OUTPUT / '.supervisor.lock').open('a') as own_lock:
         fcntl.flock(own_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         manifest = json.loads((OUTPUT / 'manifest.json').read_text())
+        assert {int(k): int(v) for k, v in manifest['assignments'].items()} == ASSIGNMENTS
+        assert manifest['predecessor_lock'] is None
         for path, key in [(TRAIN / 'models/model_250000.pt', 'checkpoint_sha256'),
                           (TRAIN / 'train_config.yaml', 'train_config_sha256'),
                           (TRAIN / 'normalizers.npz', 'normalizer_sha256'),
                           (BUNDLE, 'detector_bundle_sha256')]:
             assert sha(path) == manifest[key], str(path)
-        status = dict(pid=os.getpid(), submitted_at=now(), state='waiting_predecessor',
-                      predecessor_lock=str(PREDECESSOR / '.supervisor.lock'), assignments=ASSIGNMENTS)
+        status = dict(pid=os.getpid(), submitted_at=now(), state='waiting_gpu',
+                      predecessor_lock=None, assignments=ASSIGNMENTS)
         write_json(OUTPUT / 'queue_status.json', status)
         summarize()
         print(json.dumps(status), flush=True)
-        with (PREDECESSOR / '.supervisor.lock').open('a') as previous:
-            fcntl.flock(previous, fcntl.LOCK_SH)
-        status.update(state='waiting_gpu', predecessor_released_at=now())
         workers = {}
         for seed, gpu in ASSIGNMENTS.items():
             root = OUTPUT / f'seed{seed}'
@@ -240,11 +260,13 @@ def supervise():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=('prepare', 'run', 'worker', 'summary'))
+    parser.add_argument('mode', choices=('prepare', 'run', 'worker', 'summary', 'reschedule'))
     parser.add_argument('--seed', type=int, choices=tuple(ASSIGNMENTS))
     cli = parser.parse_args()
     if cli.mode == 'prepare':
         prepare()
+    elif cli.mode == 'reschedule':
+        reschedule()
     elif cli.mode == 'run':
         sys.exit(supervise())
     elif cli.mode == 'worker':

@@ -3,6 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+import json
 
 import numpy as np
 
@@ -59,6 +60,26 @@ class ResultContractTests(unittest.TestCase):
         self.assertEqual(summary['runs']['100']['completed_tasks'], 1)
         self.assertNotIn('success_rate', summary['runs']['100'])
         self.assertEqual(summary['runs']['200']['completed_tasks'], 0)
+
+    def test_reschedule_preserves_hashes_and_old_schedule(self):
+        manifest = dict(assignments={'100': 3, '200': 4, '300': 6}, predecessor_lock='old.lock',
+                        predecessor_policy='wait', checkpoint_sha256='immutable-checkpoint')
+        (self.root / 'manifest.json').write_text(json.dumps(manifest))
+        (self.root / 'queue_status.json').write_text(json.dumps(dict(
+            state='waiting_predecessor', pid=123, assignments=manifest['assignments'])))
+        with patch.object(queue, 'OUTPUT', self.root):
+            queue.reschedule()
+        updated = json.loads((self.root / 'manifest.json').read_text())
+        self.assertEqual(updated['checkpoint_sha256'], 'immutable-checkpoint')
+        self.assertEqual(updated['assignments'], {'100': 0, '200': 1, '300': 7})
+        self.assertIsNone(updated['predecessor_lock'])
+        self.assertEqual(updated['scheduling_history'][0]['queue_status']['pid'], 123)
+
+    def test_reschedule_rejects_started_workers(self):
+        (self.root / 'queue_status.json').write_text(json.dumps(dict(
+            state='waiting_gpu', worker_pids={'100': 123})))
+        with patch.object(queue, 'OUTPUT', self.root), self.assertRaises(ValueError):
+            queue.reschedule()
 
 
 if __name__ == '__main__':
