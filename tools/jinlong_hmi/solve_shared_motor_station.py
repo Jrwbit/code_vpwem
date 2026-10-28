@@ -330,7 +330,7 @@ class SharedStationStudy(base.Study):
                 failures.append(failure or {'stage': 'escape', 'reason': 'No legal adjustment home within extension'})
         return None, failures
 
-    def unify_homes(self, contexts, waist, paths):
+    def unify_homes(self, contexts, waist, paths, *, connector_seconds=25, connector_samples=128):
         trials = []
         homes = [('historical_folded', np.array([-1.432826609,-2.007128640,1.316061868,.497740107,1.189695716,.895000094,.587892953]))]
         homes += [(f, np.asarray(paths[f]['home_arm_rad'])) for f in FIXTURES]
@@ -372,7 +372,7 @@ class SharedStationStudy(base.Study):
                                 check = {'ok': True, 'edges': cached_checks, 'reused_and_revalidated': True}
                     if not check['ok']:
                         connected = connector_module.directed_connect(ctx, connector[0], connector[-1], self.rng,
-                                                                      self.validator, seconds=25, n_samples=128,
+                                                                      self.validator, seconds=connector_seconds, n_samples=connector_samples,
                                                                       seed_arm_rows=seed_rows)
                         check = connected
                         if connected['ok']:
