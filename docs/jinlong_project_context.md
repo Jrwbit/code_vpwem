@@ -1,6 +1,8 @@
 # 金龙／台州三型号电机检测：长期上下文入口
 
-**10月28日最新：23组右臂标定已切换，当前腰姿未通过三型号共同工位筛查。** [标定切换与腰姿评估](jinlong_new_calibration_waist_assessment_20261028.md)：活动标定SHA `76d7613c…`，23组ANDREFF内部残差0.296442mm／0.074505°；源码配置提交`d40f04c`。右臂持板外参同步重算，其余工装补偿保持。当前模型腰角约[-27.874,23.290,18.760,-13.735]°与新参考一致，但在既有设计共同底脚[375,0,500]mm、目标前40mm的有限离线筛查中，160候选出现右标定板／左工装碰撞约45.35mm，132／100未找到合格结构终点；不是无解证明，也未做三型实物配准。旧共腰候选[-30,20,10,-80]°在新标定下三型非接触终点有解，净空下界10.5mm，完整路线需重验。新相机投影满足400–800mm窗口，不等于实际扫码／深度或全程无遮挡通过。旧返回腰姿与新参考不兼容，不能直接沿用；motion_enabled=false，独立精度与全流程仍未验收。本轮没有机器人运动。[Issue #18](https://github.com/thedaosheng/jinlong-motor-arm-control/issues/18)已创建；[飞书正文、表格和图像](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnJmmjbLPMC1GNu4Sjf0UNZg)已追加并回读核对。
+**10月28日续验：新标定下已找到完整共同等待位非接触候选。** [新标定共腰方法及复核](jinlong_common_waist_after_new_calibration_20261028.md)在新相机外参、上一轮归档右臂／头部姿态、共同底脚[375,0,500]mm下，腰[-30,20,10,-80]°三型完整非接触去返350／1782／4686采样通过，腰变化0°，共同等待位330射线无遮挡；新共同等待位取160局部等待位。首次95.147秒，入库候选重新生成14.474秒通过。配置`configs/jinlong/new_calibration_common_waist_candidate_20261028.json`含新连接路点，不能直接下发实机。结果仍依赖未实物配准的三型设计位置，名义配合位前40mm，不是插接／电测通过。用户确认三型可依次采集，先放132；采集前实时右臂已改为另一拖动姿态，故归档姿态候选不能直接代表此时现场，需新采集后复核。[飞书续报](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnl7KTqTttx6KvMVpY403uWg)正文和表格已回读。
+
+**10月28日标定切换阶段：23组右臂标定已切换，当前腰姿未通过三型号共同工位筛查。** [标定切换与腰姿评估](jinlong_new_calibration_waist_assessment_20261028.md)：活动标定SHA `76d7613c…`，23组ANDREFF内部残差0.296442mm／0.074505°；源码配置提交`d40f04c`。右臂持板外参同步重算，其余工装补偿保持。当前模型腰角约[-27.874,23.290,18.760,-13.735]°与新参考一致，但在既有设计共同底脚[375,0,500]mm、目标前40mm的有限离线筛查中，160候选出现右标定板／左工装碰撞约45.35mm，132／100未找到合格结构终点；不是无解证明，也未做三型实物配准。旧共腰候选[-30,20,10,-80]°在新标定下三型非接触终点有解，净空下界10.5mm，完整路线需重验。新相机投影满足400–800mm窗口，不等于实际扫码／深度或全程无遮挡通过。旧返回腰姿与新参考不兼容，不能直接沿用；motion_enabled=false，独立精度与全流程仍未验收。本轮没有机器人运动。[Issue #18](https://github.com/thedaosheng/jinlong-motor-arm-control/issues/18)已创建；[飞书正文、表格和图像](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnJmmjbLPMC1GNu4Sjf0UNZg)已追加并回读核对。
 
 **10月28日稍早：右臂手动采样选臂修复已部署。** [解算失败原因与修复](jinlong_right_handeye_manual_capture_fix_20261028.md)确认用户右臂持板时，旧网页22组样本却全记录左臂161；记录法兰转角仅0.000743°，图像板转角56.599°，导致SVD失败。已增加手动采样明确选臂、样本臂标签、旧页面拒绝及退化输入提示；源码`464465a`，现场`b5eb49f`，开发机364项及现场81项相关测试通过（现场缺Node跳过1项）。原22组保留，新组`20261028_150650_65e404e3c8ba`已有1份实测右臂160样本，72角点、重投影0.287px；尚需用户重采其余不同姿态并解算，不能将旧22组改标签冒充右臂记录。没有改活动标定或发送运动。[飞书修复报告](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnY92LcaCXh9chdU4yB6YmGg)正文、表格和样本图已回读核对。
 
@@ -125,7 +127,7 @@
 
 下一次先读：
 
-0. 先读[10月28日新标定与当前腰姿评估](jinlong_new_calibration_waist_assessment_20261028.md)，再读[固定相机共同工位重求与未通过项](jinlong_fixed_camera_shared_station_20261023.md)，再读[真实端子与历史执行路径核对](jinlong_actual_terminal_alignment_20261023.md)、[10月23日固定腰工位解与插接边界](jinlong_fixed_waist_workcell_solution_20261023.md)、[160原始扫描复核](jinlong_saved_160_scan_audit_20261023.md)及[前方固定腰姿搜索与盒体几何更正](jinlong_front_fixed_waist_layout_20261023.md)。
+0. 先读[新标定共腰方法及完整非接触续验](jinlong_common_waist_after_new_calibration_20261028.md)，再读[10月28日新标定与当前腰姿评估](jinlong_new_calibration_waist_assessment_20261028.md)，再读[固定相机共同工位重求与未通过项](jinlong_fixed_camera_shared_station_20261023.md)，再读[真实端子与历史执行路径核对](jinlong_actual_terminal_alignment_20261023.md)、[10月23日固定腰工位解与插接边界](jinlong_fixed_waist_workcell_solution_20261023.md)、[160原始扫描复核](jinlong_saved_160_scan_audit_20261023.md)及[前方固定腰姿搜索与盒体几何更正](jinlong_front_fixed_waist_layout_20261023.md)。
 1. [最新实际腰姿与原目标对照](jinlong_current_waist_reachability_20261022.md)。
 2. [进入腰姿的实机异常](jinlong_shared_waist_entry_route_20261022.md)。
 3. [三型号共用终点与CPU复核](jinlong_shared_waist_current_20261022.md)。

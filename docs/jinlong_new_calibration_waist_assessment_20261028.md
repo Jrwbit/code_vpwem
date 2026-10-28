@@ -61,3 +61,5 @@
 历史非接触视频与旧标定成功记录保留，但不能用作本次新标定全流程验收。当前结论为 `full_workflow_verified=false`，本轮未执行上电、点动、持腰或轨迹命令。
 
 已创建 [Issue #18：新标定下的共用工作腰姿与全流程复核](https://github.com/thedaosheng/jinlong-motor-arm-control/issues/18)，列出上述结果与验收清单。报告正文、表格和图像已追加到[飞书全流程报告](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnJmmjbLPMC1GNu4Sjf0UNZg)，并回读核对。
+
+后续已有新的[完整共同等待位非接触验证](jinlong_common_waist_after_new_calibration_20261028.md)：同一候选共腰在归档静态姿态下三型6818采样通过；该进展不改变当前实物配准、插接和电测未验收的边界。
