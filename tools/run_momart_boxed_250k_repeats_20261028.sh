@@ -9,9 +9,10 @@ export PRECISION_CODE_ROOT=$repo
 export PRECISION_BUNDLE=/home/jrw/vpwem_outputs/bbox_strategies_20261020/comparison_v2/detector_bundle.json
 export VPWEM_PYTHON=/home/jrw/anaconda3/envs/vpwem/bin/python
 export OPENBLAS_NUM_THREADS=1
-case "${1:?Specify physical GPU: 3 or 4}" in
-    3) export GPU=3 EVAL_SEED=20260918 ;;
-    4) export GPU=4 EVAL_SEED=20260919 ;;
+case "${1:?Specify evaluation seed: 100, 200, or 300}" in
+    100) export GPU=3 EVAL_SEED=100 ;;
+    200) export GPU=4 EVAL_SEED=200 ;;
+    300) export GPU=3 EVAL_SEED=300 ;;
     *) exit 2 ;;
 esac
 export MOMART_EVAL_ROOT=$MOMART_RUN_ROOT/eval_online_combined_blend_250k_repeat_seed${EVAL_SEED}_20261028
