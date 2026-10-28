@@ -1,6 +1,6 @@
 # 金龙／台州三型号电机检测：长期上下文入口
 
-**10月28日右臂标定准备：** [工控机连接与示教器检查](jinlong_right_handeye_preparation_20261028.md)已恢复工控机IPv6远程访问并打开RobotAssist，连接页填入右臂`192.168.71.160`。当次机器人网口`eno1`及另一个有线口`enp3s0`均`NO-CARRIER`，本机无`192.168.71.157`，三部件无新鲜反馈，相机停止；右臂连接、上电/拖动和新标定尚未完成。用户确认端口亮灯后更正：唯一有链路的`enp2s0`也可能接机器人或共用交换机，不能认定网线损坏。访问右臂实际走Wi-Fi网关；尝试在`enp2s0`临时增加机器人地址被系统权限拒绝，已请用户在工控机执行增量配置后复测。不要用10月26日的缓存检查代替当前状态。[飞书续报](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnbim6wAneUc1mUrQwPpfcff)正文、表格和界面图已回读核对。
+**10月28日右臂标定准备：** [连接恢复与采样入口](jinlong_right_handeye_preparation_20261028.md)已通过IPv6恢复工控机远程，并在14:42恢复机器人网络：`enp3s0`经实际反复掉链后稳定，由DHCP取得`192.168.71.157`，三控制器ARP/ping及新鲜SDK反馈恢复；具体掉链根因未定，不能直接认定网线损坏。RobotAssist已连接右臂`.160`并使用R机型；切型时旧进程有一次段错误，后续连接已验证。相机新帧恢复，已新建0样本组`20261028_144355_1710214c0a67`，旧15组保留；当前0角点，尚无新标定。现有空组静止采样默认左臂，若用原厂示教器点动右臂需明确采样臂入口，不能直接点新组采集。未发出机器人上电或运动，现场曾自行点动右臂。[飞书续报](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnbim6wAneUc1mUrQwPpfcff)保留阶段记录及恢复依据。
 
 最新飞书续报：[10月26日实机原位上电检查与全流程准备度](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnE8FfRaydO0laBbCyDbShLe)，两次上电与退出回执、当前现场状态及自动持腰／电测缺口已追加，正文与表格回读核对通过。
 
