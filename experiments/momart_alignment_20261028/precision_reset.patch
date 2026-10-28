@@ -1,0 +1,31 @@
+--- a/momart_bbox_memory/precision_detector.py
++++ b/momart_bbox_memory/precision_detector.py
+@@ -102,6 +102,10 @@
+         detections = []
+         for stream_id in range(self.num_streams):
+             previous = self.cache[stream_id]
++            # MultiStepWrapper repeats the reset observation to fill its stack.
++            # Reuse only this initial identical prefix; equal images at later
++            # timesteps must still advance the tracker.
++            reset_prefix = None
+             for frame_index in range(frames_per_stream):
+                 image = np.asarray(images[stream_id * frames_per_stream + frame_index])
+                 key = image.tobytes()
+@@ -110,10 +114,17 @@
+                 # later timesteps and must advance tracker state.
+                 detection = (previous[1] if frame_index == 0 and
+                              previous is not None and key == previous[0] else None)
++                if previous is None and reset_prefix is not None:
++                    if key == reset_prefix[0]:
++                        detection = reset_prefix[1]
++                    else:
++                        reset_prefix = None
+                 if detection is None:
+                     detection = self.detector.detect(image, stream_id=stream_id)
+                     self.processed_frames += 1
+                     self.valid_frames += int(detection.valid)
++                if previous is None and frame_index == 0:
++                    reset_prefix = (key, detection)
+                 detections.append(detection)
+             last_image = np.asarray(images[(stream_id + 1) * frames_per_stream - 1])
+             self.cache[stream_id] = (
