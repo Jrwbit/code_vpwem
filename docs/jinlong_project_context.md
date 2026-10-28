@@ -1,10 +1,12 @@
 # 金龙／台州三型号电机检测：长期上下文入口
 
+**10月28日最新共腰：三型号实测已采齐，候选[-35,30,20,-90]°完整非接触往返通过。** [三型实测共腰报告](jinlong_measured_common_waist_20261028.md)：三型盒口光轴距离160/132/100约388/474/551mm，均在最新350–800mm内；实际解码JM160-001、JL132-001、JL100-010。用实测盒位和当前右臂／头部停放姿态建模，旧[-30,20,10,-80]°因160高位相机禁入区冲突不直接沿用。新模型腰角[-35,30,20,-90]°、历史折臂共同等待位，保存候选重生成26.417秒；160/132/100分别1250/3862/3304点，共8416点通过，腰变化0°。初次RRT成功为9000点；32项测试通过，代码8393a79/90c81eb，配置`measured_common_waist_candidate_20261028.json`。目标是名义配合位前40mm；机体CAD到实物、实际足底定位和台面仍未独立验收，100画面右侧备用132亦需清场或建模。尚未验证从实际姿态进入工作腰姿、实物插接和电测；未下发机器人运动，不能把候选模型通过称为实机全流程通过。[飞书图文表格](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnA6I4uoVUh6KAbTjBqOTR7b)已回读，Issue #18继续跟踪。
+
 **10月28日最新资料归档：手眼标定和三型号真实RGB-D已上传Git。** [归档清单与验证](jinlong_calibration_rgbd_git_archive_20261028.md)记录机械臂项目分支 `data/calibration-rgbd-20261028`、提交 `da9392e17e6af551d18607231244b56fccd16d82`；[GitHub资料入口](https://github.com/thedaosheng/jinlong-motor-arm-control/tree/da9392e17e6af551d18607231244b56fccd16d82/reference/2026-10-28-calibration-rgbd)含活动23组右臂标定、原始解算结果、三型3200×1944彩图／16位原始深度／预览及内参和SHA。工控机活动标定SHA仍为`76d7613c…`。**100在15:42:24已采集完整真实帧，下面“100待采”仅为先前阶段记录。** 132完整帧15:28:55、160完整350mm帧15:33:09；三型深度PNG与各自源NPY逐像素一致。只归档，未操作机器人，不改变运动／插接／电测未验收的边界。[飞书归档](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnV5chnaDwDLyhdGp1viUmdc)正文、表格和6图已回读核对。
 
 **10月28日最新范围：用户批准改为350–800mm，已应用并实测160通过。** 在确认160盒口约387.8mm被400mm采集下限裁掉后，用户明确同意改为350mm。检测页当前相机下限350、上限800；新任务`20261028_153858_6bd13c`定位成功、状态观察有效，盒口Z=387.776mm；手眼标定SHA `76d7613c…`和相机物理位置不变，无机器人动作。项目参数记录`configs/jinlong/camera_depth_window_350_800_20261028.json`；不是新增服务启动自动加载器。[采集报告续节](jinlong_new_calibration_live_capture_20261028.md)保存依据。此明确新要求取代以下历史400–800mm；后续采集／距离筛查使用350–800mm。[飞书生效续报](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnwfyqJPadhg9FiXf7ItZKRg)已回读。
 
-**10月28日实物采集最新：132已保存，160定位失败主因查明为400mm深度下限裁掉盒沿。** [实物采集与深度对照](jinlong_new_calibration_live_capture_20261028.md)：132任务`20261028_152656_ad8079`及完整原始RGB-D已保存，盒口约473.74mm；160原始图四边完整，但400–800mm模式只剩较深内区，失败候选448.23mm不能当盒口。相机、摆放和曝光不变，仅临时350–800mm对照，完整外框恢复、中心387.78mm、平面RMSE0.152mm、定位通过；已恢复400–800mm。400mm是采集过滤及用户要求，不是相机硬件量程。新结论不等于160配合中心或运动已验收；在固定世界相机前提下，单改腰姿不能解决该距离问题。当前132／160已采，100待就位，未发机器人动作。[飞书3图与正文表格](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnBVc1tYq4NtQkVBRALf5PYc)已回读核对。
+**10月28日先前采集：132已保存，160定位失败主因查明为400mm深度下限裁掉盒沿。** [实物采集与深度对照](jinlong_new_calibration_live_capture_20261028.md)：132任务`20261028_152656_ad8079`及完整原始RGB-D已保存，盒口约473.74mm；160原始图四边完整，但400–800mm模式只剩较深内区，失败候选448.23mm不能当盒口。相机、摆放和曝光不变，仅临时350–800mm对照，完整外框恢复、中心387.78mm、平面RMSE0.152mm、定位通过；已恢复400–800mm。400mm是采集过滤及用户要求，不是相机硬件量程。新结论不等于160配合中心或运动已验收；在固定世界相机前提下，单改腰姿不能解决该距离问题。当前132／160已采，100待就位，未发机器人动作。[飞书3图与正文表格](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnBVc1tYq4NtQkVBRALf5PYc)已回读核对。
 
 **10月28日续验：新标定下已找到完整共同等待位非接触候选。** [新标定共腰方法及复核](jinlong_common_waist_after_new_calibration_20261028.md)在新相机外参、上一轮归档右臂／头部姿态、共同底脚[375,0,500]mm下，腰[-30,20,10,-80]°三型完整非接触去返350／1782／4686采样通过，腰变化0°，共同等待位330射线无遮挡；新共同等待位取160局部等待位。首次95.147秒，入库候选重新生成14.474秒通过。配置`configs/jinlong/new_calibration_common_waist_candidate_20261028.json`含新连接路点，不能直接下发实机。结果仍依赖未实物配准的三型设计位置，名义配合位前40mm，不是插接／电测通过。用户确认三型可依次采集，先放132；采集前实时右臂已改为另一拖动姿态，故归档姿态候选不能直接代表此时现场，需新采集后复核。[飞书续报](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnl7KTqTttx6KvMVpY403uWg)正文和表格已回读。
 
@@ -133,7 +135,7 @@
 
 下一次先读：
 
-0. 先读[新标定共腰方法及完整非接触续验](jinlong_common_waist_after_new_calibration_20261028.md)，再读[10月28日新标定与当前腰姿评估](jinlong_new_calibration_waist_assessment_20261028.md)，再读[固定相机共同工位重求与未通过项](jinlong_fixed_camera_shared_station_20261023.md)，再读[真实端子与历史执行路径核对](jinlong_actual_terminal_alignment_20261023.md)、[10月23日固定腰工位解与插接边界](jinlong_fixed_waist_workcell_solution_20261023.md)、[160原始扫描复核](jinlong_saved_160_scan_audit_20261023.md)及[前方固定腰姿搜索与盒体几何更正](jinlong_front_fixed_waist_layout_20261023.md)。
+0. 先读[三型实测共腰与剩余条件](jinlong_measured_common_waist_20261028.md)，再读[新标定共腰方法及完整非接触续验](jinlong_common_waist_after_new_calibration_20261028.md)，再读[10月28日新标定与当前腰姿评估](jinlong_new_calibration_waist_assessment_20261028.md)，再读[固定相机共同工位重求与未通过项](jinlong_fixed_camera_shared_station_20261023.md)，再读[真实端子与历史执行路径核对](jinlong_actual_terminal_alignment_20261023.md)、[10月23日固定腰工位解与插接边界](jinlong_fixed_waist_workcell_solution_20261023.md)、[160原始扫描复核](jinlong_saved_160_scan_audit_20261023.md)及[前方固定腰姿搜索与盒体几何更正](jinlong_front_fixed_waist_layout_20261023.md)。
 1. [最新实际腰姿与原目标对照](jinlong_current_waist_reachability_20261022.md)。
 2. [进入腰姿的实机异常](jinlong_shared_waist_entry_route_20261022.md)。
 3. [三型号共用终点与CPU复核](jinlong_shared_waist_current_20261022.md)。
