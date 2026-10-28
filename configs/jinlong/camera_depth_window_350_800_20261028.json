@@ -1,0 +1,11 @@
+{
+  "description": "User-approved junction-box acquisition depth window after live JM160 rim was measured at 387.8 mm. Apply to the current inspection camera profile; this record does not change hand-eye calibration or enable motion.",
+  "task_type": "junction_box",
+  "camera_height_extract_enable": true,
+  "camera_height_extract_min_mm": 350.0,
+  "camera_height_extract_max_mm": 800.0,
+  "working_distance_requirement_mm": [350.0, 800.0],
+  "calibration_sha256_unchanged": "76d7613ccb761512b1609e86e53b7269cac3b2cce97c971d6a82c70c2331bd41",
+  "verified_live_task": "20261028_153858_6bd13c",
+  "scope": "saved project profile and live camera setting; not an automatic service-startup configuration loader"
+}

@@ -47,3 +47,13 @@
 远端证据根：`.local/state/jinlong-hmi/new-calibration-three-model-20261028/`；本机对应证据在`outputs/diagnostics/new-calibration-common-waist-20261028/live-captures/`。保存原始PNG／深度NPY、内参、完整帧、前后状态、运行日志及标定SHA；数据不进Git。本轮续接[新标定共同腰姿研究](jinlong_common_waist_after_new_calibration_20261028.md)及[Issue #18](https://github.com/thedaosheng/jinlong-motor-arm-control/issues/18)。
 
 [飞书实物采集与深度对照报告](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnBVc1tYq4NtQkVBRALf5PYc)已追加正文、表格和3张图，写入后全部回读核对。
+
+## 后续用户确认：改为350–800mm
+
+用户在看到160原图和深度对照后明确提出“那改成350可以么”。据此，本项目最新采集下限改为350mm，上限保持800mm；上文恢复400mm仅是诊断结束时的阶段状态，不再是当前设置。相机位置、姿态和活动手眼标定未变，无需因更改过滤阈值重新标定。
+
+已通过检测接口应用350–800mm，再次执行160任务`20261028_153858_6bd13c`：success=true、采集状态监控valid=true，盒口相机Z=387.776mm，当前任务参数回读350／800。活动标定SHA仍为`76d7613c…`；没有开启运动验收，也未发机器人动作。350mm是过滤阈值，不能把定位通过当作独立精度、真实插接或电测通过。
+
+参数已保存到工控机`.local/state/jinlong-hmi/new-calibration-three-model-20261028/depth350-active/active-params.json`和项目配置`configs/jinlong/camera_depth_window_350_800_20261028.json`。该配置是明确的项目参数记录，不宣称新增了服务重启自动加载功能；后续现场采集及离线距离筛查均按350–800mm处理，历史400–800mm报告保留。
+
+[350–800mm生效续报](https://feishu.cn/docx/I2GAdun3nofskUxAOjWcxVwjnJO#doxcnwfyqJPadhg9FiXf7ItZKRg)已追加飞书并回读核对。
