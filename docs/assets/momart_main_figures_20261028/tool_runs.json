@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "timezone": "Asia/Shanghai",
+  "scope": "Actual local rendering and startup preflights for the MOMART No-History and boxed RGB method figures.",
+  "provenance_correction": "The earlier llmsresearch/paperbanana preflight tested a third-party implementation. It is distinct from the original Google Research implementation and the author-maintained PaperBanana fork. All three are recorded separately below.",
+  "environment": {
+    "python_version": "3.10.20",
+    "api_key_variable_present": {
+      "GOOGLE_API_KEY": false,
+      "OPENAI_API_KEY": false,
+      "OPENROUTER_API_KEY": false,
+      "ANTHROPIC_API_KEY": false
+    },
+    "credential_values_recorded": false
+  },
+  "runs": [
+    {
+      "name": "Next AI Draw.io",
+      "repository": "https://github.com/DayuanJiang/next-ai-draw-io",
+      "implementation_role": "official_project_mcp_package",
+      "package": "@next-ai-drawio/mcp-server",
+      "version": "0.4.6",
+      "attempt": "npm install package; start_session; create_new_diagram; get_diagram; edit_diagram; export_diagram",
+      "status": "rendered_two_actual_method_figures",
+      "renderer": "Bundled offline draw.io in Google Chrome via Playwright",
+      "model_api_called": false,
+      "image_produced": true,
+      "png_size": [
+        1680,
+        1280
+      ],
+      "editable_sources": [
+        "drawio/no_history.drawio",
+        "drawio/boxed.drawio"
+      ],
+      "rendered_artifacts": [
+        "artifacts/momart_main_figures_20261028/drawio_no_history.png",
+        "artifacts/momart_main_figures_20261028/drawio_boxed.png"
+      ],
+      "reproduction_script": "tools/figure_workbench_20261028/next_drawio_bridge.py",
+      "verification": "Both figures visually inspected; local edits re-exported; unique XML cell IDs verified; standalone bridge re-exported PNG and exited successfully."
+    },
+    {
+      "name": "AutoFigure-Edit",
+      "repository": "https://github.com/ResearAI/AutoFigure-Edit",
+      "commit": "16f3749e9d512bdf7b7b55c162307bc289750b7a",
+      "implementation_role": "official_project_repository",
+      "provenance_note": "AutoFigure-Edit project repository.",
+      "attempt": "python autofigure2.py --help",
+      "exit_code": 1,
+      "status": "blocked_during_import",
+      "primary_failure": "ModuleNotFoundError: No module named 'transformers'",
+      "missing_dependency": "transformers",
+      "model_api_called": false,
+      "image_produced": false
+    },
+    {
+      "name": "PaperVizAgent (formerly PaperBanana)",
+      "repository": "https://github.com/google-research/papervizagent",
+      "commit": "e088a8fff74cc363b6897c0843631fff76484908",
+      "implementation_role": "original_official_implementation",
+      "provenance_note": "README identifies this Google Research repository as the official implementation, renamed from PaperBanana to PaperVizAgent.",
+      "attempt": "python main.py --help",
+      "exit_code": 1,
+      "status": "blocked_during_import",
+      "primary_failure": "ModuleNotFoundError: No module named 'aiofiles'",
+      "missing_dependency": "aiofiles",
+      "model_api_called": false,
+      "image_produced": false
+    },
+    {
+      "name": "PaperBanana (author-maintained)",
+      "repository": "https://github.com/dwzhu-pku/PaperBanana",
+      "commit": "f1da3db8d5f4c3add947dfd3ddd93dddd3394dc3",
+      "implementation_role": "author_maintained_fork_of_original",
+      "provenance_note": "README explicitly links google-research/papervizagent as the original release and identifies this repository as a fork that continues development.",
+      "attempt": "python main.py --help",
+      "exit_code": 1,
+      "status": "blocked_during_import",
+      "primary_failure": "ModuleNotFoundError: No module named 'aiofiles'",
+      "missing_dependency": "aiofiles",
+      "model_api_called": false,
+      "image_produced": false
+    },
+    {
+      "name": "PaperBanana (llmsresearch)",
+      "repository": "https://github.com/llmsresearch/paperbanana",
+      "commit": "87e01fd8aba2b3bc55abbe9b8826ff73f5696797",
+      "implementation_role": "third_party_implementation",
+      "provenance_note": "Third-party implementation; this attempt does not establish the runtime status of either Google Research or the author-maintained implementation.",
+      "attempt": "python -m paperbanana.cli --help",
+      "exit_code": 1,
+      "status": "blocked_during_import",
+      "primary_failure": "ModuleNotFoundError: No module named 'structlog'",
+      "missing_dependency": "structlog",
+      "model_api_called": false,
+      "image_produced": false
+    }
+  ],
+  "limitations": [
+    "Startup attempts stopped at the first missing import; no claim is made that later dependencies or generation would pass.",
+    "The Google Research and author READMEs describe Python 3.12 setup; these preflights ran in the existing Python 3.10.20 environment.",
+    "No model generation API was invoked for these tool preflights. No image is attributed to any blocked route.",
+    "API variable checks record presence only. No secret or credential values were copied into this report."
+  ],
+  "provenance_sources": [
+    "https://github.com/google-research/papervizagent#readme",
+    "https://github.com/dwzhu-pku/PaperBanana#readme",
+    "https://github.com/llmsresearch/paperbanana#readme"
+  ]
+}
