@@ -191,3 +191,7 @@ seed100四步与R3共同8配置的比较仅作子集诊断：126/240，52.50%，
 
 启动回读：09:14:53–54三卡均已接入。GPU0跳过已完成任务后启动缺失的dishwasher/suboptimal，评测PID3531456；GPU1启动seed200的首项，PID3531340；GPU3启动seed300的首项，PID3531318。三份命令均使用原250k八步入口、各自seed和10并行环境；当前为进程启动/环境加载阶段，不代表完成。
 
+## 后续汇报口径：仅总成功率与 No-History 柱状对照
+
+用户最新要求：MoMaRT只评估总成功率，与之前的普通No-History对照，优先使用柱状图；后续结果汇报按此口径，不再默认展开任务分项和逐episode一致性。09:18原始结果复核及图表见 `docs/momart_total_success_20261029.md`，飞书：https://feishu.cn/docx/RXj4dQ7gHoPAJvxzKB1cTwwMnZd 。旧报告保留历史依据，补跑完成后更新总成功率。训练预算与eval seed在图表中明确区分，未完成轮次不列最终成功率。
+
