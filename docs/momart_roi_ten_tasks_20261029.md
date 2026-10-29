@@ -2,6 +2,8 @@
 
 飞书视频及独立文件下载：https://feishu.cn/docx/QZ0rdrBJloHhqqxrJXFcISKinue
 
+用户后续要求改为两倍速；新版十任务视频见 docs/momart_roi_2x_20261029.md 和 https://feishu.cn/docx/CYdidYMf7oJKD3xjc2HcnRrjnFb 。本页三倍速版本保留为历史记录。
+
 已补齐10个任务配置（5类任务×expert/suboptimal）。每项有原图、ROI、同屏对照3份视频；本页附10份同屏对照及两个压缩包，压缩包共含20份独立原图/ROI视频。
 
 ## 黑色画面的核查与改进

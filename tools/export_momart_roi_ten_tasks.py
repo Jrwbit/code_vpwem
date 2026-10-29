@@ -31,13 +31,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sources", type=Path, help="ZIP containing ten NPZ sources and source_manifest.json")
     parser.add_argument("output", type=Path)
+    parser.add_argument("--speed", type=int, choices=(2, 3), default=3)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
     font = ImageFont.truetype(font_path, 13)
     title_font = ImageFont.truetype(font_path, 18)
-    report = {"speed": 3, "source_fps": 20, "output_fps": 30,
-              "sampling": "every second source frame; rounding within one output frame",
+    report = {"speed": args.speed, "source_fps": 20, "output_fps": 30,
+              "sampling": "source indices floor(output_index * 20 * speed / 30); rounding within one output frame",
               "roi_display": "gray labeled placeholder when missing; actual model receives zeros", "tasks": []}
     with zipfile.ZipFile(args.sources) as archive:
         source_manifest = json.loads(archive.read("source_manifest.json"))
@@ -48,8 +49,10 @@ def main():
                 rgb, boxes, valid = data["rgb"], data["boxes"], data["valid"]
             assert len(rgb) == entry["frames"] and int(valid.sum()) == entry["valid_frames"]
             roi = build_roi_frames(rgb, boxes, valid)
-            indices = list(range(0, len(rgb), 2))
-            paths = {kind: args.output / f"{task}_{kind}_3x.mp4" for kind in ("original", "roi", "comparison")}
+            count = int(np.ceil(len(rgb)*30/(20*args.speed)))
+            indices = np.floor(np.arange(count)*20*args.speed/30).astype(int).tolist()
+            assert indices[-1] < len(rgb)
+            paths = {kind: args.output / f"{task}_{kind}_{args.speed}x.mp4" for kind in ("original", "roi", "comparison")}
             processes = {kind: encoder(path, 960 if kind == "comparison" else 480) for kind, path in paths.items()}
             try:
                 for index in indices:
@@ -57,8 +60,8 @@ def main():
                     crop = original.copy()
                     original.paste(Image.fromarray(rgb[index]).resize((480, 360), Image.Resampling.NEAREST), (0, 44))
                     od, rd = ImageDraw.Draw(original), ImageDraw.Draw(crop)
-                    od.text((10, 4), "ORIGINAL | 3x", font=title_font, fill="#172b3a")
-                    rd.text((10, 4), "ROI 64x64 | 3x", font=title_font, fill="#172b3a")
+                    od.text((10, 4), f"ORIGINAL | {args.speed}x", font=title_font, fill="#172b3a")
+                    rd.text((10, 4), f"ROI 64x64 | {args.speed}x", font=title_font, fill="#172b3a")
                     for draw in (od, rd):
                         draw.text((10, 27), task, font=font, fill="#172b3a")
                         draw.text((10, 410), f"Source frame {index+1}/{len(rgb)} | {entry['demo']}", font=font, fill="#172b3a")
@@ -83,14 +86,14 @@ def main():
                 info = probe(path)
                 assert int(info["nb_frames"]) == len(indices)
                 assert info["r_frame_rate"] == "30/1"
-                assert abs(float(info["duration"])-len(rgb)/60) <= 1/30
+                assert abs(float(info["duration"])-len(rgb)/(20*args.speed)) <= 1/30 + 1e-6
                 videos[kind] = {"file": path.name, **info}
             report["tasks"].append({"task": task, "demo": entry["demo"], "source_frames": len(rgb),
                                     "valid_frames": int(valid.sum()), "missing_frames": int((~valid).sum()),
                                     "sampled_valid_frames": int(valid[indices].sum()), "videos": videos})
             (args.output / "manifest.json").write_text(json.dumps(report, indent=2)+"\n")
             print(f"Completed {task}: {int(valid.sum())}/{len(rgb)} valid source frames", flush=True)
-    with zipfile.ZipFile(args.output / "ten_tasks_original_and_roi_3x.zip", "w", compression=zipfile.ZIP_STORED) as package:
+    with zipfile.ZipFile(args.output / f"ten_tasks_original_and_roi_{args.speed}x.zip", "w", compression=zipfile.ZIP_STORED) as package:
         for row in report["tasks"]:
             for kind in ("original", "roi"):
                 name = row["videos"][kind]["file"]
