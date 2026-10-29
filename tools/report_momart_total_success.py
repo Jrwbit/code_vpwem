@@ -1,121 +1,78 @@
-"""Render aggregate MoMaRT success rates from the read-only collector snapshot."""
+"""Only ten-task aggregate success rates; never emit task-level tables or plots."""
 import argparse
 import json
+from collections import defaultdict
 from pathlib import Path
-
 import matplotlib
-
-matplotlib.use("Agg")
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.ticker import PercentFormatter
+from matplotlib.font_manager import FontProperties
+import numpy as np
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("evidence", type=Path)
-    parser.add_argument("--output", type=Path, default=Path("docs/momart_total_success_20261029.md"))
+    parser.add_argument('evidence', type=Path)
+    parser.add_argument('--baselines', type=Path, required=True)
+    parser.add_argument('--output', type=Path, default=Path('docs/momart_total_success_20261029.md'))
     args = parser.parse_args()
-    snapshot = json.loads(args.evidence.read_text())
-    groups = {}
-    for name, root in snapshot["roots"].items():
-        for row in root["results"]:
-            if "error" in row:
-                raise ValueError(row)
-            data = row["data"]
-            flags = data["episode_success"]
-            assert len(flags) == data["verified_n"] == 30
-            assert all(flag in (0, 1) for flag in flags)
-            assert sum(flags) == data["verified_success"]
-            prefix = "step_250000" if name == "nohistory_250k" else row["path"].split("/")[0]
-            key = (name, prefix)
-            if name == "nohistory_250k":
-                assert data["checkpoint_step"] == 250000
-                assert data["method"] == "no_history"
-            task = (data["env_name"], data["env_type"])
-            group = groups.setdefault(key, {})
-            assert task not in group
-            group[task] = data
+    data = json.loads(args.evidence.read_text()); baseline = json.loads(args.baselines.read_text())
+    groups = defaultdict(list)
+    for name, root in data['roots'].items():
+        for row in root['results']:
+            assert 'error' not in row
+            value = row['data']; flags = value['episode_success']
+            assert len(flags) == 30 and all(x in (0, 1) for x in flags)
+            assert abs(sum(flags)/30 - value['mean_success']) < 1e-8
+            prefix = 'all' if name == 'nohistory_250k' else row['path'].split('/')[0]
+            groups[name, prefix].append(sum(flags))
+    assert all(len(rows) == 10 for rows in groups.values())
+    def rate(name, prefix): return sum(groups[name, prefix])/3
+    plt.rcParams.update({'font.family': FontProperties(fname='/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc').get_name(), 'axes.unicode_minus':False, 'font.size':11})
+    assets = args.output.parent/'assets/momart_total_success_20261029'; assets.mkdir(parents=True,exist_ok=True)
+    def chart(name, labels, values, title):
+        fig, ax = plt.subplots(figsize=(10,5)); bars=ax.bar(range(len(values)),values,color=['#677f99','#db943e','#3b86a8','#73a082'][:len(values)])
+        ax.set_xticks(range(len(labels)), labels); ax.set_ylim(0,100); ax.set_ylabel('十任务总成功率（%）'); ax.set_title(title)
+        ax.spines[['top','right']].set_visible(False); ax.grid(axis='y',alpha=.2);ax.set_axisbelow(True)
+        ax.bar_label(bars,labels=[f'{v:.2f}%' for v in values],padding=4)
+        fig.tight_layout();fig.savefig(assets/(name+'.png'),dpi=160);fig.savefig(assets/(name+'.svg'));plt.close(fig)
+    a150=[baseline['150000']['percent'],rate('150k_action4','step_150000'),rate('150k','boxed_no_history'),rate('150k','boxed_current_object_tokens')]
+    a250=[baseline['250000']['percent'],rate('250k','step_250000')]
+    chart('total_150k',['No-History\n8步','带框\n4步','带框\n8步','带框＋坐标/ROI\n8步'],a150,'150k：十任务总成功率（评测seed20260917）')
+    chart('total_250k_reference',['No-History\n8步','带框\n8步'],a250,'250k：十任务总成功率（评测seed20260917）')
+    nh=[baseline['150000']['percent'],baseline['250000']['percent'],rate('1m','no_history')]
+    chart('total_nohistory_budgets',['150k / 8步','250k / 8步','1M / 8步'],nh,'No-History：不同训练步数的十任务总成功率')
+    eight=[rate('repeats','seed100_repeat1')]+[rate('repeats',f'seed{s}') for s in [200,300]]
+    four=[rate('250k_action4',f'seed{s}') for s in [100,200,300]]
+    fig,ax=plt.subplots(figsize=(9,5));p=np.arange(3)
+    for offset,values,label,color in [(-.19,eight,'带框8步','#3b86a8'),(.19,four,'带框4步','#db943e')]:
+        bars=ax.bar(p+offset,values,.36,label=label,color=color);ax.bar_label(bars,labels=[f'{v:.2f}%' for v in values],padding=4)
+    ax.set_xticks(p,['seed100','seed200','seed300']);ax.set_ylim(0,100);ax.set_ylabel('十任务总成功率（%）');ax.set_title('同一250k带框权重：不同评测seed');ax.legend();fig.tight_layout()
+    fig.savefig(assets/'total_250k_seeds.png',dpi=160);fig.savefig(assets/'total_250k_seeds.svg');plt.close(fig)
+    lines=['# MoMaRT：仅汇总十任务总成功率','', '每个数值均为全部10个任务配置的总成功率；不展示任何单任务结果。下列表格仅列百分比，不列成功次数、奖励、方差。', '']
+    def table(headers,rows):
+        lines.extend(['| '+' | '.join(headers)+' |','|'+'|'.join(['---']*len(headers))+'|'])
+        lines.extend('| '+' | '.join(row)+' |' for row in rows);lines.append('')
+    def image(name): lines.extend([f'![十任务总成功率](assets/momart_total_success_20261029/{name}.png)',''])
+    lines+=['## 150k：各方案总成功率','','评测seed统一为20260917。你所指的“带框带历史”按本轮确认，对应带框＋坐标/ROI版本；它没有长期历史记忆，以下使用真实名称。','']
+    table(['方案','执行步数','总成功率'],[[label,step,f'{v:.2f}%'] for label,step,v in zip(['No-History（无框）','带框No-History','带框No-History','带框＋坐标/ROI'],['8','4','8','8'],a150)])
+    image('total_150k')
+    lines+=['## 250k：各方案与不同seed总成功率','','“—”表示没有该配置的完整评测，不是0%。不同seed不混在同一比较中。','']
+    table(['方案','执行步数','seed20260917','seed100','seed200','seed300'],[
+        ['No-History（无框）','8',f'{a250[0]:.2f}%','—','—','—'],
+        ['带框No-History','8',f'{a250[1]:.2f}%']+[f'{v:.2f}%' for v in eight],
+        ['带框No-History','4','—']+[f'{v:.2f}%' for v in four]])
+    image('total_250k_reference');image('total_250k_seeds')
+    lines += [f'三个不同seed等权汇总：带框8步 **{np.mean(eight):.2f}%**，带框4步 **{np.mean(four):.2f}%**。八步seed100的三次重复均为59.00%，汇总时只计一次，不重复加权。','',
+        '250k带框＋坐标/ROI未找到完整评测，因此不补数、不画零值柱。','',
+        '## 无框No-History：150k、250k和1M总成功率','','评测seed统一为20260917，执行8步。150k/250k来自250k训练链，1M来自另一条历史训练链；不将它们冒充同一个模型文件。','']
+    table(['训练步数','总成功率'],[[label,f'{v:.2f}%'] for label,v in zip(['150k','250k','1M'],nh)]);image('total_nohistory_budgets')
+    lines += ['## 必要口径说明','',
+        '这里把“1M和250k”解释为两个训练步数的No-History对照。若指的是1M训练链在250k时保存的那个checkpoint，其完整评测尚未找到，不能拿另一条250k训练链替代。', '',
+        '带框150k与250k方案还存在续训及学习率计划差异；历史1M无框的有效batch与250k不同。上述是实际总成绩对照，不单独证明画框或执行步长的因果效果。带框4/8步沿用同一权重和旧检测协议，均未混入reset修复。','',
+        '本报告只重新汇总已完成结果，没有新启动实验。原始结果、单任务证据及审计记录仍留在历史报告中，但本页不展示分项。','',
+        '飞书汇总：https://feishu.cn/docx/A4mVdzwCZovWOlxKxXNci1fynze']
+    args.output.write_text('\n'.join(lines)+'\n')
+    print('Only aggregate tables generated:',a150,a250,nh,eight,four)
 
-    def total(key, seed, complete=True):
-        group = groups.get(key, {})
-        assert all(data["eval_seed"] == seed for data in group.values())
-        if complete:
-            assert len(group) == 10, key
-        return sum(data["verified_success"] for data in group.values()), len(group) * 30
-
-    specs = [
-        ("旧 No-History\n250k / 8步", ("nohistory_250k", "step_250000")),
-        ("带框\n250k / 8步", ("250k", "step_250000")),
-        ("旧 No-History\n1M / 8步", ("1m", "no_history")),
-        ("带框\n150k / 8步", ("150k", "boxed_no_history")),
-        ("带框\n175k / 8步", ("intermediate", "step_175000")),
-        ("带框\n200k / 8步", ("intermediate", "step_200000")),
-        ("带框\n225k / 8步", ("intermediate", "step_225000")),
-        ("带框\n150k / 4步", ("150k_action4", "step_150000")),
-        ("带框+ROI\n150k / 8步", ("150k", "boxed_current_object_tokens")),
-    ]
-    baseline_tasks = set(groups[specs[0][1]])
-    values = []
-    for _, key in specs:
-        assert set(groups[key]) == baseline_tasks
-        values.append(total(key, 20260917))
-    rates = [100 * successes / n for successes, n in values]
-    plt.rcParams.update({"font.family": "Noto Sans CJK JP", "font.size": 11})
-    fig, ax = plt.subplots(figsize=(15, 6.6))
-    colors = ["#D68732", "#267D70", "#C4A475"] + ["#4D86AD"] * 4 + ["#7799B4", "#9AA6B2"]
-    bars = ax.bar(range(len(specs)), rates, color=colors, width=0.65, zorder=3)
-    ax.axhline(rates[0], color=colors[0], linestyle="--", linewidth=1.2, zorder=2)
-    for bar, rate, (successes, n) in zip(bars, rates, values):
-        ax.text(bar.get_x() + bar.get_width()/2, rate + 1.3,
-                f"{rate:.2f}%\n{successes}/{n}", ha="center", va="bottom", fontsize=11,
-                bbox={"facecolor": "white", "edgecolor": "none", "pad": 1.5})
-    ax.set_xticks(range(len(specs)), [label for label, _ in specs])
-    ax.set_ylim(0, 100)
-    ax.yaxis.set_major_formatter(PercentFormatter(100))
-    ax.set_ylabel("总成功率")
-    ax.set_title("MoMaRT 总成功率：与旧 No-History 对照", loc="left", fontsize=18, pad=30)
-    ax.text(0, 1.025, "相同评测 seed 20260917 · 每组 10 配置 × 30 回合 · 训练预算不同",
-            transform=ax.transAxes, fontsize=11, color="#596574")
-    ax.grid(axis="y", color="#E3E7EB", zorder=0)
-    ax.spines[["top", "right"]].set_visible(False)
-    fig.text(0.08, 0.035, f"虚线：旧 No-History 250k {rates[0]:.2f}%；带框 250k {rates[1]:.2f}%，提高 {rates[1]-rates[0]:.2f} 个百分点。", fontsize=11)
-    fig.subplots_adjust(left=.08, right=.98, bottom=.16, top=.82)
-    asset_dir = args.output.parent / "assets" / args.output.stem
-    asset_dir.mkdir(parents=True, exist_ok=True)
-    for suffix in ("png", "svg"):
-        fig.savefig(asset_dir / f"comparison.{suffix}", dpi=180)
-    svg = asset_dir / "comparison.svg"
-    svg.write_text("\n".join(line.rstrip() for line in svg.read_text().splitlines()) + "\n")
-    plt.close(fig)
-    lines = [
-        "# MoMaRT 总成功率对照｜2026-10-29", "",
-        "飞书图文报告：https://feishu.cn/docx/RXj4dQ7gHoPAJvxzKB1cTwwMnZd", "",
-        "按最新要求，仅汇报总成功率，并以旧 No-History 为对照；不展开任务分项、逐回合一致性或额外方法排名。",
-        f"数据快照：{snapshot['time']}；各项均由原始 result.npy 的成功标志复算。", "",
-        f"![MoMaRT 总成功率柱状图](assets/{args.output.stem}/comparison.png)", "",
-        f"旧 No-History 250k：**{values[0][0]}/300，{rates[0]:.2f}%**；带框 250k 八步：**{values[1][0]}/300，{rates[1]:.2f}%**，提高 **{rates[1]-rates[0]:.2f} 个百分点**（多成功{values[1][0]-values[0][0]}回合）。旧 No-History 1M 的72.33%保留为较长训练预算参考。", "",
-        "| 版本 | 总成功数/回合 | 总成功率 | 相对旧 No-History 250k |",
-        "|---|---|---|---|",
-    ]
-    for (label, _), (successes, n), rate in zip(specs, values, rates):
-        lines.append(f"| {label.replace(chr(10), ' ')} | {successes}/{n} | {rate:.2f}% | {rate-rates[0]:+.2f} 个百分点 |")
-    lines += ["", "主图各组使用相同评测 seed 20260917；250k无框与带框组有效 batch 均为256，旧 No-History 1M 为64。250k训练步数一致，但带框组由150k续训并调整学习率计划，不能仅凭这一次对照把增益全部归因于画框。总成功率 = 所有配置成功回合数之和 ÷ 所有配置回合数之和。", "",
-              "## 250k 其他评测 seed：仅列总成功率", "",
-              "| 版本 | 评测 seed | 总成功数/回合 | 总成功率 |", "|---|---|---|---|"]
-    for seed in (100, 200, 300):
-        successes, n = total(("250k_action4", f"seed{seed}"), seed)
-        lines.append(f"| 带框250k / 4步 | {seed} | {successes}/{n} | {100*successes/n:.2f}% |")
-    for prefix, seed in [("seed100_repeat1", 100), ("seed100_repeat2", 100), ("seed100_repeat3", 100), ("seed200", 200), ("seed300", 300)]:
-        successes, n = total(("repeats", prefix), seed, complete=False)
-        rate = f"{100*successes/n:.2f}%" if n == 300 else "未完成，不列最终成功率"
-        lines.append(f"| 带框250k / 8步 {prefix} | {seed} | {successes}/{n} | {rate} |")
-    lines += ["", "不同评测 seed 与主图分开呈现；同 seed100 重复执行不计作独立 seed。补跑完成后按完整300回合更新总成功率。", "",
-              "历史详细记录：https://feishu.cn/docx/LJD4dbDkTo8jwsxuPVTch9RunSz", "",
-              f"旧 No-History 250k 原始结果：{snapshot['roots']['nohistory_250k']['path']}。已核验10个配置、各30回合、checkpoint_step=250000、eval_seed=20260917。", "",
-              f"复算：tools/collect_momart_evaluation_20261029.py --include-nohistory-250k；制图：tools/report_momart_total_success.py。原始快照：{args.evidence}（Git忽略）。", ""]
-    args.output.write_text("\n".join(lines))
-    print(f"Verified {len(specs)} main comparisons; wrote {args.output}")
-
-
-if __name__ == "__main__":
-    main()
+if __name__=='__main__':main()
