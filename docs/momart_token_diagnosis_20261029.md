@@ -91,3 +91,7 @@ CPU加载原150k EMA权重，SHA256为 263f25f6452db9253d1619006a9fa0113c005bbb4
 文献依据仅支持设计方向：VIMA将检测对象编码为token，并结合交互历史预测动作；其检测器做过场景适配，且使用误检增强，完美检测另列oracle条件。因此它不能证明现成通用检测器在MoMaRT的门把手/篮架上足够准确，也不能保证增加对象token就能提分。原论文：https://proceedings.mlr.press/v202/jiang23b/jiang23b.pdf （第4节、视觉token消融、附录C.4与D）。
 
 本次仅澄清在线设计与验证条件，未修改策略、未启动检测批处理、训练或rollout，没有新增成功率。
+
+## 检测框与对象表示的文献调研入口
+
+2026-10-29按用户要求检索VLA与Diffusion Policy，整理BBox-DP、Point-VLA、VP-VLA、Scene Graphs、VIMA、VIOLA、Oat-VLA和ObjectDiff的输入设计、在线目标来源与限制。已区分外部指定目标、多候选对象表示、事件驱动子目标更新，未将论文结果当作MoMaRT修复证据。详见 [本地调研](momart_bbox_literature_20261029.md) 和 [飞书调研报告](https://feishu.cn/docx/NxF3dQohVoUqiGxEMAJc57j4nCh)。没有新增训练或在线评测。
