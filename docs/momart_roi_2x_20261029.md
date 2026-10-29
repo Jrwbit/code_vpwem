@@ -32,3 +32,9 @@
 飞书13份附件（10份同屏视频、3个独立视频压缩包）已回读文件块并逐份重新下载，字节数和SHA256全部匹配；正文已回读核对，旧三倍速页面已追加新版入口。
 
 此前三倍速版：https://feishu.cn/docx/QZ0rdrBJloHhqqxrJXFcISKinue
+
+## 十任务同屏视频：单一压缩包
+
+按用户最新要求，将10个任务的原图/ROI同屏对照视频合并为单个 `momart_10_tasks_original_roi_comparison_2x.zip`，每段均为2倍速、左侧原始全画面、右侧ROI。ZIP为48073023字节，含10个MP4及README；逐项核对ZIP内视频与原文件SHA256一致。文件保存在忽略目录 `artifacts/momart_roi_2x_20261029/videos/`，通过分片上传作为本页飞书附件。
+
+已回读该附件块并重新下载整个ZIP，字节数和SHA256均一致；飞书正文已追加单包入口并回读确认。
