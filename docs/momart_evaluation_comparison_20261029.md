@@ -169,3 +169,25 @@ seed100四步与R3共同8配置的比较仅作子集诊断：126/240，52.50%，
 
 新飞书文档：https://feishu.cn/docx/LJD4dbDkTo8jwsxuPVTch9RunSz
 
+## 09:14更新：按用户要求用GPU0/1/3恢复八步评测
+
+本节是08:00结果快照后的新操作，不改变上述历史结果。用户确认补跑三个未完成轮次，已启动独立恢复协调器PID3530881，提交时间2026-10-29 09:14:31+08:00，三个队列并行，不再受旧第一阶段失败屏障阻断。
+
+- GPU0：eval seed100第3轮，仅补跑table_setup_from_dishwasher_suboptimal与expert两项，各30回合；原八项240回合继续保留。
+- GPU1：eval seed200，完整10配置×30回合，共300回合。
+- GPU3：eval seed300，完整10配置×30回合，共300回合。
+
+合计新增660回合。策略保持250k、horizon9、执行8步、obs_steps2、DDPM50、10个并行环境、原combined_blend检测器与旧计分协议；不重新训练，不混入tracker reset修复，也不降低并行环境数。模型、训练配置和bundle的SHA256均核对为原值。
+
+三张卡启动前均空闲。GPU gate要求空闲显存至少22000MiB、利用率不超过20%、连续三次采样满足再启动；每卡持有既有评测锁。其他GPU上的任务不停止、不迁移。
+
+原结果目录继续使用 `eval_online_combined_blend_250k_seed100_triplicate_20261028/{seed100_repeat3,seed200,seed300}`，旧GPU6日志保留，新任务分别生成gpu0/gpu1/gpu3日志。启动前已核验并记录8份原有效结果的SHA256，完成时再次核验，禁止覆盖它们。补齐后的seed100第3轮将由原GPU6的8项加GPU0的2项组成，必须标注为跨GPU补齐，不能说整轮都在GPU6完成。
+
+恢复状态单独保存在上述根目录的 `recovery_20261029/`：manifest.json记录输入哈希、原结果哈希和缺项；queue_status.json记录三个GPU gate；summary.json持续统计经过校验的结果；最终生成completion.json。旧supervisor.log的失败结论保留为历史，之后判断进度应读取恢复目录，不再只看旧日志。
+
+恢复脚本：`experiments/momart_boxed_250k_action8_recovery_20261029/run.py`；BHR入口 `/home/jrw/vpwem_jobs/momart_boxed_250k_action8_recovery_20261029.py`。实现提交 `4a45459`，脚本SHA256为 `2e98bc556ad12f491cf4e1eaff5ed2cd8240bedb296f5591f1e824714146dfe9`。四项测试通过，覆盖八步协议验证、原结果保护、部分结果不报最终率、写入中的结果不被提前读取。
+
+此时只确认补跑任务已提交，尚无新的完整成功率；待各任务实际完成后才能更新上方08:00表格。
+
+启动回读：09:14:53–54三卡均已接入。GPU0跳过已完成任务后启动缺失的dishwasher/suboptimal，评测PID3531456；GPU1启动seed200的首项，PID3531340；GPU3启动seed300的首项，PID3531318。三份命令均使用原250k八步入口、各自seed和10并行环境；当前为进程启动/环境加载阶段，不代表完成。
+
