@@ -3,7 +3,10 @@
 ssh bitbot421 /home/jrw/anaconda3/envs/vpwem/bin/python - < this_file.py
 """
 from pathlib import Path
-import numpy as np,json,hashlib,datetime
+import numpy as np,json,hashlib,datetime,argparse
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--include-nohistory-250k', action='store_true')
+args=parser.parse_args()
 base=Path('/home/jrw/vpwem_outputs'); train=base/'momart_boxed_no_history_bs256_250k_continued_20261027/seed100'
 roots={
 'repeats':train/'eval_online_combined_blend_250k_seed100_triplicate_20261028',
@@ -13,6 +16,8 @@ roots={
 '150k_action4':base/'momart_boxed_no_history_150k_action4_20261027_gpu356',
 '250k_action4':train/'eval_online_combined_blend_250k_action4_seeds100_200_300_20261028',
 '1m':base/'fair_history_momart_multitask_eval_1m'}
+if args.include_nohistory_250k:
+ roots['nohistory_250k']=base/'fair_history_momart_no_history_bs256_250k/seed100/eval_curve_20260922/step_250000'
 def conv(o):
  if isinstance(o,np.ndarray): return o.tolist()
  if isinstance(o,np.generic): return o.item()
