@@ -17,3 +17,7 @@ ROI严格沿用训练输入规则：归一化xyxy裁至[0,1]，左上floor、右
 制作脚本：tools/export_momart_roi_video_pair.py。原始数据、视频和ffprobe核验清单保存在Git忽略目录 artifacts/momart_roi_videos_20261029/；只提交脚本及本记录，不提交数据或视频。
 
 验证：合成有效框/缺框视频通过；两份正式视频经ffprobe核验均为566帧、60fps、9.433333秒，并人工检查同一时刻的原图和ROI画面。飞书两份附件已回读文件块，并重新下载核对字节数及SHA256，与本地文件一致；正文已回读核对。
+
+## 后续：十任务与黑屏说明
+
+用户反馈旧视频看起来全黑后，逐帧解码确认：原图566帧都不是黑帧；ROI为473帧可见、93帧黑色，首36帧缺框（3倍速0.6秒）。这不能排除客户端播放问题。新版改用30fps H.264 baseline，明确显示缺框状态并提供原图/ROI同屏，补齐10任务。详见 docs/momart_roi_ten_tasks_20261029.md，飞书：https://feishu.cn/docx/QZ0rdrBJloHhqqxrJXFcISKinue 。旧视频保留作历史记录。

@@ -30,16 +30,8 @@ def write_video(path, frames, fps, scale):
     return stream
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("source", type=Path)
-    parser.add_argument("output", type=Path)
-    parser.add_argument("--source-fps", type=float, default=20)
-    parser.add_argument("--speed", type=float, default=3)
-    args = parser.parse_args()
-    assert args.source_fps > 0 and args.speed > 0
-    with np.load(args.source) as data:
-        rgb, boxes, valid = data["rgb"], data["boxes"], data["valid"]
+def build_roi_frames(rgb, boxes, valid):
+    """Return the policy's 64x64 RGB crops, rounded for video encoding."""
     assert rgb.dtype == np.uint8 and rgb.ndim == 4 and rgb.shape[-1] == 3
     assert boxes.shape == (len(rgb), 4) and valid.shape == (len(rgb),)
     roi = np.zeros((len(rgb), 64, 64, 3), dtype=np.uint8)
@@ -54,6 +46,20 @@ def main():
         resized = F.interpolate(crop[None, :, y1:y2, x1:x2], size=(64, 64),
                                 mode="bilinear", align_corners=False)
         roi[i] = (resized[0].permute(1, 2, 0).numpy()*255).round().clip(0, 255).astype(np.uint8)
+    return roi
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", type=Path)
+    parser.add_argument("output", type=Path)
+    parser.add_argument("--source-fps", type=float, default=20)
+    parser.add_argument("--speed", type=float, default=3)
+    args = parser.parse_args()
+    assert args.source_fps > 0 and args.speed > 0
+    with np.load(args.source) as data:
+        rgb, boxes, valid = data["rgb"], data["boxes"], data["valid"]
+    roi = build_roi_frames(rgb, boxes, valid)
     args.output.mkdir(parents=True, exist_ok=True)
     fps = args.source_fps*args.speed
     metadata = {"source": str(args.source), "frames": len(rgb), "valid_roi_frames": int(valid.sum()),
