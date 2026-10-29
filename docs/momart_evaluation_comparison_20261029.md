@@ -1,0 +1,171 @@
+# MoMaRT 评测总对比与250k重复性验证｜2026-10-29
+
+
+北京时间08:00开始只读核查；原始结果快照时间：2026-10-29T08:00:32.552432+08:00。所有下列已有成绩均重新加载远端 result.npy 复算，未启动、修改或终止训练/评测，未补跑实验。
+
+## 结果与状态
+
+250k八步 seed100 第1、2轮均为 **177/300（59.00%）**，且逐episode成功标志完全一致。第3轮两项评测发生CUDA显存不足，只完成 **125/240（52.08%）**；该部分比例不能与完整300回合直接排名。supervisor已在00:03:07标记第一阶段失败，因此八步seed200/300没有启动。
+
+250k四步三seed均完成：**100：177/300（59.00%）；200：188/300（62.67%）；300：176/300（58.67%）**。目前唯一完整的同eval seed执行长度对照为seed100：四步和两轮完整八步总分相同，尚无稳定提分证据。既有eval seed20260917的250k八步 **194/300（64.67%）** 已重新核验；不能拿它直接替代seed100/200/300的八步对照。
+
+## 实验协议与可比性
+
+| 实验组 | 训练/评测seed | 训练步/执行块 | 输入与可比性 |
+|---|---|---|---|
+| 带框训练节点 | 100 / 20260917 | 150k、175k、200k、225k、250k / 8 | 同离线训练框、在线combined_blend；150k后保留Adam/EMA续训并延长cosine至250k |
+| 250k八步复测 | 100 / 100重复3次，200、300 | 250k / 8 | 同权重，物理GPU3/4/6；200/300原定GPU3/4，未启动 |
+| 250k四步 | 100 / 100、200、300 | 250k / 4 | 物理GPU0/1/7；旧tracker，reset修复未应用，与八步一致 |
+| 150k四步 / 坐标ROI | 100 / 20260917 | 150k / 4或8 | 四步是执行长度消融；ROI是另一结构，不能与250k混作同预算 |
+| 普通No-History、Direct、Direct2 | 100 / 20260917 | 1M / 8 | 无红框，raw-image，有效batch64；1M与带框150k/250k预算不同 |
+| VPWEM | 100 / 20260917 | 1M / 8 | 预计算embedding、任务context encoder、有效batch256，与raw-image存在混杂 |
+
+带框组预测horizon=9、最近观测2帧、DDPM50、EMA、10并行环境、10配置各30回合，上限1500环境步。主RGB画1像素红框；训练为离线Grounding DINO框，评测为冻结combined_blend（max_age=3、refine_alpha=0.5）。四步仅执行动作索引1:5，training_action_steps仍为8；八步执行1:9。旧计分wrapper只回传动作块末两个info，缩短执行块同时增加观测、tracker更新和成功检查频率，不能把变化单独归因于预测质量。八步episode_steps=1504为外层计数，环境实际1500截断。
+
+## 逐轮完成情况
+
+| 轮次/评测seed | 物理GPU | 成功/实际回合 | 状态 |
+|---|---|---|---|
+| 250k八步100重复1 | 3 | 177/300，59.00% | 10/10；完成 |
+| 250k八步100重复2 | 4 | 177/300，59.00% | 10/10；完成 |
+| 250k八步100重复3 | 6 | 125/240，52.08% | 8/10；2项OOM失败 |
+| 250k八步200 | 3 | 0/0；无成功率 | 未启动，前序失败阻断 |
+| 250k八步300 | 4 | 0/0；无成功率 | 未启动，前序失败阻断 |
+| 250k四步100 | 0 | 177/300，59.00% | 10/10完成，退出码0 |
+| 250k四步200 | 1 | 188/300，62.67% | 10/10完成，退出码0 |
+| 250k四步300 | 7 | 176/300，58.67% | 10/10完成，退出码0 |
+
+四步queue_status、summary、completion均确认完成，最后完成时间05:34:50。八步重复1于00:00:31、重复2于00:03:07结束，均failures=0；重复3于23:13:32结束，failures=2。重复3的missing=0是队列结束字段，不能据此认定10项都有结果：原始文件实际仅8份。
+
+## 250k十任务对照
+
+每格为成功/实际回合；R1/R2/R3均为eval seed100的八步重复。八步200/300所有任务均未运行，因此没有可填的分项成绩。
+
+| 任务配置 | 八步R1 | 八步R2 | 八步R3 | 四步100 | 四步200 | 四步300 |
+|---|---|---|---|---|---|---|
+| table_cleanup_to_dishwasher_expert | 13/30 | 13/30 | 13/30 | 17/30 | 16/30 | 14/30 |
+| table_cleanup_to_dishwasher_suboptimal | 8/30 | 8/30 | 8/30 | 9/30 | 11/30 | 7/30 |
+| table_cleanup_to_sink_expert | 20/30 | 20/30 | 20/30 | 15/30 | 16/30 | 13/30 |
+| table_cleanup_to_sink_suboptimal | 14/30 | 14/30 | 14/30 | 18/30 | 18/30 | 16/30 |
+| table_setup_from_dishwasher_expert | 27/30 | 27/30 | 缺失 | 25/30 | 22/30 | 22/30 |
+| table_setup_from_dishwasher_suboptimal | 25/30 | 25/30 | 缺失 | 26/30 | 26/30 | 25/30 |
+| table_setup_from_dresser_expert | 17/30 | 17/30 | 17/30 | 18/30 | 23/30 | 20/30 |
+| table_setup_from_dresser_suboptimal | 16/30 | 16/30 | 16/30 | 16/30 | 14/30 | 19/30 |
+| unload_dishwasher_to_dresser_expert | 20/30 | 20/30 | 20/30 | 17/30 | 21/30 | 19/30 |
+| unload_dishwasher_to_dresser_suboptimal | 17/30 | 17/30 | 17/30 | 16/30 | 21/30 | 21/30 |
+
+## 同seed重复性与逐episode一致性
+
+三轮完整300回合成功率的均值、标准差、极差：**不可计算**，因为R3缺60回合。仅R1/R2完整轮：均值59.00%，样本标准差0.00个百分点，极差0.00个百分点；这不是三个独立seed统计。
+
+三轮共同8配置、各240回合：成功数分别为[125, 125, 125]；成功率均值52.08%，样本标准差0.00个百分点，极差0.00个百分点。只描述共同子集，不能当完整基准。
+
+| 对比 | 任务成功数相同 | 存储序号成功标志一致 | 不一致episode数 |
+|---|---|---|---|
+| R1 vs R2 | 10/10 | 300/300（100.00%） | 0 |
+| R1 vs R3 | 8/8 | 240/240（100.00%） | 0 |
+| R2 vs R3 | 8/8 | 240/240（100.00%） | 0 |
+
+| 任务 | 三轮均值% | 样本SD百分点 | 极差百分点 | 三轮标志全一致 |
+|---|---|---|---|---|
+| table_cleanup_to_dishwasher_expert | 43.33 | 0.00 | 0.00 | 30/30 |
+| table_cleanup_to_dishwasher_suboptimal | 26.67 | 0.00 | 0.00 | 30/30 |
+| table_cleanup_to_sink_expert | 66.67 | 0.00 | 0.00 | 30/30 |
+| table_cleanup_to_sink_suboptimal | 46.67 | 0.00 | 0.00 | 30/30 |
+| table_setup_from_dishwasher_expert | 缺R3 | — | — | — |
+| table_setup_from_dishwasher_suboptimal | 缺R3 | — | — | — |
+| table_setup_from_dresser_expert | 56.67 | 0.00 | 0.00 | 30/30 |
+| table_setup_from_dresser_suboptimal | 53.33 | 0.00 | 0.00 | 30/30 |
+| unload_dishwasher_to_dresser_expert | 66.67 | 0.00 | 0.00 | 30/30 |
+| unload_dishwasher_to_dresser_suboptimal | 56.67 | 0.00 | 0.00 | 30/30 |
+
+以上按各文件episode_success存储顺序逐项比较；episode_id已核对为0–29。相同序号和seed不证明模拟器初始状态、扩散噪声、并行调度或GPU浮点轨迹完全一致；没有状态快照可作严格配对认证。总成功数相等也不等于逐episode复现。统计单位是重复执行，不是独立训练或独立评测seed；不据此构造独立样本置信区间或显著性结论。
+
+## 训练节点与150k执行长度、ROI对照
+
+| 版本 | 成功/回合/百分比 | 状态 |
+|---|---|---|
+| 150k八步 | 178/300，59.33% | 10/10完成，原始复核 |
+| 175k八步 | 165/300，55.00% | 10/10完成，原始复核 |
+| 200k八步 | 171/300，57.00% | 10/10完成，原始复核 |
+| 225k八步 | 188/300，62.67% | 10/10完成，原始复核 |
+| 250k八步 | 194/300，64.67% | 10/10完成，原始复核 |
+| 150k四步 | 183/300，61.00% | 10/10完成，原始复核 |
+| 150k坐标/ROI八步 | 160/300，53.33% | 10/10完成，原始复核 |
+
+| 任务 | 150k/8 | 175k/8 | 200k/8 | 225k/8 | 250k/8 | 150k/4 | 150k ROI |
+|---|---|---|---|---|---|---|---|
+| table_cleanup_to_dishwasher_expert | 15/30 | 11/30 | 11/30 | 14/30 | 14/30 | 13/30 | 13/30 |
+| table_cleanup_to_dishwasher_suboptimal | 9/30 | 6/30 | 6/30 | 5/30 | 11/30 | 6/30 | 0/30 |
+| table_cleanup_to_sink_expert | 14/30 | 15/30 | 17/30 | 19/30 | 18/30 | 14/30 | 17/30 |
+| table_cleanup_to_sink_suboptimal | 15/30 | 12/30 | 16/30 | 15/30 | 19/30 | 9/30 | 13/30 |
+| table_setup_from_dishwasher_expert | 25/30 | 26/30 | 26/30 | 25/30 | 25/30 | 24/30 | 26/30 |
+| table_setup_from_dishwasher_suboptimal | 30/30 | 28/30 | 25/30 | 27/30 | 23/30 | 27/30 | 22/30 |
+| table_setup_from_dresser_expert | 23/30 | 19/30 | 22/30 | 25/30 | 24/30 | 28/30 | 22/30 |
+| table_setup_from_dresser_suboptimal | 12/30 | 12/30 | 18/30 | 21/30 | 19/30 | 19/30 | 13/30 |
+| unload_dishwasher_to_dresser_expert | 16/30 | 18/30 | 14/30 | 21/30 | 19/30 | 19/30 | 19/30 |
+| unload_dishwasher_to_dresser_suboptimal | 19/30 | 18/30 | 16/30 | 16/30 | 22/30 | 24/30 | 15/30 |
+
+同eval seed20260917的曲线是59.33%→55.00%→57.00%→62.67%→64.67%，并非单调提高；250k相对150k多16次成功、+5.33个百分点。它描述已有续训路径，不是架构改动效果。150k四步相对八步多5次、+1.67个百分点；150k坐标/ROI比纯画框少18次、−6.00个百分点，均只覆盖单训练seed。
+
+## 跨seed与执行块对比
+
+250k四步三独立评测seed等权均值60.11%，样本标准差2.22个百分点，极差4.00个百分点；总计541/900（60.11%），仅为该三seed汇总，不是900个独立训练样本。训练seed始终只有100。
+
+| eval seed | 八步 | 四步 | 可解释差值 |
+|---|---|---|---|
+| 100 | R1/R2各177/300；R3不完整 | 177/300 | 相对两完整轮均0.00个百分点 |
+| 200 | 未运行 | 188/300 | 无法计算 |
+| 300 | 未运行 | 176/300 | 无法计算 |
+
+seed100四步与R3共同8配置的比较仅作子集诊断：126/240，52.50%，R3为125/240；缺失两配置不补零。八步不存在完整100/200/300三seed均值；禁止把R1/R2/R3当三个seed，也不把旧取消目录中的结果借来补齐。
+
+## 历史1M方法：独立预算分组
+
+| 方法 | 原始复算 | 说明 |
+|---|---|---|
+| 普通No-History | 217/300，72.33% | 10/10完整，checkpoint=1M，eval seed20260917 |
+| VPWEM | 196/300，65.33% | 10/10完整，checkpoint=1M，eval seed20260917 |
+| Direct | 216/300，72.00% | 10/10完整，checkpoint=1M，eval seed20260917 |
+| Direct2（Direct-token2） | 215/300，71.67% | 10/10完整，checkpoint=1M，eval seed20260917 |
+
+| 任务 | No-History 1M | VPWEM 1M | Direct 1M | Direct2 1M |
+|---|---|---|---|---|
+| table_cleanup_to_dishwasher_expert | 16/30 | 19/30 | 19/30 | 18/30 |
+| table_cleanup_to_dishwasher_suboptimal | 12/30 | 4/30 | 6/30 | 9/30 |
+| table_cleanup_to_sink_expert | 22/30 | 21/30 | 22/30 | 18/30 |
+| table_cleanup_to_sink_suboptimal | 20/30 | 10/30 | 26/30 | 21/30 |
+| table_setup_from_dishwasher_expert | 28/30 | 25/30 | 29/30 | 27/30 |
+| table_setup_from_dishwasher_suboptimal | 29/30 | 24/30 | 28/30 | 29/30 |
+| table_setup_from_dresser_expert | 28/30 | 30/30 | 28/30 | 29/30 |
+| table_setup_from_dresser_suboptimal | 18/30 | 23/30 | 21/30 | 24/30 |
+| unload_dishwasher_to_dresser_expert | 25/30 | 24/30 | 20/30 | 19/30 |
+| unload_dishwasher_to_dresser_suboptimal | 19/30 | 16/30 | 17/30 | 21/30 |
+
+四种方法原始文件本次均可读取，分项与既有report_feishu.md一致。普通No-History 217/300（72.33%）是1M无框成绩，不能当作150k或250k画框成绩；预算与batch不等，不能据其高于64.67%推断画框有害。Direct和Direct2仅相差1次成功；VPWEM输入编码与batch不同，无法把分差归因于长期记忆机制。历史No-History后五项曾重复执行并覆盖，当前按最终每配置30回合计，未合并成60。
+
+## 失败、缺失与证据边界
+
+- R3缺失table_setup_from_dishwasher_expert及suboptimal，各30回合；两份日志均为torch.OutOfMemoryError，任务退出码1。错误发生在在线Grounding DINO/BERT推理路径。日志写GPU 0是进程可见设备编号，调度物理卡为6；不能据日志编号断言物理GPU0故障，也未进一步证明其他进程归属或根因。
+- 八步seed200/300因阶段屏障未启动，各缺300回合；不会自动因本报告补跑。
+- 取消的eval seed20260918/20260919以及旧seed100/200/300目录全部排除。
+- 本次表列168份可用result.npy均验证二值成功标志、30回合、均值、checkpoint、eval seed和顺序ID；共168份（28+30+10+20+10+30+40）、5040个已存储回合，不合并为独立统计样本。
+
+## 证据与复算方法
+
+服务器：ssh bitbot421；读取Python：/home/jrw/anaconda3/envs/vpwem/bin/python。对各result.npy的episode_success求和，以实际数组长度作分母；按env_name和env_type对齐，不依赖目录遍历顺序。150k/250k四步summary逐任务计数与原始文件一致；250k四步summary中SHA256也逐项匹配。中间节点、既有250k与重复轮读取全部gpu*_status.tsv并与原始文件对照。
+
+- repeats：`/home/jrw/vpwem_outputs/momart_boxed_no_history_bs256_250k_continued_20261027/seed100/eval_online_combined_blend_250k_seed100_triplicate_20261028`
+- intermediate：`/home/jrw/vpwem_outputs/momart_boxed_no_history_bs256_250k_continued_20261027/seed100/eval_online_combined_blend_175k_200k_225k_20261028`
+- 250k：`/home/jrw/vpwem_outputs/momart_boxed_no_history_bs256_250k_continued_20261027/seed100/eval_online_combined_blend_250k`
+- 150k：`/home/jrw/vpwem_outputs/momart_boxed_online_150k_combined_blend_20261026_gpu1`
+- 150k_action4：`/home/jrw/vpwem_outputs/momart_boxed_no_history_150k_action4_20261027_gpu356`
+- 250k_action4：`/home/jrw/vpwem_outputs/momart_boxed_no_history_bs256_250k_continued_20261027/seed100/eval_online_combined_blend_250k_action4_seeds100_200_300_20261028`
+- 1m：`/home/jrw/vpwem_outputs/fair_history_momart_multitask_eval_1m`
+
+复算脚本：tools/collect_momart_evaluation_20261029.py（SSH stdin只读执行），tools/report_momart_evaluation_20261029.py（本地离线生成）。完整数组、结果哈希、状态快照保存在被Git忽略的artifacts/momart_evaluation_20261029/evidence.json；原始模型/数据不复制、不提交。
+
+历史解释来源：docs/momart_boxed_250k_repeats_20261028.md末节、docs/momart_boxed_250k_action4_queue_20261028.md、docs/momart_boxed_intermediate_eval_20261028.md、docs/momart_boxed_nohistory_150k_improvement_20261027.md、docs/assets/momart_main_figures_20261028/evidence.md、reports/momart_1m_four_methods/report_feishu.md及reports/momart_history4_sh2_transfer_20260920.md。本报告为2026-10-29实时结果，旧文档的“运行中”仅保留历史含义。
+
+新飞书文档：https://feishu.cn/docx/LJD4dbDkTo8jwsxuPVTch9RunSz
+
