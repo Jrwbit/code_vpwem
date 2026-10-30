@@ -26,6 +26,23 @@ def raw_roi_features(grid, normalized_boxes):
                      sampling_ratio=2, aligned=True).mean((-1, -2))
 
 
+def bounded_detections(detections, limit):
+    """Keep strongest instance per class, then strongest extras; causal only."""
+    if limit < 1:
+        raise ValueError('Positive detection limit required')
+    order = sorted(range(len(detections)), key=lambda i: (-detections[i][2], detections[i][0],
+                                                         *detections[i][1].tolist()))
+    selected, classes = [], set()
+    for i in order:
+        if detections[i][0] not in classes:
+            selected.append(i); classes.add(detections[i][0])
+    selected = selected[:limit]
+    for i in order:
+        if len(selected) >= limit: break
+        if i not in selected: selected.append(i)
+    return [detections[i] for i in selected]
+
+
 class FrozenPerception:
     """One frozen model, per-class prompts, deterministic per-class NMS.
 
@@ -39,6 +56,7 @@ class FrozenPerception:
         if not self.classes or self.classes[0] != 'a red bowl.':
             raise ValueError('Class 0 must remain the baseline red bowl prompt')
         self.threshold = float(config.threshold)
+        self.max_detections = config.get("max_detections", None)
         self.processor = AutoProcessor.from_pretrained(MODEL_ID, revision=REVISION,
                                                        local_files_only=True)
         self.processor.image_processor.size = {'shortest_edge': 600, 'longest_edge': 1333}
@@ -57,6 +75,7 @@ class FrozenPerception:
         if int(config.feature_dim) != 128:
             raise ValueError('ResNet18 layer2 ROI features have dimension 128')
         self.metadata = dict(version='gdino_raw_layer2_roi_v1', classes=self.classes,
+                             max_detections=self.max_detections, selection='class_balanced_confidence',
                              detector_model=MODEL_ID, detector_revision=REVISION,
                              threshold=self.threshold, text_threshold=0.25,
                              shortest_edge=600, longest_edge=1333, nms_iou=0.5,
@@ -96,6 +115,8 @@ class FrozenPerception:
                         and all(iou(boxes[j], boxes[k]) <= 0.5 for k in kept)):
                     kept.append(j)
                     detections.append((cls, boxes[j], float(scores[j])))
+        if self.max_detections is not None:
+            detections = bounded_detections(detections, int(self.max_detections))
         if not detections:
             return []
         rgb = torch.from_numpy(image.copy()).to(self.device).permute(2, 0, 1)[None].float()/127.5-1

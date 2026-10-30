@@ -260,3 +260,50 @@ def test_roi_uses_original_pixels_instead_of_padded_grid_extent():
     grid=torch.arange(12,dtype=torch.float32)[None,None,:,None].expand(1,1,12,15)
     output=raw_roi_features(grid,torch.tensor([[.2,.2,.6,.8]]))
     torch.testing.assert_close(output,torch.tensor([[5.125]]))
+
+
+def test_bounded_detection_and_explicit_eviction_do_not_merge_histories():
+    from momart_object_memory.perception import bounded_detections
+    box=np.array([.1,.1,.3,.3],np.float32)
+    selected=bounded_detections([(0,box,.9),(0,box,.8),(1,box,.5),(2,box,.4)],3)
+    assert [d[0] for d in selected]==[0,1,2]
+    b=ObjectBank(2,3,4,.3,overflow='evict_oldest_invisible')
+    b.update(0,0,[observation(1,cls=0),observation(2,cls=1)])
+    b.update(1,.05,[observation(3,cls=0)])
+    b.update(2,.1,[observation(4,cls=0),observation(5,cls=2)])
+    state=b.snapshot('a3')
+    assert set(state['classes'])=={0,2}
+    slot=int(np.flatnonzero(state['classes']==2)[0])
+    assert state['event_valid'][slot].sum()==1
+    np.testing.assert_array_equal(state['features'][slot,-1],np.full(4,5))
+
+
+def test_durable_perception_encoding_is_lossless_and_no_pickle():
+    from momart_object_memory.prepare_train import encode,decode
+    for observations in ([],[observation(2),observation(4,cls=1)]):
+        restored=decode(encode(observations,4))
+        assert len(restored)==len(observations)
+        for old,new in zip(observations,restored):
+            assert old.class_id==new.class_id
+            np.testing.assert_array_equal(old.box,new.box)
+            np.testing.assert_array_equal(old.feature,new.feature)
+
+
+def test_completed_cache_resume_does_not_repeat_perception(tmp_path):
+    import zarr
+    from momart_object_memory.cache import write_cache
+    root=zarr.open_group(str(tmp_path/'source.zarr'),mode='w')
+    root.attrs.update(vpwem_cache_complete=True,vpwem_cache_kind='momart',demo_names=['demo_0'])
+    root.create_dataset('meta/episode_ends',data=np.array([3]))
+    root.create_dataset('data/rgb',data=np.zeros((3,90,120,3),np.uint8))
+    root.create_dataset('data/action',data=np.zeros((3,10),np.float32))
+    cfg=OmegaConf.create(dict(obs_steps=2,action_steps=8,object_memory=dict(slots=3,history=3,
+        feature_dim=4,match_iou=.3,period_seconds=.05)))
+    class P:
+        metadata={'test_only':True}
+        calls=0
+        def __call__(self,image):self.calls+=1;return [observation()]
+    p=P();write_cache(cfg,tmp_path/'source.zarr',tmp_path/'objects.zarr',p)
+    assert p.calls==3
+    write_cache(cfg,tmp_path/'source.zarr',tmp_path/'objects.zarr',p,resume=True)
+    assert p.calls==3

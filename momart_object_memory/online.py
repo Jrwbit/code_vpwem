@@ -9,7 +9,7 @@ class OnlineObjects:
         self.config, self.perceive = config, perceive
         m = config.object_memory
         self.streams = [ObservationStream(ObjectBank(int(m.slots), int(m.history),
-                                                    int(m.feature_dim), float(m.match_iou)), perceive)
+                                                    int(m.feature_dim), float(m.match_iou), m.get("overflow", "error")), perceive)
                         for _ in range(num_envs)]
         # Baseline evaluation calls adapter.detector.reset_all at episode boundaries.
         self.detector = self

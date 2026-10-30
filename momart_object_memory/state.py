@@ -21,13 +21,17 @@ class ObjectBank:
     """Conservative IoU association; unmatched detections create new tracks.
 
     IDs are local to this episode. No appearance re-identification or motion
-    prediction is claimed. Full capacity raises rather than silently evicting
-    an object and changing its identity. Age is measured in sensor seconds.
+    prediction is claimed. Capacity defaults to an error; the explicit bounded
+    policy evicts the oldest currently unmatched slot and clears its history.
+    Age is measured in sensor seconds.
     """
-    def __init__(self, slots=8, history=3, feature_dim=128, match_iou=0.3):
+    def __init__(self, slots=8, history=3, feature_dim=128, match_iou=0.3, overflow="error"):
         if min(slots, history, feature_dim) < 1 or not 0 < match_iou <= 1:
             raise ValueError("Invalid bank capacity or IoU threshold")
         self.slots, self.history, self.feature_dim = slots, history, feature_dim
+        if overflow not in ("error", "evict_oldest_invisible"):
+            raise ValueError("Unknown overflow policy")
+        self.overflow = overflow
         self.match_iou = match_iou
         self.reset()
 
@@ -62,15 +66,27 @@ class ObjectBank:
         new = sorted((j for j in range(len(observations)) if j not in used_obs),
                      key=lambda j: (observations[j].class_id, *observations[j].box.tolist(),
                                     -observations[j].score))
-        if len(self.tracks) + len(new) > self.slots:
-            raise ValueError("Object bank capacity exceeded; audit cumulative instance count")
+        replace = []
+        needed = max(0, len(self.tracks) + len(new) - self.slots)
+        if needed:
+            if self.overflow == 'evict_oldest_invisible':
+                replace = sorted((i for i in range(len(self.tracks)) if i not in used_tracks),
+                                 key=lambda i: (self.tracks[i]['events'][-1][0], i))[:needed]
+            if len(replace) != needed:
+                raise ValueError('Object bank capacity exceeded; audit cumulative instance count')
         for track in self.tracks:
             track['visible'] = False
         for j in new:
             obs = observations[j]
-            self.tracks.append(dict(class_id=obs.class_id, box=np.asarray(obs.box).copy(),
-                                    events=[], visible=False, score=0.))
-            assignments.append((len(self.tracks) - 1, j))
+            entry = dict(class_id=obs.class_id, box=np.asarray(obs.box).copy(),
+                         events=[], visible=False, score=0.)
+            if replace:
+                slot = replace.pop(0)
+                self.tracks[slot] = entry
+            else:
+                slot = len(self.tracks)
+                self.tracks.append(entry)
+            assignments.append((slot, j))
         for i, j in assignments:
             track, obs = self.tracks[i], observations[j]
             track.update(box=np.asarray(obs.box, np.float32).copy(), visible=True,

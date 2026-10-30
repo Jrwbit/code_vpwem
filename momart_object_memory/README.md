@@ -67,3 +67,10 @@ OMP_NUM_THREADS=2 python -m pytest -q tests/test_momart_object_memory.py \
 ```
 
 没有新闭环成功率，也没有新增在线实时频率结论。完整源报告、飞书链接及最终验证结果见 `docs/momart_object_memory_baseline_and_implementation_20261030.md`。
+
+
+## 2026-10-30：GPU5 A1 BS256 / 250k 实验配置
+
+`experiments/momart_a1_bs256_250k_20261030/config.yaml` 固定BS256、250k更新、seed100，保存间隔25k，共10个checkpoint。原型实际前缀在第8帧出现槽位超限，因此该实验显式使用 `max_detections=8`（每类别先保留最高置信实例、剩余额度按置信度填充）及 `overflow=evict_oldest_invisible`，新对象替换当前未匹配且最久未见槽位时清空旧历史；不覆盖当前已匹配实例。该规则必须同样用于后续A2/A3，不能混用首版error策略缓存。
+
+新增 `prepare_train.py`，逐帧感知结果持久写SQLite，每64帧提交；数据与模型/类别/阈值版本匹配才恢复。随后按回合写128帧Zarr块并允许从完整回合边界续做，避免逐anchor写大量小文件。完成全部十数据集缓存后自动启动训练。训练本身仍拒绝未验证的自动续训。真实GPU5单次BS256反向更新已通过，峰值分配约9229MiB；这只是合成观测smoke，不计入正式250k。
