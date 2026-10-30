@@ -74,3 +74,10 @@ YOLOv8n 在 640 输入上从同一 COCO 预训练权重重新训练 100 epoch，
 服务器产物目录：/home/jrw/vpwem_outputs/momart_detector_drawer_augmented_20261030/。包含 training/yolo_native640/weights/best.pt、training/mask_rcnn/best.pt、results/四组结果及summary.json。完整标注ZIP含555张RGB、2813实例、可见mask、YOLO标签、COCO框、划分和review溯源；以飞书原生附件提供，不以服务器路径代替下载链接。
 
 ZIP 11,178,580 bytes；SHA256：c855eed156ab8856a91eec5816570147cce6b7be957fc2c630ede3662777c464。
+
+
+## 时序与Memory准入标准更正
+
+时序准入更正（2026-10-30）：六类95%不作为只读集成与诊断门槛。已完成两条完整轨迹1445帧，7个关节运动代理窗口；按策略采样节奏，Mask首次进入Memory为7/7、关键窗口Recall25/29，YOLO为2/7和7/29。两条轨迹与代理窗口不构成稳定保证。真实ROI的离线/在线Token共2184次一致性比较通过，但身份切换、槽位淘汰和完整DP时延仍需解决；不自动启动A1训练。
+
+[时序与Memory完整诊断报告](https://feishu.cn/docx/SZnbd7Jgmo6znEx6A1kcyuFKnNv)
