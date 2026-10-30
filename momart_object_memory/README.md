@@ -17,7 +17,7 @@ A1/A2同样使用GRU，只将更早位置标为无效。对象数上限8，超�
 
 - 采用冻结GroundingDINO tiny，同一权重逐类别提示，不使用VLM Head。红色支持过滤只用于class0红碗；部件不继承红碗颜色约束。
 - 对象特征从归档500k模型的EMA主RGB ResNet18权重严格加载；独立冻结，取layer2，使用未画框90×120原图、[-1,1]归一化和stride8 ROIAlign，输出128维。不会冻结随机网络或随主策略更新缓存特征。
-- 保持原带框多模态主路径：两帧、256维、task embedding。仅画class0最高置信红碗框，其余对象通过独立tokens提供。
+- 保持原带框多模态主路径：两帧、256维、task embedding。离线直接保留 `BoxedNoHistoryDataset` 的画框 RGB；在线独立复用旧 `PrecisionSequenceDetector` / `OnlineBoxedRGB`，bundle SHA256 固定。对象分支的 class0 框也不重画主 RGB。原基线离线用红碗检测缓存、在线用 combined_blend 的已有差异被保留并显式记录，不宣称二者本来完全相同。
 - 新对象token和validity随场景条件打包，DDPM只编码一次，去噪循环中解包只读。mask在decoder中真正屏蔽空槽，并禁止位置0的过去动作读取最新bank；默认条件encoder是逐token MLP。
 - 空槽不可读；离屏对象仍可读但当前box归零。对象特征、可见性、置信度和age都按同一因果观测流更新。
 - phase0部署查询为0、8、16…，每次只处理最近两帧，reset的[0,0]仅更新一次。训练支持所有8个相位的同节奏前缀增强；逐相位从reset回放，而不是让tracker看完整视频。相位定义在缓存manifest中显式记录。
@@ -74,3 +74,9 @@ OMP_NUM_THREADS=2 python -m pytest -q tests/test_momart_object_memory.py \
 `experiments/momart_a1_bs256_250k_20261030/config.yaml` 固定BS256、250k更新、seed100，保存间隔25k，共10个checkpoint。原型实际前缀在第8帧出现槽位超限，因此该实验显式使用 `max_detections=8`（每类别先保留最高置信实例、剩余额度按置信度填充）及 `overflow=evict_oldest_invisible`，新对象替换当前未匹配且最久未见槽位时清空旧历史；不覆盖当前已匹配实例。该规则必须同样用于后续A2/A3，不能混用首版error策略缓存。
 
 新增 `prepare_train.py`，逐帧感知结果持久写SQLite，每64帧提交；数据与模型/类别/阈值版本匹配才恢复。随后按回合写128帧Zarr块并允许从完整回合边界续做，避免逐anchor写大量小文件。完成全部十数据集缓存后自动启动训练。训练本身仍拒绝未验证的自动续训。真实GPU5单次BS256反向更新已通过，峰值分配约9229MiB；这只是合成观测smoke，不计入正式250k。
+
+## 感知与 memory 的比较约束（2026-10-30 修正）
+
+`object_protocol.json` 使用 `independent_main_visual_v2`，分别保存主视觉约定、旧框检测元数据和对象感知元数据。旧协议不能直接用于新版评估。所有 arm 使用同一配置（只允许 mode / 输出目录变化）、源代码哈希、对象感知与冻结 ROI 权重、实例管理、缺失 mask、物理时刻、容量和初始化。A1/A2/A3 只改变当前状态 / 最新可靠状态 / 最近三次可靠观测的可读证据。
+
+下一轮对象检测候选为领域 YOLO640，Mask R-CNN 保留作部件对照。当前默认对象检测代码仍为此前暂停的 GDINO 管线；未通过质量复核前，不把它当作可用的新检测器、不自动重启策略训练，也不把旧感知缓存复用为 YOLO 缓存。正式切换要同时记录新权重、类别顺序、dev 阈值、输入尺寸、后处理哈希，并为三组共建新缓存。原先出现的“新对象 class0 框替换主视觉框”的实现已删除，17 项测试包含离线与在线主 RGB 相等性检查。
