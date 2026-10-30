@@ -1,0 +1,52 @@
+# MoMaRT A1：GPU5、BS256、250k任务启动
+
+日期：2026-10-30（北京时间）。飞书：https://feishu.cn/docx/E7uqdKhYKo4Cd3x8sYQcldmtnue
+
+已按用户要求在物理GPU5启动A1任务链，先生成多对象缓存，全部完成后自动启动physical/effective BS256、250000次更新。当前阶段为perception预处理，**尚未开始正式250k训练**。缓存缺失，不能把旧单红碗sidecar当作多对象输入，也没有用缩小的数据集代替十数据集任务。
+
+| 项目 | 实际设置/状态 |
+|---|---|
+| 模式 | A1，仅当前可靠可见对象 |
+| GPU | CUDA_VISIBLE_DEVICES=5，程序内cuda:0 |
+| batch | physical=256，effective=256，accumulation=1 |
+| 预算 | 250000更新，cosine T_max=250000 |
+| seed | 100 |
+| 动作 | obs_steps2、horizon9、执行8步、DDPM50步 |
+| checkpoint | 每25000保存，共10个里程碑 |
+| 进程 | supervisor PID2858696，已确认占用物理GPU5 |
+| 代码 | feat/momart-object-memory-a123，f22a456已推送 |
+
+代码：[提交f22a456](https://github.com/Jrwbit/code_vpwem/commit/f22a456)。原工作基线标签 `momart-boxed-working-20261030` 保持不动，原GPU1训练及其他GPU任务未停止。
+
+服务器独立代码目录：`/home/jrw/code_vpwem_momart_a1_bs256_250k_20261030`。
+
+配置：`experiments/momart_a1_bs256_250k_20261030/config.yaml`；启动器同目录 `run.sh`，flock防止重复启动。
+
+输出：`/home/jrw/vpwem_outputs/momart_a1_bs256_250k_20261030/seed100/`；管线日志位于上一级 `pipeline.log`。阶段状态写到seed100内 `pipeline_status.json`；正式训练启动后会出现 `metrics.jsonl`、`object_protocol.json`、`initialization.json`与models目录。
+
+**为何先做预处理**
+
+十数据集共654460帧，尚无现成多对象缓存。真实GPU5短片段测得单帧六类别感知约0.454–0.482秒，首次约1.03秒；按全量估计仅感知约80–90小时，另有读取/缓存/因果重放成本。此估计会随速度与资源竞争变化，不是承诺完成时刻，且不包含250k策略训练。预处理使用GPU5，后续训练也只用GPU5。
+
+新增 `prepare_train.py` 把无状态冻结感知结果逐帧写SQLite，每64帧提交一次，可在模型、源数据映射和类别版本匹配时恢复；随后按回合生成因果快照，完成所有任务后自动调用正式A1训练入口。三组可以共用感知及快照缓存，未来A2/A3不重复运行这一轮检测。
+
+**实际数据暴露的问题与本轮修正**
+
+原型8槽在sink_expert第8帧已触发累计轨迹超限；不是可以直接启动全量训练的状态。本轮将该实验的边界显式记录为：
+
+- 检测最多8个：优先保留各类别最高置信实例，再按置信度填充剩余容量。类别词表仍是红碗、洗碗机门/把手、篮架、抽屉/把手。
+- 超容量仅替换当前未匹配且最久未见槽位，并清空该槽位旧历史；当前已匹配对象不被替换，禁止把新对象特征追加到旧对象历史。
+- 原默认error策略仍可用；本实验配置明确使用 `overflow=evict_oldest_invisible` 和 `max_detections=8`，元数据包含这些规则。后续A2/A3必须沿用本版本配置，不能与首版严格error缓存混比较。
+- 因果快照改为128帧chunk、整回合块写，避免逐anchor写多个小文件；未完成回合会重写，完整回合可跳过。
+
+这解决了可执行性，不证明开放词汇小部件检测或IoU重识别质量已经验收。跨类别大框重叠、跟踪碎片及被淘汰记忆仍会影响最终性能，应在实验分析中记录。
+
+**启动前验证**
+
+39项相关检查通过，覆盖原基线回归、A123一致性、padding/PTP时间约束、因果缓存重放，及新增的类别均衡限额、替换清空历史、SQLite无损序列化与完成缓存不重复感知。
+
+实际物理GPU5上按完整8层A1、BS256完成一次合成观测反向更新：loss=1.0914068，首步耗时约0.981秒，峰值分配显存9228.9MiB。没有OOM。该smoke不使用训练数据，**不计作正式250k首步**，也不能用首步耗时直接估计实际数据读取后的训练总时长。
+
+已确认后台PID2858696存活、GPU5占用约5170MiB，状态stage=perception，首个数据集为unload_dishwasher_to_dresser_suboptimal、83175帧。服务器数据盘剩余约45TiB。短暂SSH连接拒绝后重连恢复，未影响已启动任务。
+
+本轮尚无A1正式训练loss、checkpoint或成功率。任务链在后台继续执行；若预处理或训练报错，会写stage=failed及具体错误，不能将失败状态当作训练运行中。
