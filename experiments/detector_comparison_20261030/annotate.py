@@ -156,6 +156,7 @@ def annotate(args):
     manifest=json.loads((args.corpus/'manifest.json').read_text())
     rows=[r for r in manifest['records'] if args.task is None or r['task']==args.task]
     annotations=[];rejected=[];env=None;scene_signature=None
+    events=[]
     for task in sorted(set(r['task'] for r in rows)):
         selected=[r for r in rows if r['task']==task]
         with h5py.File(selected[0]['source'],'r') as f:
@@ -173,6 +174,11 @@ def annotate(args):
             renderer=env.env.simulator.renderer
             assert not renderer.optimized
             parts=descriptors(renderer)
+            if args.export_joint_events:
+                from temporal_corpus import joint_events
+                for demo in sorted(set(r['demo'] for r in selected)):
+                    events.extend(joint_events(parts,np.asarray(f['data'][demo]['states']),task+'/'+demo))
+                assert abs(env.env.action_timestep-.05)<1e-8
             (args.corpus/'masks').mkdir(exist_ok=True)
             for r in selected:
                 # Native reset_to advances physics once, which can move an arm
@@ -210,6 +216,11 @@ def annotate(args):
                 annotations.append(dict(id=r['id'],rgb_alignment_mae=mae,objects=objects,
                                         source='curated_CAD_visible_mesh',review='pending'))
                 print(json.dumps(dict(id=r['id'],objects=len(objects),mae=round(mae,2))),flush=True)
+    if args.export_joint_events:
+        (args.corpus/'operation_proxies.json').write_text(json.dumps(dict(
+            events=events,period_seconds=.05,first_hit_lookback_steps=16,
+            critical_before_steps=8,critical_after_steps=8,
+            limitations='Articulation onset proxy, not human stages; failed grasps without motion absent'),indent=2))
     if hasattr(env.env.simulator,'disconnect'):env.env.simulator.disconnect()
     del env,renderer
     path=args.corpus/('annotations_'+(args.task or 'all')+'.json')
@@ -229,5 +240,6 @@ def annotate(args):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--corpus',type=Path,required=True)
+    p.add_argument('--export-joint-events',action='store_true')
     p.add_argument('--task');p.add_argument('--gpu',type=int,default=5)
     p.add_argument('--reject-unaligned',action='store_true');annotate(p.parse_args())
