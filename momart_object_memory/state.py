@@ -1,6 +1,7 @@
 """Causal instance association and fixed-capacity memory, shared offline/online."""
 from dataclasses import dataclass
 import numpy as np
+from .association import AssociationConfig, assign
 
 
 @dataclass(frozen=True)
@@ -18,14 +19,12 @@ def iou(a, b):
 
 
 class ObjectBank:
-    """Conservative IoU association; unmatched detections create new tracks.
+    """Shared causal bank with configurable association and local episode IDs.
 
-    IDs are local to this episode. No appearance re-identification or motion
-    prediction is claimed. Capacity defaults to an error; the explicit bounded
-    policy evicts the oldest currently unmatched slot and clears its history.
-    Age is measured in sensor seconds.
+    Capacity errors or explicit oldest-unmatched eviction clear prior history.
+    Age and short-term motion use sensor seconds, never wall-clock latency.
     """
-    def __init__(self, slots=8, history=3, feature_dim=128, match_iou=0.3, overflow="error"):
+    def __init__(self, slots=8, history=3, feature_dim=128, match_iou=0.3, overflow="error", association=None):
         if min(slots, history, feature_dim) < 1 or not 0 < match_iou <= 1:
             raise ValueError("Invalid bank capacity or IoU threshold")
         self.slots, self.history, self.feature_dim = slots, history, feature_dim
@@ -33,6 +32,7 @@ class ObjectBank:
             raise ValueError("Unknown overflow policy")
         self.overflow = overflow
         self.match_iou = match_iou
+        self.association = AssociationConfig(**dict(association or {}))
         self.reset()
 
     def reset(self):
@@ -52,17 +52,13 @@ class ObjectBank:
                     or np.any(box < 0) or np.any(box > 1) or np.any(box[2:] <= box[:2])
                     or not np.isfinite(obs.score) or not 0 <= obs.score <= 1):
                 raise ValueError("Invalid object observation")
-        # Global deterministic greedy assignment, rather than detection-order IDs.
-        candidates = []
-        for j, obs in enumerate(observations):
-            for i, track in enumerate(self.tracks):
-                overlap = iou(obs.box, track['box'])
-                if obs.class_id == track['class_id'] and overlap >= self.match_iou:
-                    candidates.append((-overlap, i, j))
-        used_tracks, used_obs, assignments = set(), set(), []
-        for _, i, j in sorted(candidates):
-            if i not in used_tracks and j not in used_obs:
-                used_tracks.add(i); used_obs.add(j); assignments.append((i, j))
+        # Canonical order makes tied global matches independent of detector order.
+        observations.sort(key=lambda o: (o.class_id, *o.box.tolist(), -o.score,
+                                         *o.feature.tolist()))
+        assignments = assign(self.tracks, observations, timestamp, self.match_iou,
+                             self.association, iou)
+        used_tracks = {i for i, _ in assignments}
+        used_obs = {j for _, j in assignments}
         new = sorted((j for j in range(len(observations)) if j not in used_obs),
                      key=lambda j: (observations[j].class_id, *observations[j].box.tolist(),
                                     -observations[j].score))
@@ -89,6 +85,18 @@ class ObjectBank:
             assignments.append((slot, j))
         for i, j in assignments:
             track, obs = self.tracks[i], observations[j]
+            center = (np.asarray(obs.box[:2])+obs.box[2:])/2
+            velocity = np.zeros(2, np.float32)
+            if track['events']:
+                dt = timestamp-track['events'][-1][0]
+                if dt <= self.association.max_age_seconds:
+                    velocity = (center-(track['box'][:2]+track['box'][2:])/2)/dt
+                    # Bound extrapolation under detector jitter or moving cameras.
+                    speed = np.linalg.norm(velocity)
+                    limit = self.association.max_center_distance/max(self.association.prediction_seconds, 1e-8)
+                    if speed > limit:
+                        velocity *= limit/speed
+            track['velocity'] = velocity
             track.update(box=np.asarray(obs.box, np.float32).copy(), visible=True,
                          score=float(obs.score))
             track['events'].append((timestamp, sensor_step, np.asarray(obs.feature, np.float32).copy()))
@@ -163,3 +171,10 @@ class ObservationStream:
         keep = set(map(int, steps))
         self.cache = {k: v for k, v in self.cache.items() if k in keep}
         return result
+
+
+def make_bank(config):
+    """Single constructor for production offline/online and diagnostic replay."""
+    m = config.object_memory
+    return ObjectBank(int(m.slots), int(m.history), int(m.feature_dim), float(m.match_iou),
+                      m.get('overflow', 'error'), m.get('association', None))

@@ -160,7 +160,8 @@ def test_all_three_arms_have_identical_parameters_and_initialization():
         assert state['diffusion.cond_pos_emb'].shape==(1,11,256)
 
 
-def test_offline_snapshots_match_online_prefix_for_all_phases(tmp_path):
+@pytest.mark.parametrize('method', ['iou_greedy', 'appearance_motion'])
+def test_offline_snapshots_match_online_prefix_for_all_phases(tmp_path, method):
     import zarr
     from momart_object_memory.cache import write_cache
     root=zarr.open_group(str(tmp_path/'source.zarr'),mode='w')
@@ -171,6 +172,7 @@ def test_offline_snapshots_match_online_prefix_for_all_phases(tmp_path):
     root.create_dataset('data/action',data=np.zeros((24,10),np.float32))
     cfg=OmegaConf.create(dict(obs_steps=2,action_steps=8,object_memory=dict(slots=3,history=3,
         feature_dim=4,match_iou=.3,period_seconds=.05)))
+    cfg.object_memory.association={'method':method}
     class Perception:
         metadata={'test_only':True}
         def __call__(self,image):
@@ -180,12 +182,16 @@ def test_offline_snapshots_match_online_prefix_for_all_phases(tmp_path):
     assert cached.attrs['complete'] is True
     for start,end in ((0,19),(19,24)):
         for t in range(end-start):
-            stream=ObservationStream(bank(),Perception())
+            from momart_object_memory.state import make_bank
+            stream=ObservationStream(make_bank(cfg),Perception())
             for steps in query_schedule(t,8):
                 stream.observe(images[np.array(steps)+start],steps,np.array(steps)*.05)
             for k,v in stream.bank.snapshot('a3').items():
                 np.testing.assert_array_equal(v,cached[k][start+t])
     with pytest.raises(FileExistsError):write_cache(cfg,tmp_path/'source.zarr',tmp_path/'objects.zarr',Perception())
+    cfg.object_memory.association.max_age_seconds=.7
+    with pytest.raises(ValueError,match='signature'):
+        write_cache(cfg,tmp_path/'source.zarr',tmp_path/'objects.zarr',Perception(),resume=True)
 
 
 def test_full_agent_backward_ema_and_denoising_do_not_mutate_bank():

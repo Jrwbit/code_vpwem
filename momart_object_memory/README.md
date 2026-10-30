@@ -83,3 +83,45 @@ OMP_NUM_THREADS=2 python -m pytest -q tests/test_momart_object_memory.py \
 
 
 逐帧六类95%不是只读诊断的前置门槛。按“只读诊断 / 有限定风险的策略对照 / 正式替换”分级判断，加入目标实例First-hit、按物理时刻的Miss Streak、关键窗口Recall、最新正确记忆的新鲜度、身份切换、槽位淘汰与完整DP P95/P99。两条真实保留轨迹的初步证据与限制见[时序诊断报告](../docs/momart_temporal_memory_diagnostic_20261030.md)。关节运动窗口目前只是离线评分代理，不向策略输入GT阶段或身份。
+
+## 关联候选（2026-10-30，尚未通过 Gate B）
+
+`object_memory.association.method` 可选 `iou_greedy`（默认旧对照）、
+`iou_hungarian` 和 `appearance_motion`。三组 A1/A2/A3 必须使用同一配置；
+`make_bank` 是缓存及在线流共同的构造入口。可在独立实验配置中加入：
+
+```yaml
+object_memory:
+  association:
+    method: appearance_motion
+    appearance_weight: 0.5
+    motion_weight: 0.2
+    min_cosine: 0.8
+    max_age_seconds: 0.8
+    max_center_distance: 0.2
+    prediction_seconds: 0.4
+```
+
+这是待开发集验证的初始参数，不是已冻结的正式训练配方。运动距离单位为
+归一化图像坐标，时间单位为传感器秒。外观来自冻结 ROI 最新真实观测；
+拒绝外观冲突、过旧或超出运动范围的配对。仅短时、有限速的线性预测用于
+匹配，不产生虚构的当前框或特征。零向量外观仅在 IoU 通过时回退；
+Hungarian 的 dummy 允许不匹配，禁止无效配对抢占检测。
+槽位仍按最老且当前未匹配的规则淘汰，替换时清空历史及速度。
+
+协议签名包含所有关联参数、容量及 `association.py` 源码哈希；旧对象缓存
+必须重新生成，不支持混用。旧红碗主视觉与 GDINO 原始路径保持归档状态。
+当前默认 `FrozenPerception` 仍是 GDINO，**不能将其生成的缓存称作 Mask
+缓存，不能直接执行旧 `prepare_train` 当作本轮 Mask 试训练**。
+
+在冻结 Mask 输出上做关联诊断：
+
+```bash
+python experiments/detector_comparison_20261030/temporal_replay.py \
+  --corpus CORPUS --predictions RESULTS/mask.json \
+  --association appearance_motion --slots 8 --output NEW_RESULT.json
+```
+
+SQLite ROI 特征必须与预测 JSON 同名、同目录。GT/事件只在更新后的评分侧
+使用，不进入生产 bank。两条既有测试轨迹现在只能作为诊断回归集，不能
+用于选参后再作独立 holdout 验收。新候选的实际局限及准入状态见本轮报告。

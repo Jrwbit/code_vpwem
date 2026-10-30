@@ -7,7 +7,8 @@ import numpy as np
 import zarr
 from omegaconf import OmegaConf
 from momart_no_history_baseline.cache import training_replay
-from .state import ObjectBank, ObservationStream
+from .state import make_bank, ObservationStream
+from .association import association_contract
 from .perception import FrozenPerception, file_sha256
 
 
@@ -24,8 +25,9 @@ def stream_contract(config):
                 slots=int(m.slots), history=int(m.history), feature_dim=int(m.feature_dim),
                 match_iou=float(m.match_iou), training_phases='all', deployment_phase=0,
                 reset='sensor_step_once', overflow=str(m.get('overflow','error')),
+                association=association_contract(m.get('association', None)),
                 implementation_sha256={name:file_sha256(Path(__file__).with_name(name))
-                                       for name in ('cache.py','state.py')})
+                                       for name in ('cache.py','state.py','association.py')})
 
 
 def write_cache(config, source, target, perceive, observation_reader=None, resume=False):
@@ -55,7 +57,7 @@ def write_cache(config, source, target, perceive, observation_reader=None, resum
         out = zarr.open_group(str(target), mode='w')
         out.attrs.update(complete=False, completed_frames=0, signature=signature)
         completed = 0
-    bank = ObjectBank(int(m.slots), int(m.history), int(m.feature_dim), float(m.match_iou), m.get("overflow", "error"))
+    bank = make_bank(config)
     example = bank.snapshot('a3')
     arrays = {key: out.require_dataset(key, shape=(n,)+v.shape, dtype=v.dtype,
                                        chunks=(min(128,n),)+v.shape) for key, v in example.items()}
@@ -81,8 +83,7 @@ def write_cache(config, source, target, perceive, observation_reader=None, resum
                 episode_boxes[index-start] = max(bowls, key=lambda o: o.score).box
                 episode_valid[index-start] = True
         for phase in range(int(config.action_steps)):
-            stream = ObservationStream(ObjectBank(int(m.slots), int(m.history),
-                                                 int(m.feature_dim), float(m.match_iou), m.get("overflow", "error")),
+            stream = ObservationStream(make_bank(config),
                                        lambda frame: observations[int(frame)])
             stream.observe([0, 0], [0, 0], [0., 0.])
             queries = ([0] if phase == 0 else []) + list(range(phase or int(config.action_steps),
