@@ -42,3 +42,13 @@
 - 原始结果快照：`artifacts/momart_reorganized_20261029/evidence.json`；本次汇总：`artifacts/momart_seed_audit_20261029/aggregate.json`（均为本地运行证据，不作为飞书下载附件）。
 - 恢复评测协议：`experiments/momart_boxed_250k_action8_recovery_20261029/run.py`。
 - 现有总成功率及柱状图：https://feishu.cn/docx/A4mVdzwCZovWOlxKxXNci1fynze 。
+
+## 2026-10-30：训练seed与训测一致性补充
+
+现场重新读取250k的train_config.yaml及continuation_manifest.json：150k起点和续训至250k均配置训练seed=100。正在运行的带框BS64 1M从零训练同样为seed=100。训练入口实际调用torch.manual_seed、np.random.seed、random.seed，并以该seed创建任务采样器。
+
+训练seed控制模型初始化、数据/任务抽样、扩散训练噪声等随机过程；它不是离线示范数据的统一环境初始seed，不能据此说所有训练场景来自环境seed100。示范采集时使用哪些环境seed，以上训练配置没有证明。
+
+评测seed另行设置：原评测及GPU4复测为20260917，额外评测为100/200/300。训练seed和评测seed无需数值相同；即使都设100，也不会使离线训练样本、训练随机过程和在线测试轨迹相同。实际结果中，评测seed100为59.00%，反而低于20260917的64.67%，不支持“因为测试seed不等于训练seed所以降分”的简单解释。
+
+确实存在的处理差异是训练使用离线框、部署使用在线检测/跟踪，具体空间处理问题见既有对齐审计；随机裁剪训练与确定性评测则需要按各自预期契约检查，不能仅凭两者不同认定错误。现有证据尚不能把跨seed的5.78个百分点归因到某一个处理差异。20260917在GPU4复测仍为64.67%，300个成功标志逐项一致；这确认该seed成绩可复现，不证明整个训练与评测链路不存在偏差。
