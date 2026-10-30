@@ -80,3 +80,28 @@ def event_scores(events, rows, truth, hits, observed):
             first_hit_rate_given_pre_observable=sum(e['first_hit'] for e in opportunities)/len(opportunities) if opportunities else None,
             critical_visible_observations=denom,critical_tp=tp,critical_recall=tp/denom if denom else None)
     return dict(events=result,summary=summary)
+
+
+def identity_continuity(samples, event_count):
+    """Conservative coverage+identity metric; invisible samples omitted upstream.
+
+    A visible missed target has track=None and stays in the denominator. This
+    intentionally differs from continuity conditional on a successful detection.
+    """
+    from collections import Counter
+    events=[]
+    for event in range(event_count):
+        rows=[r for r in samples if r['event']==event]
+        counts=Counter(r['track'] for r in rows if r['track'] is not None)
+        dominant=max(counts.values(),default=0)
+        events.append(dict(event=event,dominant_track_hits=dominant,
+            gt_visible_policy_samples=len(rows),continuity=dominant/len(rows) if rows else None))
+    denominator=sum(e['gt_visible_policy_samples'] for e in events)
+    numerator=sum(e['dominant_track_hits'] for e in events)
+    return dict(definition='sum per-event dominant-slot correct detections / GT-visible policy samples in onset +/-8 steps; misses count against continuity',
+        numerator=numerator,denominator=denominator,rate=numerator/denominator if denominator else None,events=events)
+
+
+def mixed_identity_history(labels, target):
+    """Known mixed histories only; unknown matches cannot certify cleanliness."""
+    return target in labels and any(label is not None and label!=target for label in labels)

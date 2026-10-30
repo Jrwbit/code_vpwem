@@ -28,3 +28,19 @@ class TemporalContracts(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+def test_identity_continuity_penalizes_misses_and_identity_fragmentation():
+    from temporal_metrics import identity_continuity
+    result=identity_continuity([dict(event=0,track=1),dict(event=0,track=1),
+        dict(event=0,track=2),dict(event=0,track=None),dict(event=1,track=3)],3)
+    assert result['numerator']==3 and result['denominator']==5
+    assert result['events'][2]['continuity'] is None
+
+
+def test_known_mixed_history_does_not_treat_unknown_as_proven_identity():
+    from temporal_metrics import mixed_identity_history
+    assert mixed_identity_history(['a','b','b'],'a')
+    assert mixed_identity_history(['a','b','b'],'b')
+    assert not mixed_identity_history(['a',None,'a'],'a')
+    assert not mixed_identity_history(['b','b'],'a')

@@ -15,8 +15,9 @@ import torch
 import zarr
 from omegaconf import OmegaConf
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
-from temporal_metrics import match,miss_runs,event_scores,stats,wilson
-from momart_object_memory.state import ObjectBank,ObservationStream
+from temporal_metrics import match,miss_runs,event_scores,stats,wilson,identity_continuity,mixed_identity_history
+from momart_object_memory.state import ObservationStream,make_bank
+from momart_object_memory.association import association_contract
 from momart_object_memory.perception import bounded_detections,file_sha256
 from momart_object_memory.prepare_train import decode
 from momart_object_memory.cache import write_cache,select_mode
@@ -39,7 +40,10 @@ def replay(a):
         scope=dict(episodes=len(manifest['episodes']),raw_frames=len(rows),gt_frames=len(scored),
                    period_seconds=.05,action_steps=8,first_hit_lookback_steps=16,
                    critical_before_after_steps=[8,8],critical_definition='articulation_motion_proxy_not_human_stages'),
-        prediction_provenance={k:v for k,v in raw.items() if k!='predictions'},banks={})
+        prediction_provenance={k:v for k,v in raw.items() if k!='predictions'},
+        association=association_contract({'method':a.association}),
+        input_sha256={str(p):file_sha256(p) for p in (a.predictions,a.predictions.with_suffix('.sqlite'),
+            a.corpus/'annotations_all.json',a.corpus/'operation_proxies.json')},banks={})
     result['miss_streaks']={}
     for e in manifest['episodes']:
         seq=[r for r in scored if r['episode_id']==e['episode_id']]
@@ -51,19 +55,21 @@ def replay(a):
     features=[decode(payload) for _,payload in con.execute('SELECT frame,payload FROM observations ORDER BY frame')];con.close()
     assert len(features)==len(rows)
     indices={r['id']:i for i,r in enumerate(rows)}
-    for slots in (8,16):
+    for slots in a.slots:
         selected=[[d[3] for d in bounded_detections([(o.class_id,o.box,o.score,o) for o in obs],slots)] for obs in features]
         cfg=OmegaConf.create(dict(obs_steps=2,action_steps=8,object_memory=dict(slots=slots,history=3,feature_dim=128,
-            match_iou=.3,period_seconds=.05,overflow='evict_oldest_invisible')))
+            match_iou=.3,period_seconds=.05,overflow='evict_oldest_invisible',
+            association={'method':a.association})))
         evidence={};records=[];kept_refs=[];serial=0;last_gt={};gt_last_track={}
         switches=fragmentations=evictions=critical_evictions=0;residual_jumps=[];last_residual={};query_times=[]
+        history_labels={};critical_identity=[];contaminated_reads=[]
         snapshots={};episode=None;seen_checks=missing_checks=0;update_seconds={}
         bank_hits={r['id']:set() for r in scored}
         def observe(index):return selected[int(index)]
-        stream=ObservationStream(ObjectBank(slots,3,128,.3,'evict_oldest_invisible'),observe)
+        stream=ObservationStream(make_bank(cfg),observe)
         for i,r in enumerate(rows):
             if r['episode_id']!=episode:
-                stream.reset();episode=r['episode_id'];evidence={};last_gt={};gt_last_track={};last_residual={}
+                stream.reset();episode=r['episode_id'];evidence={};last_gt={};gt_last_track={};last_residual={};history_labels={}
             if r['id'] not in observed:continue
             before={id(t):t for t in stream.bank.tracks};t0=time.perf_counter()
             stream.observe([i],[r['step']],[r['step']*.05]);bank=stream.bank
@@ -81,6 +87,7 @@ def replay(a):
                 if not track['visible']:continue
                 j=next(j for j,o in enumerate(selected[i]) if o.class_id==track['class_id'] and np.array_equal(o.box,track['box']))
                 target=assignment.get(j);evidence[key]=(target,r['step'])
+                history_labels[key]=(history_labels.get(key,[])+[target])[-3:]
                 if target is not None:
                     if key in last_gt and last_gt[key]!=target:switches+=1
                     if target in gt_last_track and gt_last_track[target]!=key:fragmentations+=1
@@ -90,6 +97,14 @@ def replay(a):
                     if target in last_residual and last_residual[target][0]==r['step']-1:
                         residual_jumps.append(float(np.linalg.norm(residual-last_residual[target][1])))
                     last_residual[target]=(r['step'],residual)
+            # GT labels remain in this scorer; production bank only sees RGB/ROI.
+            for eidx,e in enumerate(proxies['events']):
+                if e['episode_id']!=episode or not e['onset']-8<=r['step']<=e['onset']+8:
+                    continue
+                target=e['instance_id']
+                if any(g['instance_id']==target for g in truth.get(r['id'],[])):
+                    keys=[id(t) for t in bank.tracks if t['visible'] and evidence.get(id(t),(None,))[0]==target]
+                    critical_identity.append(dict(event=eidx,step=r['step'],track=keys[0] if keys else None))
             snapshot=bank.snapshot('a3')
             missing_checks+=int(np.sum(snapshot['valid'] & ~snapshot['visible']))
             assert not snapshot['boxes'][~snapshot['visible']].any()
@@ -108,6 +123,12 @@ def replay(a):
                     if e['episode_id']==episode and e['onset']-8<=r['step']<=e['onset']+8:
                         entries=[(target,step) for key,(target,step) in evidence.items() if key in {id(t) for t in bank.tracks} and target==e['instance_id']]
                         ages=[(r['step']-step)*.05 for _,step in entries]
+                        live={id(t) for t in bank.tracks}
+                        contaminated=[key for key in live if mixed_identity_history(history_labels.get(key,[]),e['instance_id'])]
+                        # This is input contamination, not evidence of a policy action effect.
+                        contaminated_reads.append(dict(episode_id=episode,event_onset=e['onset'],
+                            step=r['step'],mixed_identity_slots=len(contaminated),
+                            unknown_history_slots=sum(None in history_labels.get(key,[]) for key in live)))
                         records.append(dict(event_onset=e['onset'],episode_id=episode,step=r['step'],target=e['instance_id'],retained_correct_latest=bool(ages),
                             current_correct=any(age==0 for age in ages),fresh={str(ttl):any(age<=ttl for age in ages) for ttl in (.4,.8,1.6)},youngest_correct_age=min(ages) if ages else None))
         # Production offline writer vs actual phase-0 online snapshots, with real ROI features.
@@ -131,7 +152,12 @@ def replay(a):
                     with torch.inference_mode():
                         l,_=encoder({k:torch.as_tensor(v)[None] for k,v in left.items()});rr,_=encoder({k:torch.as_tensor(v)[None] for k,v in right.items()})
                     torch.testing.assert_close(l,rr,atol=0,rtol=0);token_comparisons+=1
-        result['banks'][str(slots)]=dict(memory_first_hit=event_scores(proxies['events'],scored,truth,bank_hits,observed)['summary']['policy'],
+        result['banks'][str(slots)]=dict(
+            critical_identity=identity_continuity(critical_identity,len(proxies['events'])),
+            critical_history_contamination=dict(definition='A3 reads a retained slot containing both target and a different known GT identity within last 3 observations; unknown labels are unassessed; no policy-effect claim',
+                contaminated_query_events=sum(r['mixed_identity_slots']>0 for r in contaminated_reads),
+                query_events=len(contaminated_reads),records=contaminated_reads),
+            memory_first_hit=event_scores(proxies['events'],scored,truth,bank_hits,observed)['summary']['policy'],
             identity_switches=switches,fragmentations=fragmentations,evictions=evictions,
             upcoming_proxy_target_evictions=critical_evictions,residual_center_jump_pixels=stats(residual_jumps),
             offline_online_array_equalities=comparisons,offline_online_token_equalities=token_comparisons,
@@ -145,5 +171,7 @@ def replay(a):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--corpus',type=Path,required=True)
+    p.add_argument('--association',choices=('iou_greedy','iou_hungarian','appearance_motion'),default='iou_greedy')
+    p.add_argument('--slots',type=int,nargs='+',default=[8,16])
     p.add_argument('--predictions',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
     a=p.parse_args();replay(a)
