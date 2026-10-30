@@ -1,0 +1,59 @@
+# Design contract. Not a runnable training config until bbox quality is verified.
+status: bbox_generation
+baseline_archive: /home/jrw/vpwem_baselines/no_history_20261008
+baseline_checkout: /home/jrw/code_vpwem_nohistory_bs256
+seed: 100
+training:
+  effective_batch_size: 256
+  requested_physical_batch_size: 256
+  gradient_steps: 150000
+  save_freq: 25000
+  keep_checkpoints: 6
+  checkpoint_steps: [25000, 50000, 75000, 100000, 125000, 150000]
+  counting: completed_optimizer_updates
+  initialization: from_scratch
+  sampler: balanced_task_homogeneous_batches
+  task_ids: 5
+  datasets: 10
+  evaluation: each_dataset_separately_then_aggregate
+  work_dir: /home/jrw/vpwem_outputs/momart_bbox_memory_bs256_150k/seed100
+bbox:
+  required: true
+  model_id: IDEA-Research/grounding-dino-tiny
+  revision: a2bb814dd30d776dcf7e30523b00659f4f141c71
+  prompt: 'a red bowl.'
+  threshold: 0.25
+  text_threshold: 0.25
+  shortest_edge: 600
+  red_support_min_fraction: 0.10
+  red_support_min_pixels: 3
+  red_hue_chroma_ratio_max: 0.20
+  source: main_rgb_only
+  simulator_object_state_as_input: false
+  missing: invalid_mask_no_fabricated_box
+memory:
+  meaning: object_interaction_state
+  history_frames: 32
+  history_cutoff: before_earliest_recent_observation
+  sampling: first_valid_anchor_plus_15_older_reservoir_plus_16_recent
+  inputs: [main_rgb_context, bowl_crop, bbox, proprio, timestamp, confidence, validity]
+  past_actions: disabled_in_v1
+  crop_size: [64, 64]
+  dimension: 256
+  queries: 8
+  compressor_layers: 2
+  attention_heads: 4
+  ffn_dimension: 1024
+  readout_age: true
+  episode_reset: required
+  denoising_updates_memory: false
+policy:
+  observation_steps: 2
+  action_steps: 8
+  action_horizon: 9
+  action_dimension: 10
+  decoder_layers: 8
+  diffusion_steps: 50
+  condition_order: [diffusion_step, memory, observation]
+  condition_length: 11
+  loss: baseline_action_denoising

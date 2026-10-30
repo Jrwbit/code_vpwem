@@ -1,0 +1,9 @@
+defaults:
+  - config_bs256_150k
+  - _self_
+
+gradient_steps: 250000
+keep_checkpoints: 10
+# Explicit continuation of the old 150k run, with the cosine horizon extended.
+resume_cosine_horizon: 250000
+work_dir: /home/jrw/vpwem_outputs/momart_boxed_no_history_bs256_250k_continued_20261027/seed${seed}
