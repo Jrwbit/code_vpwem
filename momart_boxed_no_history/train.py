@@ -115,7 +115,7 @@ def latest_checkpoint_pair(work_dir):
     return max(pairs, default=None, key=lambda pair: pair[0])
 
 
-def train(args):
+def train(args, suite_builder=build_suite, agent_builder=build_agent, batch_splitter=split_batch):
     if (int(args.effective_batch_size) != int(args.physical_batch_size)
             or int(args.physical_batch_size) not in (64, 256)):
         raise ValueError("This baseline requires a physical and effective batch of 64 or 256")
@@ -125,9 +125,9 @@ def train(args):
     np.random.seed(args.seed)
     random.seed(args.seed)
     initialize_modalities(args)
-    datasets, task_ids, normalizer, loaders, stats = build_suite(args)
+    datasets, task_ids, normalizer, loaders, stats = suite_builder(args)
     mux = BalancedTaskBatchMux(loaders, seed=args.seed)
-    agent = build_agent(args, normalizer)
+    agent = agent_builder(args, normalizer)
     report_parameters(agent.model["diffusion"])
     report_parameters(agent.model["condition"])
     scheduler = CosineAnnealingLR(agent.optimizer, T_max=args.gradient_steps, last_epoch=-1)
@@ -168,7 +168,7 @@ def train(args):
           f"effective_batch={args.effective_batch_size}", flush=True)
     while step < args.gradient_steps:
         name, batch = mux.next(step)
-        condition, action = split_batch(args, datasets[name], task_ids[name], batch)
+        condition, action = batch_splitter(args, datasets[name], task_ids[name], batch)
         result = agent.update(action, condition, None, None)
         scheduler.step()
         step += 1

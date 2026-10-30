@@ -90,7 +90,8 @@ def normalize_observations(obs, normalizer, device):
     }
 
 
-def evaluate(cli, config, agent, normalizer, envs, init_functions):
+def evaluate(cli, config, agent, normalizer, envs, init_functions,
+             observation_normalizer=normalize_observations):
     if cli.eval_episodes % cli.num_envs:
         raise ValueError("eval_episodes must be divisible by num_envs")
     successes, rewards, steps, infer_times = [], [], [], []
@@ -107,7 +108,7 @@ def evaluate(cli, config, agent, normalizer, envs, init_functions):
         agent.reset_cache()
         while elapsed_steps < 1500:
             started = time.time()
-            condition = normalize_observations(cli.rgb_boxer(obs), normalizer, cli.device)
+            condition = observation_normalizer(cli.rgb_boxer(obs), normalizer, cli.device)
             condition["_task_id"] = torch.full(
                 (cli.num_envs,), TASK_IDS[cli.env_name],
                 device=cli.device, dtype=torch.long)
@@ -152,6 +153,9 @@ def evaluate(cli, config, agent, normalizer, envs, init_functions):
         "mean_success": float(np.mean(successes)),
         "mean_reward": float(np.mean(rewards)),
         "mean_infer_time": float(np.mean(infer_times)),
+        "infer_time_p50": float(np.percentile(infer_times, 50)),
+        "infer_time_p95": float(np.percentile(infer_times, 95)),
+        "infer_time_p99": float(np.percentile(infer_times, 99)),
     }
     detector = cli.rgb_boxer.detector
     if hasattr(detector, "processed_frames"):
