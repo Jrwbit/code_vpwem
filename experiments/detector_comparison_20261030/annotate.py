@@ -222,6 +222,7 @@ def annotate(args):
         (args.corpus/'candidate_manifest.json').write_text(json.dumps(manifest,indent=2))
         accepted={a['id'] for a in annotations}
         manifest['records']=[r for r in manifest['records'] if r['id'] in accepted]
+        manifest['annotation_version']='visible_CAD_v3_single_drawer_pull'
         manifest['alignment_filter']=dict(max_rgb_mae=12,candidates=len(rows),rejected=rejected)
         (args.corpus/'manifest.json').write_text(json.dumps(manifest,indent=2))
 
