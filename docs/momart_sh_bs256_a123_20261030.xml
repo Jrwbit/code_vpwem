@@ -1,0 +1,34 @@
+<h1 seq="auto">MoMaRT Mask / BS256 A1-A2-A3：SH部署准备</h1>
+<p>2026-10-30（北京时间）。按用户最新指令，准备在SH并行运行A1/A2/A3，每组物理/有效batch=256、250k steps、seed100。代码已实际推送GitHub，分支 fix/momart-memory-association-20261030，部署代码提交 3804757，迁移验证测试提交 261d344。本记录更正之前“GitHub凭据助手失效、未推送”的状态：本轮已使用校验过的官方gh CLI及现有keyring凭据完成推送，没有把凭据写入仓库。</p>
+<p>本轮按授权准备工程对照训练；身份、新鲜度与人工独立事件的Gate B验收尚未通过，不能把此训练计划写成这些指标已达标。Mask正式入口的真实样本验收见上一轮任务1记录。</p>
+<h2 seq="auto">启动器行为</h2>
+<p>momart_object_memory.launch_a123 先核对部署包、模型与源码哈希，逐数据集验证完整未压缩训练数组SHA256、episode顺序和物理帧映射。只复制旧红碗框缓存，并在验证成功后重绑定副本的source路径；不改变框数组、原缓存、原RGB或动作。</p>
+<p>随后在SH本机环境生成一次新的共享Mask对象缓存。不会复用BHR的浮点对象缓存、旧GDINO对象缓存或旧A1预处理；避免SH运行库与BHR不同造成协议混用。准备完成后，同一Python解释器启动三个训练进程，三组只切换Memory mode和输出目录；每组进程内使用逻辑cuda:0，通过CUDA_VISIBLE_DEVICES分别绑定实际GPU。</p>
+<table><thead><tr><th><p>共同项</p></th><th><p>设定</p></th></tr></thead><tbody><tr><td><p>Mask与ROI</p></td><td><p>与任务1冻结权重及协议一致</p></td></tr><tr><td><p>Memory</p></td><td><p>8槽、history=3，默认IoU贪心对照</p></td></tr><tr><td><p>batch</p></td><td><p>physical=effective=256，不使用梯度累积冒充BS256</p></td></tr><tr><td><p>训练</p></td><td><p>每组250k更新，seed100，同初始化、数据及优化配方</p></td></tr><tr><td><p>保存与日志</p></td><td><p>每10k保存模型及scheduler，每100步日志</p></td></tr><tr><td><p>A1/A2/A3差异</p></td><td><p>当前可见 / 最新可靠历史 / 最近3次观测GRU</p></td></tr></tbody></table>
+<p>三组初始化记录齐备后自动运行 momart_object_memory.compare，核对初始参数SHA、结构、配置和感知协议。任一组失败会停止其他同批训练子进程并保留日志；不会静默改单组batch。现有模型检查点不自动续训，新实验输出目录必须不存在。</p>
+<h2 seq="auto">部署包与数据</h2>
+<p>BHR准备目录 /home/jrw/vpwem_transfer/momart_mask_a123_bs256_20261030，日志为同路径加 .log。</p>
+<p>code.tar：Git提交3804757的源码快照。</p>
+<p>assets/mask.pt、assets/roi_source.pt、assets/main_bundle.json：冻结Mask、ROI源checkpoint与原主视觉bundle。</p>
+<p>bbox/：十数据集原主视觉框缓存副本。</p>
+<p>input_manifest.json：十数据集完整原数组、框数组、episode顺序和帧映射的校验。</p>
+<p>bundle_manifest.json：资产/源码SHA256及部署提交。</p>
+<p>READY：全部打包成功后才写入。</p>
+<p>原始训练数据不重复装入这个约1.1GiB的资产包；SH应使用与清单逐字节相符的无损数据。既有迁移原始数据归档位于BHR /home/jrw/vpwem_transfer/ttt_nohistory_20261020/data/，以及历史SH持久化目录 /oss/sh2/vpwem_transfer/ttt_nohistory_20261020/；这些位置是定位线索，SH未连通前不宣称它们当前可读。</p>
+<h2 seq="auto">SH连接状态</h2>
+<p>本轮实测 ssh kai_sh2 返回代理HTTP404；ssh kai_shihao_sh2 返回 Get proxy url failed。已通过异步问题请求当前SSH别名或实例连接命令。没有向其他服务器替代启动，也没有在BHR抢跑这三组训练。</p>
+<p>旧SH记录为单张RTX PRO 5000 72GB，不能据此当作当前GPU清单。恢复连接后须读取当前GPU占用、环境及数据路径；启动器的 --gpus 接受三个设备编号，同卡并行可重复编号，但应先验证实际BS256容量。</p>
+<p>示例（路径和GPU编号需按恢复连接后的实际资源填写）：</p>
+<pre lang="bash"><code># 在新代码目录解包已校验的code.tar，然后使用SH的PyTorch环境。
+python -m momart_object_memory.launch_a123 \
+  --bundle BUNDLE_DIR \
+  --data-root LOSSLESS_MOMART_ZARR_DIR \
+  --cache-root NEW_MASK_OBJECT_CACHE_DIR \
+  --output NEW_EXPERIMENT_DIR \
+  --gpus GPU_A GPU_B GPU_C --steps 250000</code></pre>
+<p>长任务应通过远端持久进程启动；进度看 status.json、prepare.log、a1.log、a2.log、a3.log，结果看各组 runs/&lt;mode&gt;/seed100/metrics.jsonl 和 models/。只有实际拿到进程、初始化比较及训练步数，才能报告“三组已开始训练”。</p>
+<h2 seq="auto">验证</h2>
+<p>BHR原40项相关检查加2项启动器检查，共42项通过；随后另跑4项启动器/迁移检查通过，其中2项为新增，合计44项独立检查。验证三组同配方BS256、失败时停止同批子进程、无损路径迁移保持原框缓存、RGB任何变化提前拒绝。依赖已有弃用警告，无测试失败。编译与 git diff --check 通过。</p>
+<h2 seq="auto">最终打包结果</h2>
+<p>本轮打包进程已成功退出，READY 已写入。10个数据集、80个完整原数组，合计654,460个训练帧的清单已生成；复制的Mask/ROI资产SHA256与冻结配置一致。BHR传输包 /home/jrw/vpwem_transfer/momart_mask_a123_bs256_20261030.tar，大小1,112,391,680字节，SHA256为 090973ccdc238f726d706ff1eb46df142379bb5c026169066c0ce76fbffd749d。</p>
+<p>截至本轮交付，SH仍未连通，尚未同步到SH、尚未生成SH对象缓存、尚未启动三组训练。缺少的是当前可用的SH SSH别名或实例连接命令；已发出文本问题等待回复。现有SH路径仅保留为恢复定位线索，不写成实测可用位置。</p>
