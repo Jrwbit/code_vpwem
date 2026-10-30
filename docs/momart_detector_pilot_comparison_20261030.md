@@ -108,3 +108,10 @@ GT首框实验初始化更多细小部件，因此并不保证最终分割指标
 方法依据与官方实现：[GroundingDINO](https://github.com/IDEA-Research/GroundingDINO)、[YOLO-World](https://github.com/AILab-CVC/YOLO-World)、[TorchVision Mask R-CNN微调教程](https://docs.pytorch.org/tutorials/intermediate/torchvision_tutorial.html)、[SAM2](https://github.com/facebookresearch/sam2)。本轮测试的是这些感知路线，不是完整复现BBox-DP、VIMA或Scene Graph策略，也未运行VLPart模型。
 
 补充参数与预算：两种领域YOLO检测模型均为3,012,018个参数，640版本增加输入计算量，没有增加模型参数；该数字仅指外部检测器，不包含ROI视觉分支或原策略。不同检测架构的优化器与训练轮数不同，本轮用于工程工作点选型，不是等训练算力的因果消融。
+
+
+## 第二轮补标及协议修正
+
+第二轮补标与共享协议修正（2026-10-30）：新增340帧，合并555帧/2813实例；YOLO640与Mask在卡4并行完成。抽屉有所改善，抽屉把手仍未达到95% precision，A1保持暂停。新对象框重画主RGB的混淆已修正，相关回归25项通过。原文首轮63帧结果保留，不能外推成新确认集可靠性。
+
+[第二轮完整报告与555帧标注附件](https://feishu.cn/docx/IQaxdP91gojjrlxSCIIcJmcdn3d)
