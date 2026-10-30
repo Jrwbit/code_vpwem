@@ -78,3 +78,9 @@ Then run `run_suite.py --output OUTPUT --stage detectors`, `--stage mask`, and
 wait for a free device. The initial GPU5 timing attempt was terminated after
 an external training process began sharing that card. Controlled comparisons
 restart on GPU3 of the same RTX 4090 D model; no external process was stopped.
+The final SAM timing recheck disables result saving and runs on GPU7 after
+GPU3 became occupied. GPU7 had an idle resident process and passed <=5% GPU
+utilization / >=20000 MiB free gates. SAM timing includes lossless video decode
+and per-clip initialization, unlike the preloaded static RGB timing, so those
+latencies are engineering references rather than a strictly isolated same-card
+comparison. Detection/segmentation quality is evaluated on identical clip IDs.
