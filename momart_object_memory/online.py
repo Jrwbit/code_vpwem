@@ -1,6 +1,7 @@
 """Online observation adapter using the same bank and raw-image perception."""
 import numpy as np
 from .state import make_bank, ObservationStream
+from .perception import validate_perception_metadata
 
 
 class OnlineObjects:
@@ -8,6 +9,8 @@ class OnlineObjects:
         self.config, self.perceive = config, perceive
         self.main_boxer = main_boxer
         m = config.object_memory
+        if m.get('detector_backend', 'gdino') == 'mask_rcnn':
+            validate_perception_metadata(m, perceive.metadata)
         self.streams = [ObservationStream(make_bank(config), perceive)
                         for _ in range(num_envs)]
         # Baseline evaluation calls adapter.detector.reset_all at episode boundaries.

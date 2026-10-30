@@ -15,7 +15,7 @@ import zarr
 from omegaconf import OmegaConf
 from momart_no_history_baseline.cache import training_replay
 from .cache import replay_signature, write_cache
-from .perception import FrozenPerception
+from .perception import FrozenPerception, validate_perception_metadata
 from .state import ObjectObservation
 
 
@@ -42,6 +42,7 @@ def save_status(path, **value):
 
 
 def prepare_dataset(cfg,name,perceive,status_path):
+    validate_perception_metadata(cfg.object_memory,perceive.metadata)
     source=Path(cfg.data_root)/(name+'.zarr')
     replay,names,mapping=training_replay(zarr.open_group(str(source),mode='r'))
     signature=replay_signature(replay,mapping,names)
@@ -86,6 +87,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config',required=True)
     parser.add_argument('--device',default='cuda:0')
+    parser.add_argument('--prepare-only',action='store_true',help='Validate and build caches without starting policy training')
     args=parser.parse_args();cfg=OmegaConf.load(args.config)
     work=Path(cfg.work_dir);work.mkdir(parents=True,exist_ok=True)
     status=work/'pipeline_status.json'
@@ -94,6 +96,9 @@ def main():
         perceive=FrozenPerception(cfg.object_memory,args.device)
         for spec in cfg.task_datasets:
             prepare_dataset(cfg,str(spec.name),perceive,status)
+        if args.prepare_only:
+            save_status(status,stage='cache_complete',policy_training_started=False)
+            return
         del perceive;gc.collect();torch.cuda.empty_cache()
         command=[sys.executable,'-m','momart_object_memory.train','--config',args.config,
                  '--mode',str(cfg.object_memory.mode),'--device',args.device]

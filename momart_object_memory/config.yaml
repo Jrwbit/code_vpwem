@@ -120,7 +120,7 @@ wandb_mode: offline
 log_freq: 1000
 save_freq: 100000
 keep_checkpoints: 10
-work_dir: /home/jrw/vpwem_outputs/momart_object_memory_a123/${object_memory.mode}/seed${seed}
+work_dir: /home/jrw/vpwem_outputs/momart_object_memory_mask8_v1/${object_memory.mode}/seed${seed}
 bbox_root: /home/jrw/vpwem_data/momart_bbox_gdino_red_v1
 
 object_memory:
@@ -130,7 +130,15 @@ object_memory:
   feature_dim: 128
   match_iou: 0.3
   period_seconds: 0.05
-  threshold: 0.25
+  detector_backend: mask_rcnn
+  detector_checkpoint: /home/jrw/vpwem_outputs/momart_detector_drawer_augmented_20261030/training/mask_rcnn/best.pt
+  detector_checkpoint_sha256: 6403f0154dbab64bed0708e01d270a3497272bf44740ce2a2dc0787079d5fd36
+  thresholds: [0.05, 0.6000000000000001, 0.5, 0.9000000000000001, 0.8, 0.35000000000000003]
+  max_detections: 8
+  overflow: evict_oldest_invisible
+  association:
+    method: iou_greedy
+  feature_checkpoint_sha256: 418ac07eba671fcc615b4953abd3bea06c8810570e676a8cc9ca4d38bc812239
   classes:
   - a red bowl.
   - a dishwasher door.
@@ -139,7 +147,7 @@ object_memory:
   - a drawer.
   - a drawer handle.
   feature_checkpoint: /home/jrw/vpwem_outputs/momart_boxed_no_history_bs64_1m_20261029/seed100/models/model_500000.pt
-  cache_root: /home/jrw/vpwem_data/momart_objects_causal_v1
+  cache_root: /home/jrw/vpwem_data/momart_objects_mask8_production_v1
 
 main_visual:
   version: archived_red_bowl_v1

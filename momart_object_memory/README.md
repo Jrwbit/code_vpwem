@@ -11,11 +11,11 @@
 | a3 | 每对象最近3次可靠观测，含相对时间，GRU压成一个256维token |
 | a3_latest_control | 相同网络/容量，3个历史位置都重复最新状态 |
 
-A1/A2同样使用GRU，只将更早位置标为无效。对象数上限8，超容量直接报错以暴露跟踪碎片，禁止静默覆盖身份。实例ID是内部槽位关联键，不作为整数语义特征。第一版为类别约束IoU匹配，尚无运动预测或可靠的遮挡后重识别；没有实现关系边、事件触发关键帧或额外动态reader。A3保存的是可靠观测序列，不声称已经学习到交互成功事件。
+A1/A2同样使用GRU，只将更早位置标为无效。对象数上限8，超容量直接报错以暴露跟踪碎片，禁止静默覆盖身份。实例ID是内部槽位关联键，不作为整数语义特征。默认保留类别约束IoU匹配；可消融外观/运动Hungarian候选尚未达到正式准入。没有实现关系边、事件触发关键帧或额外动态reader。A3保存的是可靠观测序列，不声称已经学习到交互成功事件。
 
 ## 特征与时序
 
-- 采用冻结GroundingDINO tiny，同一权重逐类别提示，不使用VLM Head。红色支持过滤只用于class0红碗；部件不继承红碗颜色约束。
+- 当前正式配置采用冻结 Mask R-CNN（ResNet50-FPN、7含背景类别），显式 `detector_backend: mask_rcnn`。权重SHA256、六类阈值、类别顺序及ROI权重均绑定协议；GDINO仅为显式旧配置保留，不可混用对象缓存。红色支持过滤只用于class0红碗。
 - 对象特征从归档500k模型的EMA主RGB ResNet18权重严格加载；独立冻结，取layer2，使用未画框90×120原图、[-1,1]归一化和stride8 ROIAlign，输出128维。不会冻结随机网络或随主策略更新缓存特征。
 - 保持原带框多模态主路径：两帧、256维、task embedding。离线直接保留 `BoxedNoHistoryDataset` 的画框 RGB；在线独立复用旧 `PrecisionSequenceDetector` / `OnlineBoxedRGB`，bundle SHA256 固定。对象分支的 class0 框也不重画主 RGB。原基线离线用红碗检测缓存、在线用 combined_blend 的已有差异被保留并显式记录，不宣称二者本来完全相同。
 - 新对象token和validity随场景条件打包，DDPM只编码一次，去噪循环中解包只读。mask在decoder中真正屏蔽空槽，并禁止位置0的过去动作读取最新bank；默认条件encoder是逐token MLP。
@@ -111,8 +111,8 @@ Hungarian 的 dummy 允许不匹配，禁止无效配对抢占检测。
 
 协议签名包含所有关联参数、容量及 `association.py` 源码哈希；旧对象缓存
 必须重新生成，不支持混用。旧红碗主视觉与 GDINO 原始路径保持归档状态。
-当前默认 `FrozenPerception` 仍是 GDINO，**不能将其生成的缓存称作 Mask
-缓存，不能直接执行旧 `prepare_train` 当作本轮 Mask 试训练**。
+此前 `FrozenPerception` 默认入口是GDINO；本轮已将正式配置切换为Mask。
+旧GDINO缓存和旧无stream签名的评测协议均被拒绝，历史诊断结论保持原样。
 
 在冻结 Mask 输出上做关联诊断：
 
@@ -125,3 +125,32 @@ python experiments/detector_comparison_20261030/temporal_replay.py \
 SQLite ROI 特征必须与预测 JSON 同名、同目录。GT/事件只在更新后的评分侧
 使用，不进入生产 bank。两条既有测试轨迹现在只能作为诊断回归集，不能
 用于选参后再作独立 holdout 验收。新候选的实际局限及准入状态见本轮报告。
+
+
+## Mask 正式生产入口
+
+`FrozenPerception` 是 `cache`、`prepare_train` 与 `evaluate` 的同一入口，
+Mask实现不导入实验脚本。默认 `config.yaml` 固定8槽，关联保留旧IoU对照，
+不默认启用尚未通过身份/新鲜度验收的外观运动候选。主RGB继续走原归档
+红碗主视觉，Mask只产生对象输入。
+
+只准备新对象缓存、不启动策略训练：
+
+```bash
+python -m momart_object_memory.prepare_train \
+  --config momart_object_memory/config.yaml --device cuda:0 --prepare-only
+```
+
+独立真实训练样本验收（输出目录必须不存在）：
+
+```bash
+python tools/verify_momart_mask_production.py \
+  --config momart_object_memory/config.yaml --device cuda:0 --output NEW_AUDIT_DIR
+```
+
+该命令只读原数据、取两任务训练episode的25帧前缀，输出明确标记的独立
+验收数据，运行生产预处理、训练dataset/batch、在线对象流及评测归一化。
+逐字段验证所有训练相位和部署phase0；浮点容差预设atol=rtol=1e-5，
+布尔及类别精确相等。另对照旧Mask诊断前端，拒绝旧SQLite/对象缓存、
+阈值或关联变更、缺失或改变stream的评测协议，并比较旧主RGB路径。
+这是协议验收，不是完整episode效果、全数据缓存或DP训练/闭环验收。

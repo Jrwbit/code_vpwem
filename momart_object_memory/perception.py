@@ -1,4 +1,4 @@
-"""Frozen multi-class GroundingDINO + raw-image layer2 ROIAlign features."""
+"""Versioned frozen detector + raw-image layer2 ROIAlign, shared by all entries."""
 import hashlib
 import inspect
 from pathlib import Path
@@ -43,25 +43,69 @@ def bounded_detections(detections, limit):
     return [detections[i] for i in selected]
 
 
-class FrozenPerception:
-    """One frozen model, per-class prompts, deterministic per-class NMS.
+def mask_perception_contract(config):
+    """Validate frozen assets without constructing detector/ROI models."""
+    from .mask_detector import CLASSES
+    import torchvision
+    if (list(config.classes) != CLASSES or int(config.feature_dim) != 128
+            or int(config.slots) != 8 or int(config.max_detections) != 8):
+        raise ValueError('Mask requires frozen six-class order, 128D ROI and 8 slots/detections')
+    thresholds = list(map(float, config.thresholds))
+    if len(thresholds) != 6 or not np.isfinite(thresholds).all() or not all(0 <= x <= 1 for x in thresholds):
+        raise ValueError('Mask requires six finite class thresholds in [0,1]')
+    detector_hash = file_sha256(config.detector_checkpoint)
+    feature_hash = file_sha256(config.feature_checkpoint)
+    if (detector_hash != config.detector_checkpoint_sha256
+            or feature_hash != config.feature_checkpoint_sha256):
+        raise ValueError('Frozen Mask or ROI checkpoint checksum differs')
+    return dict(version='mask_raw_layer2_roi_v1', detector_backend='mask_rcnn',
+        detector_model='maskrcnn_resnet50_fpn_7classes', detector_checkpoint_sha256=detector_hash,
+        thresholds=thresholds, classes=CLASSES, feature_checkpoint_sha256=feature_hash,
+        feature_weights='model_ema.condition.encoder.key_model_map.rgb', feature_dim=128,
+        feature_layer='layer2', input='raw90x120_rgb_minus1_plus1',
+        detector_input='raw90x120_rgb_zero_one', detector_resize=dict(min_size=320,max_size=448),
+        detector_dtype='float32', detector_max_detections=100, nms_iou=.5, red_support_class=0,
+        selection='class_balanced_confidence', max_detections=8,
+        roi_align=dict(output_size=3,aligned=True,sampling_ratio=2,feature_stride=8),
+        torch_version=str(torch.__version__),torchvision_version=str(torchvision.__version__),
+        implementation_sha256={name:file_sha256(Path(__file__).with_name(name))
+                               for name in ('perception.py','mask_detector.py')},
+        red_support_implementation_sha256=file_sha256(inspect.getfile(red_support_filter)))
 
-    Red RGB support applies only to class 0 (red bowl); handles/racks must not
-    inherit the old red-bowl color gate. Association happens in ObjectBank.
-    """
+
+def validate_perception_metadata(config, metadata):
+    backend = config.get('detector_backend', 'gdino')
+    if backend not in ('mask_rcnn', 'gdino'):
+        raise ValueError('Unknown frozen detector backend')
+    if backend == 'mask_rcnn':
+        if metadata != mask_perception_contract(config):
+            raise ValueError('Object cache perception differs from frozen Mask protocol')
+    elif metadata.get('version', '').startswith('mask_'):
+        raise ValueError('Mask cache cannot be read with a GDINO configuration')
+
+
+class FrozenPerception:
+    """Explicit Mask/GDINO dispatch; neither branch paints the main RGB."""
     def __init__(self, config, device='cpu'):
-        from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
         self.device = device
         self.classes = list(config.classes)
-        if not self.classes or self.classes[0] != 'a red bowl.':
-            raise ValueError('Class 0 must remain the baseline red bowl prompt')
-        self.threshold = float(config.threshold)
-        self.max_detections = config.get("max_detections", None)
-        self.processor = AutoProcessor.from_pretrained(MODEL_ID, revision=REVISION,
-                                                       local_files_only=True)
-        self.processor.image_processor.size = {'shortest_edge': 600, 'longest_edge': 1333}
-        self.detector = AutoModelForZeroShotObjectDetection.from_pretrained(
-            MODEL_ID, revision=REVISION, local_files_only=True).to(device).eval().requires_grad_(False)
+        self.backend = config.get('detector_backend', 'gdino')
+        self.max_detections = config.get('max_detections', None)
+        if self.backend == 'mask_rcnn':
+            from .mask_detector import FrozenMaskDetector
+            self.metadata = mask_perception_contract(config)
+            self.detector = FrozenMaskDetector(config.detector_checkpoint, self.metadata['thresholds'], device)
+        elif self.backend == 'gdino':
+            from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
+            if not self.classes or self.classes[0] != 'a red bowl.':
+                raise ValueError('Class 0 must remain the baseline red bowl prompt')
+            self.threshold = float(config.threshold)
+            self.processor = AutoProcessor.from_pretrained(MODEL_ID, revision=REVISION, local_files_only=True)
+            self.processor.image_processor.size = {'shortest_edge': 600, 'longest_edge': 1333}
+            self.detector = AutoModelForZeroShotObjectDetection.from_pretrained(
+                MODEL_ID, revision=REVISION, local_files_only=True).to(device).eval().requires_grad_(False)
+        else:
+            raise ValueError('Unknown frozen detector backend')
         resnet = get_resnet('resnet18')
         resnet = replace_submodules(resnet, lambda x: isinstance(x, nn.BatchNorm2d),
                                     lambda x: nn.GroupNorm(x.num_features//16, x.num_features))
@@ -74,47 +118,50 @@ class FrozenPerception:
                                     resnet.layer1, resnet.layer2).to(device).eval().requires_grad_(False)
         if int(config.feature_dim) != 128:
             raise ValueError('ResNet18 layer2 ROI features have dimension 128')
-        self.metadata = dict(version='gdino_raw_layer2_roi_v1', classes=self.classes,
-                             max_detections=self.max_detections, selection='class_balanced_confidence',
-                             detector_model=MODEL_ID, detector_revision=REVISION,
-                             threshold=self.threshold, text_threshold=0.25,
-                             shortest_edge=600, longest_edge=1333, nms_iou=0.5,
-                             feature_checkpoint_sha256=file_sha256(config.feature_checkpoint),
-                             feature_weights='model_ema.condition.encoder.key_model_map.rgb',
-                             feature_dim=128, feature_layer='layer2', input='raw90x120_rgb_minus1_plus1',
-                             roi_align=dict(output_size=3, aligned=True, sampling_ratio=2, feature_stride=8),
-                             implementation_sha256=file_sha256(__file__),
-                             red_support_class=0)
-
+        if self.backend == 'gdino':
+            self.metadata = dict(version='gdino_raw_layer2_roi_v1', classes=self.classes,
+                                 max_detections=self.max_detections, selection='class_balanced_confidence',
+                                 detector_model=MODEL_ID, detector_revision=REVISION,
+                                 threshold=self.threshold, text_threshold=0.25,
+                                 shortest_edge=600, longest_edge=1333, nms_iou=0.5,
+                                 feature_checkpoint_sha256=file_sha256(config.feature_checkpoint),
+                                 feature_weights='model_ema.condition.encoder.key_model_map.rgb',
+                                 feature_dim=128, feature_layer='layer2', input='raw90x120_rgb_minus1_plus1',
+                                 roi_align=dict(output_size=3, aligned=True, sampling_ratio=2, feature_stride=8),
+                                 implementation_sha256=file_sha256(__file__),
+                                 red_support_class=0)
     @torch.inference_mode()
     def __call__(self, image):
         from PIL import Image
         image = np.asarray(image)
         if image.shape != (90, 120, 3) or image.dtype != np.uint8:
             raise ValueError('Expected original 90x120 uint8 RGB')
-        inputs = self.processor(images=[Image.fromarray(image)]*len(self.classes),
-                                text=self.classes, padding=True, return_tensors='pt').to(self.device)
-        outputs = self.detector(**inputs)
-        post = self.processor.post_process_grounded_object_detection
-        key = 'box_threshold' if 'box_threshold' in inspect.signature(post).parameters else 'threshold'
-        results = post(outputs, inputs.input_ids, **{key: self.threshold}, text_threshold=0.25,
-                       target_sizes=[image.shape[:2]]*len(self.classes))
-        detections = []
-        for cls, result in enumerate(results):
-            boxes = result['boxes'].float().cpu().numpy()
-            scores = result['scores'].float().cpu().numpy()
-            if cls == 0:
-                keep = red_support_filter(image, boxes)
-                boxes, scores = boxes[keep], scores[keep]
-            boxes = np.clip(boxes / [120, 90, 120, 90], 0, 1).astype(np.float32)
-            order = np.argsort(-scores, kind='stable')
-            kept = []
-            for j in order:
-                if (np.isfinite(boxes[j]).all() and np.isfinite(scores[j])
-                        and np.all(boxes[j, 2:] > boxes[j, :2])
-                        and all(iou(boxes[j], boxes[k]) <= 0.5 for k in kept)):
-                    kept.append(j)
-                    detections.append((cls, boxes[j], float(scores[j])))
+        if self.backend == 'mask_rcnn':
+            detections = self.detector(image)
+        else:
+            inputs = self.processor(images=[Image.fromarray(image)]*len(self.classes),
+                                    text=self.classes, padding=True, return_tensors='pt').to(self.device)
+            outputs = self.detector(**inputs)
+            post = self.processor.post_process_grounded_object_detection
+            key = 'box_threshold' if 'box_threshold' in inspect.signature(post).parameters else 'threshold'
+            results = post(outputs, inputs.input_ids, **{key: self.threshold}, text_threshold=0.25,
+                           target_sizes=[image.shape[:2]]*len(self.classes))
+            detections = []
+            for cls, result in enumerate(results):
+                boxes = result['boxes'].float().cpu().numpy()
+                scores = result['scores'].float().cpu().numpy()
+                if cls == 0:
+                    keep = red_support_filter(image, boxes)
+                    boxes, scores = boxes[keep], scores[keep]
+                boxes = np.clip(boxes / [120, 90, 120, 90], 0, 1).astype(np.float32)
+                order = np.argsort(-scores, kind='stable')
+                kept = []
+                for j in order:
+                    if (np.isfinite(boxes[j]).all() and np.isfinite(scores[j])
+                            and np.all(boxes[j, 2:] > boxes[j, :2])
+                            and all(iou(boxes[j], boxes[k]) <= 0.5 for k in kept)):
+                        kept.append(j)
+                        detections.append((cls, boxes[j], float(scores[j])))
         if self.max_detections is not None:
             detections = bounded_detections(detections, int(self.max_detections))
         if not detections:

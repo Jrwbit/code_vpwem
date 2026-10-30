@@ -8,8 +8,9 @@ from omegaconf import OmegaConf
 from momart_boxed_no_history import train as baseline
 from .dataset import ObjectDataset
 from .model import build_agent
-from .perception import file_sha256
+from .perception import file_sha256, validate_perception_metadata
 from .main_visual import main_visual_contract
+from .cache import stream_contract
 
 
 def comparison_contract(args):
@@ -29,7 +30,9 @@ def build_suite(args):
         raise ValueError('Dataset perception versions differ')
     if metadata[0]['feature_checkpoint_sha256'] != file_sha256(args.object_memory.feature_checkpoint):
         raise ValueError('Feature checkpoint differs from preprocessing cache')
-    if metadata[0]['threshold'] != float(args.object_memory.threshold):
+    validate_perception_metadata(args.object_memory, metadata[0])
+    if (args.object_memory.get('detector_backend','gdino') == 'gdino'
+            and metadata[0]['threshold'] != float(args.object_memory.threshold)):
         raise ValueError('Detector threshold differs from cache')
     loaders = {}
     for name, ds in wrapped.items():
@@ -53,6 +56,7 @@ def build_suite(args):
     manifest = dict(protocol_version='independent_main_visual_v2',
                     main_visual=visual_contract,
                     main_visual_detector=next(iter(datasets.values())).detector_metadata,
+                    stream=stream_contract(args),
                     mode=args.object_memory.mode, comparison_sha256=fingerprint,
                     source_sha256=source_hashes,
                     comparison_contract=contract, perception=metadata[0])

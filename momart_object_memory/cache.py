@@ -9,7 +9,7 @@ from omegaconf import OmegaConf
 from momart_no_history_baseline.cache import training_replay
 from .state import make_bank, ObservationStream
 from .association import association_contract
-from .perception import FrozenPerception, file_sha256
+from .perception import FrozenPerception, file_sha256, validate_perception_metadata
 
 
 def replay_signature(replay, frame_map, names):
@@ -33,6 +33,7 @@ def stream_contract(config):
 def write_cache(config, source, target, perceive, observation_reader=None, resume=False):
     if int(config.obs_steps) != 2:
         raise ValueError('Only two-observation PTP supported')
+    validate_perception_metadata(config.object_memory, perceive.metadata)
     target = Path(target)
     if target.exists() and not resume:
         raise FileExistsError('Refusing to overwrite object cache: '+str(target))

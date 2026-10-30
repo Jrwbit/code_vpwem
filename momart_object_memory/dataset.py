@@ -4,6 +4,7 @@ import numpy as np
 import zarr
 from .cache import replay_signature, stream_contract, select_mode
 from .model import OBJECT_KEYS
+from .perception import validate_perception_metadata
 
 
 class ObjectDataset:
@@ -23,6 +24,7 @@ class ObjectDataset:
             raise ValueError('Incomplete or incompatible object cache: '+name)
         if signature['perception']['feature_dim'] != int(args.object_memory.feature_dim):
             raise ValueError('Object feature dimension mismatch')
+        validate_perception_metadata(args.object_memory, signature['perception'])
         self.perception_metadata = signature['perception']
         # The archived baseline's main-image detector is independent of object ROI perception.
         self.detector_metadata = base.detector_metadata

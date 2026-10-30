@@ -12,6 +12,7 @@ from .model import build_agent
 from .online import OnlineObjects
 from .perception import FrozenPerception
 from .train import comparison_contract
+from .cache import stream_contract
 from .main_visual import main_visual_contract, build_main_boxer
 
 
@@ -24,16 +25,22 @@ def normalize_observations(obs, normalizer, device):
     return scene
 
 
+def validate_experiment_protocol(cfg, protocol):
+    """Reject old or changed cache/bank protocols before building a rollout."""
+    if (protocol.get('protocol_version') != 'independent_main_visual_v2'
+            or protocol.get('main_visual') != main_visual_contract(cfg)
+            or comparison_contract(cfg) != protocol['comparison_contract']
+            or cfg.object_memory.mode != protocol['mode']
+            or protocol.get('stream') != stream_contract(cfg)):
+        raise ValueError('Saved object experiment config differs from protocol')
+
+
 def main():
     multiprocessing.set_start_method('spawn', force=True)
     cli = baseline.parse_args()
     cfg = OmegaConf.load(cli.train_config)
     protocol = json.loads((Path(cli.train_config).parent/'object_protocol.json').read_text())
-    if (protocol.get('protocol_version') != 'independent_main_visual_v2'
-            or protocol.get('main_visual') != main_visual_contract(cfg)
-            or comparison_contract(cfg) != protocol['comparison_contract']
-            or cfg.object_memory.mode != protocol['mode']):
-        raise ValueError('Saved object experiment config differs from protocol')
+    validate_experiment_protocol(cfg, protocol)
     torch.manual_seed(cli.seed); np.random.seed(cli.seed)
     if cli.disable_cudnn:
         torch.backends.cudnn.enabled = False
