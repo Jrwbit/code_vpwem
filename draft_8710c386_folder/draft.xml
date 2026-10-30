@@ -1,0 +1,39 @@
+<title>MoMaRT 关联消融：减少碎片，但新鲜度尚未达标</title>
+<p>日期：2026-10-30（北京时间）。执行分支 fix/momart-memory-association-20261030，基于远端 feat/momart-object-memory-a123 的 c065ab5。本轮定位实现、核对原始记录、开发共享关联候选并实际重跑冻结 Mask/8槽回放。候选尚未通过 Gate B，未启动10k–30k或250k训练，没有新的闭环成功率。</p>
+<h1 seq="auto">本轮结果与边界</h1>
+<p>同一份冻结 Mask JSON/SQLite，2条既有完整轨迹、1445帧、7个关节运动代理事件。检测器权重、阈值、ROI及8槽容量不变；所有方法仅处理策略可见的0、7、8、15、16…帧，GT只在更新后评分。新参数为预设初始工程值，没有在这两条轨迹上搜索或迭代调参。它们是已查看的诊断回归集，不能再被称作新的最终 holdout。</p>
+<table><thead><tr><th><p>指标</p></th><th><p>原 IoU 贪心</p></th><th><p>IoU Hungarian</p></th><th><p>外观/运动 Hungarian</p></th></tr></thead><tbody><tr><td><p>全轨迹身份切换</p></td><td><p>30</p></td><td><p>30</p></td><td><p>47</p></td></tr><tr><td><p>全轨迹碎片化</p></td><td><p>251</p></td><td><p>250</p></td><td><p>170</p></td></tr><tr><td><p>槽位淘汰</p></td><td><p>314</p></td><td><p>305</p></td><td><p>188</p></td></tr><tr><td><p>未来0.8秒代理目标关联槽位淘汰</p></td><td><p>5</p></td><td><p>5</p></td><td><p>3</p></td></tr><tr><td><p>操作前目标进入 Memory</p></td><td><p>7/7</p></td><td><p>7/7</p></td><td><p>7/7</p></td></tr><tr><td><p>关键窗口检测 Recall</p></td><td><p>25/29</p></td><td><p>25/29</p></td><td><p>25/29</p></td></tr><tr><td><p>关键读取最新正确且 age≤0.4秒</p></td><td><p>13/14</p></td><td><p>13/14</p></td><td><p>12/14</p></td></tr><tr><td><p>保守身份连续及覆盖</p></td><td><p>21/29</p></td><td><p>21/29</p></td><td><p>25/29</p></td></tr><tr><td><p>关键读取已知目标与异实例混入同一 A3 历史</p></td><td><p>0/14</p></td><td><p>0/14</p></td><td><p>0/14</p></td></tr><tr><td><p>离线/在线数组相等检查</p></td><td><p>4368</p></td><td><p>4368</p></td><td><p>4368</p></td></tr><tr><td><p>A1/A2/A3 Token 相等检查</p></td><td><p>546</p></td><td><p>546</p></td><td><p>546</p></td></tr></tbody></table>
+<p>候选将碎片化251→170、淘汰314→188，但全轨迹身份切换30→47、新鲜正确率92.86%→85.71%。因此本轮只交付可消融实现，保留旧关联为默认；不能将“减少碎片”写成“已修复关键身份污染”。未来目标关联槽位被淘汰3次，也不等于目标在3个关键读取点完全不可用，需要独立人工事件逐次核查。</p>
+<p>“保守身份连续及覆盖”定义为：在每个代理 onset 前后8步内，正确目标最常对应的同一槽位命中数之和，除以目标GT可见的策略采样数；漏检保留在分母。它同时受检测召回限制，不等同于只在正确检测中计算的纯身份连续率。该新诊断口径未获独立事件验收，不能与未定义分母的90%直接混用，也不能事后换分母宣布通过。</p>
+<p>“混入”只统计保留槽位最近3次观测中，同时存在当前事件目标及另一个已知GT实例的关键读取点。GT未匹配的历史无法证明干净；输出逐读取的 unknown_history_slots，三组均有14/14个关键读取点包含至少一个未知历史槽位。本轮没有策略动作，不能验证混入是否影响策略，0/14不是“严重污染为0”的正式证据。新鲜度仍为原来的 latest-correct 口径，不自动保证整个A3历史正确。</p>
+<p>数组和Token一致性是在同一冻结前端输出下、CPU同一未训练seed100编码器完成，证明因果重放和编码一致，不证明 Memory 被学会或跨GPU逐比特一致。三种方法均实际调用生产缓存 writer 回放全部训练相位，和在线phase0逐字段核对。</p>
+<h1 seq="auto">找到的实现与原始证据</h1>
+<p>本地独立工作树 /home/wjr/code/momart-memory-association；原 /home/wjr/code/vpwem 未提交文件原样保留。</p>
+<p>远端开发分支 origin/feat/momart-object-memory-a123；此前仅检查本地已缓存分支时漏掉该未拉取分支，本轮通过 git ls-remote --heads origin 定位并 fetch。</p>
+<p>原服务器实现 /home/jrw/code_vpwem_momart_memory_a123_20261030，后续A1实验副本 /home/jrw/code_vpwem_momart_a1_bs256_250k_20261030。本轮部署在新目录 /home/jrw/code_vpwem_momart_association_20261030，未覆盖这些目录或重启旧预处理。</p>
+<p>原始语料及报告 /home/jrw/vpwem_outputs/momart_temporal_diagnostic_20261030/：manifest.json、candidate_manifest.json、annotations_all.json、operation_proxies.json、results/mask.json、results/mask.sqlite、results/mask_replay.json。</p>
+<p>本轮三组完整结果和日志 /home/jrw/vpwem_outputs/momart_association_20261030/{iou_greedy,iou_hungarian,appearance_motion}.{json,log}；每份JSON保存输入文件SHA256和完整关联参数。原始预测、标签、图像、SQLite及运行输出不提交Git。</p>
+<p>两条轨迹为 table_setup_from_dresser_expert/demo_18（593帧）与 unload_dishwasher_to_dresser_suboptimal/demo_56（852帧）。原报告在 docs/momart_temporal_memory_diagnostic_20261030.md；本轮原IoU重放复现30/251/314/5、7/7、25/29与13/14。</p>
+<p>Mask权重SHA256 6403f0154dbab64bed0708e01d270a3497272bf44740ce2a2dc0787079d5fd36；ROI源checkpoint SHA256 418ac07eba671fcc615b4953abd3bea06c8810570e676a8cc9ca4d38bc812239。六类阈值按原顺序为0.05、0.60、0.50、0.90、0.80、0.35。权重未更新；本轮复用真实冻结ROI输出，没有重测检测器延迟。</p>
+<h1 seq="auto">实现与验证</h1>
+<p>momart_object_memory/association.py 增加同类约束、最新ROI余弦外观、有限速短时运动门限及允许不匹配的Hungarian一对一指派。初始参数：外观权重0.5、运动权重0.2、cosine≥0.8、最大年龄0.8秒、最大中心距离0.2归一化坐标、最大预测跨度0.4秒。零向量外观仅在IoU通过时回退；类不同、过旧、超出运动范围或外观冲突不混入旧轨迹。</p>
+<p>state.make_bank 为离线和在线共同入口。固定8槽规则仍为显式最老当前未匹配槽位淘汰，替换清空历史及速度。预测只用于匹配，不作为真实框或特征；当前不可见框保持0。没有引入仿真GT、事件标签或未来帧，也没有实现尚缺必要证据的Drawer→Handle父子约束。</p>
+<p>缓存stream签名新增完整关联参数及源码哈希，包含容量、历史、传感器时刻和协议版本。关联参数变化会拒绝resume旧缓存；所有组必须重建相同版本的新缓存。原配置保持归档状态，不复用旧GDINO对象缓存、不重启旧A1预处理、不修改红碗主视觉。</p>
+<p>BHR /home/jrw/vpwem_envs/detector_compare/bin/python 实测35项相关检查通过（分两轮，重叠项不重复计数），覆盖交叉同类实例、顺序置换、短遮挡、陈旧/远距/冲突外观、零向量、贪心死角、淘汰清历史、因果前缀、候选全部相位离线在线对齐、参数变化拒绝旧缓存、全agent梯度/EMA采样及指标口径。依赖已有弃用警告；本地系统Python缺numpy，未将本地编译检查冒充完整测试。</p>
+<p>代码提交：103d571（共享关联及机制检查），1c94c9c（消融、关键窗口与历史混入评分）。复现命令：</p>
+<pre lang="bash"><code>cd /home/jrw/code_vpwem_momart_association_20261030
+OMP_NUM_THREADS=2 /home/jrw/vpwem_envs/detector_compare/bin/python \
+  experiments/detector_comparison_20261030/temporal_replay.py \
+  --corpus /home/jrw/vpwem_outputs/momart_temporal_diagnostic_20261030 \
+  --predictions /home/jrw/vpwem_outputs/momart_temporal_diagnostic_20261030/results/mask.json \
+  --association appearance_motion --slots 8 --output NEW_RESULT.json</code></pre>
+<h1 seq="auto">独立事件和正式训练的剩余条件</h1>
+<p>已读原设计：A1仅当前可靠可见对象；A2每实例最新可靠状态，离屏后可读；A3每实例最近3次可靠观测和相对时间，经共享GRU聚合为一个token；a3_latest_control重复最新观测控制容量。A3不是待编造的另一种设计。</p>
+<p>但正式 FrozenPerception / cache / prepare_train / evaluate 当前仍调用GDINO；Mask只在 temporal_predict.py 诊断前端。Mask权重与阈值接入统一生产入口、重新绑定检测器/ROI元数据并验证后，才能生成本轮策略缓存。直接启动现有 prepare_train 会走旧对象协议，故未执行。主视觉当前是归档带框No-History路径；按用户要求保留，不另将对象框画入RGB。</p>
+<p>只读枚举旧检测 corpus、corpus_v2、corpus_v3 的manifest及本次 temporal manifest，已知用过22个episode；排除它们后，验证分区剩：</p>
+<p>table_setup_from_dresser_expert：9条，demo_1、demo_100、demo_104、demo_21、demo_25、demo_39、demo_42、demo_47、demo_93。</p>
+<p>unload_dishwasher_to_dresser_suboptimal：7条，demo_100、demo_15、demo_20、demo_28、demo_41、demo_46、demo_51。</p>
+<p>这是相对于已查清单的上限，未保证其他实验从未使用；不能把这些候选直接标作最终holdout。现有验证分区分别至少缺1条、3条才够每任务新增10条，另需独立dev。需要新录制/此前未使用的数据，或在完整使用记录核对后预留其他episode并从DP训练中排除。未生成虚构人工边界、未把自动关节代理标成人工标注；20个含失败/无关节运动尝试的人工事件、独立复核和几何容忍度仍缺。</p>
+<table><thead><tr><th><p>关口</p></th><th><p>本轮状态</p></th><th><p>下一步必需证据</p></th></tr></thead><tbody><tr><td><p>Gate A：10k–30k隔离smoke</p></td><td><p>机制及反向检查通过，长smoke未执行</p></td><td><p>Mask生产入口、版本化新缓存、真实训练数据/Token检查；再测loss、吞吐、梯度和Memory干预</p></td></tr><tr><td><p>Gate B：正式A1/A2/A3各250k</p></td><td><p>未通过</p></td><td><p>独立dev修复新鲜度与身份问题；人工边界和至少20事件；冻结方案后holdout；新缓存复核</p></td></tr><tr><td><p>Gate C：闭环及正式替换</p></td><td><p>未通过</p></td><td><p>完整主视觉+对象+DiT+通信时延、预热和实际期限、多个seed配对rollout成功率</p></td></tr></tbody></table>
+<p>原对象分支68.98/111.66/144.93/515.95ms来自旧分段计时，本轮不是新的端到端测量。320ms P99与0.4秒提交期限保留为待验收工程目标，不据此宣称已满足实时闭环。</p>
+<p>交付限制：新分支推送GitHub失败，本机凭据助手指向已不存在的gh程序，且gh命令未安装。本地代码提交103d571、1c94c9c及报告提交已保留，服务器独立目录和真实回放证据可读；不能宣称新分支已经推送。</p>
