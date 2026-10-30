@@ -58,6 +58,7 @@ def replay(a):
         evidence={};records=[];kept_refs=[];serial=0;last_gt={};gt_last_track={}
         switches=fragmentations=evictions=critical_evictions=0;residual_jumps=[];last_residual={};query_times=[]
         snapshots={};episode=None;seen_checks=missing_checks=0;update_seconds={}
+        bank_hits={r['id']:set() for r in scored}
         def observe(index):return selected[int(index)]
         stream=ObservationStream(ObjectBank(slots,3,128,.3,'evict_oldest_invisible'),observe)
         for i,r in enumerate(rows):
@@ -74,6 +75,7 @@ def replay(a):
             critical_evictions+=sum(evidence.get(k,(None,0))[0] in upcoming for k in removed)
             objects=[dict(class_id=o.class_id,box=(o.box*[120,90,120,90]).tolist(),score=o.score) for o in selected[i]]
             assignment=match(objects,truth.get(r['id'],[]))
+            bank_hits[r['id']]=set(assignment.values())
             for track in bank.tracks:
                 key=id(track)
                 if not track['visible']:continue
@@ -129,7 +131,8 @@ def replay(a):
                     with torch.inference_mode():
                         l,_=encoder({k:torch.as_tensor(v)[None] for k,v in left.items()});rr,_=encoder({k:torch.as_tensor(v)[None] for k,v in right.items()})
                     torch.testing.assert_close(l,rr,atol=0,rtol=0);token_comparisons+=1
-        result['banks'][str(slots)]=dict(identity_switches=switches,fragmentations=fragmentations,evictions=evictions,
+        result['banks'][str(slots)]=dict(memory_first_hit=event_scores(proxies['events'],scored,truth,bank_hits,observed)['summary']['policy'],
+            identity_switches=switches,fragmentations=fragmentations,evictions=evictions,
             upcoming_proxy_target_evictions=critical_evictions,residual_center_jump_pixels=stats(residual_jumps),
             offline_online_array_equalities=comparisons,offline_online_token_equalities=token_comparisons,
             token_encoder='untrained_shared_seed100_encoder_CPU; equivalence_only_not_policy_quality',
