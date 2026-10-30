@@ -64,6 +64,7 @@ def main():
         ['带框No-History','4','—']+[f'{v:.2f}%' for v in four]])
     image('total_250k_reference');image('total_250k_seeds')
     lines += [f'三个不同seed等权汇总：带框8步 **{np.mean(eight):.2f}%**，带框4步 **{np.mean(four):.2f}%**。八步seed100的三次重复均为59.00%，汇总时只计一次，不重复加权。','',
+        '2026-10-30复核：seed20260917已在物理GPU4完成独立复测，总成功率仍为64.67%，300个回合成功标志与原评测逐项一致。这是同seed重复，不作为新seed重复加权。','',
         '250k带框＋坐标/ROI未找到完整评测，因此不补数、不画零值柱。','',
         '## 无框No-History：150k、250k和1M总成功率','','评测seed统一为20260917，执行8步。150k/250k来自250k训练链，1M来自另一条历史训练链；不将它们冒充同一个模型文件。','']
     table(['训练步数','总成功率'],[[label,f'{v:.2f}%'] for label,v in zip(['150k','250k','1M'],nh)]);image('total_nohistory_budgets')
