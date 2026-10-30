@@ -2,8 +2,6 @@
 from pathlib import Path
 import numpy as np
 import zarr
-import robomimic.utils.obs_utils as ObsUtils
-from momart_boxed_no_history.painting import draw_bbox
 from .cache import replay_signature, stream_contract, select_mode
 from .model import OBJECT_KEYS
 
@@ -26,7 +24,8 @@ class ObjectDataset:
         if signature['perception']['feature_dim'] != int(args.object_memory.feature_dim):
             raise ValueError('Object feature dimension mismatch')
         self.perception_metadata = signature['perception']
-        self.detector_metadata = signature['perception']
+        # The archived baseline's main-image detector is independent of object ROI perception.
+        self.detector_metadata = base.detector_metadata
         self.normalizer = base.normalizer
 
     def __len__(self):
@@ -40,10 +39,7 @@ class ObjectDataset:
         start, end, _, _ = self.base.sampler.indices[index]
         frames = np.minimum(np.arange(start, start+self.base.obs_steps), end-1)
         anchor = int(frames[-1])
-        rgb = np.stack([draw_bbox(np.asarray(self.base.replay_buffer['rgb'][int(f)]),
-                                 self.root['bowl_boxes'][int(f)],
-                                 bool(self.root['bowl_valid'][int(f)])) for f in frames])
-        sample['obs']['rgb'] = ObsUtils.process_obs_dict({'rgb': rgb})['rgb']
+        # Keep the baseline's already-painted observations byte-for-byte.
         snapshot = select_mode({key: self.root[key][anchor] for key in OBJECT_KEYS}, self.mode)
         sample['objects'] = snapshot
         return sample

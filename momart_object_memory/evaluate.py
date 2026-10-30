@@ -12,6 +12,7 @@ from .model import build_agent
 from .online import OnlineObjects
 from .perception import FrozenPerception
 from .train import comparison_contract
+from .main_visual import main_visual_contract, build_main_boxer
 
 
 def normalize_observations(obs, normalizer, device):
@@ -26,11 +27,12 @@ def normalize_observations(obs, normalizer, device):
 def main():
     multiprocessing.set_start_method('spawn', force=True)
     cli = baseline.parse_args()
-    if cli.precision_bundle:
-        raise ValueError('Single-red-bowl precision bundle is incompatible with multi-object cache')
     cfg = OmegaConf.load(cli.train_config)
     protocol = json.loads((Path(cli.train_config).parent/'object_protocol.json').read_text())
-    if comparison_contract(cfg) != protocol['comparison_contract'] or cfg.object_memory.mode != protocol['mode']:
+    if (protocol.get('protocol_version') != 'independent_main_visual_v2'
+            or protocol.get('main_visual') != main_visual_contract(cfg)
+            or comparison_contract(cfg) != protocol['comparison_contract']
+            or cfg.object_memory.mode != protocol['mode']):
         raise ValueError('Saved object experiment config differs from protocol')
     torch.manual_seed(cli.seed); np.random.seed(cli.seed)
     if cli.disable_cudnn:
@@ -51,7 +53,8 @@ def main():
     agent.model.load_state_dict(state['model'], strict=True)
     agent.model_ema.load_state_dict(state['model_ema'], strict=True)
     agent.model.eval(); agent.model_ema.eval()
-    cli.rgb_boxer = OnlineObjects(cfg, perceive, cli.num_envs)
+    main_boxer = build_main_boxer(cfg, cli.device, cli.num_envs, cli.precision_bundle)
+    cli.rgb_boxer = OnlineObjects(cfg, perceive, cli.num_envs, main_boxer)
     from momart_no_history_baseline.envs import make_async_envs
     envs, inits = make_async_envs(baseline.make_env_args(cli,cfg))
     try:
@@ -60,7 +63,8 @@ def main():
     finally:
         envs.close()
     result.update(method='object_memory_'+cfg.object_memory.mode,
-                  comparison_sha256=protocol['comparison_sha256'], perception=perceive.metadata)
+                  comparison_sha256=protocol['comparison_sha256'], perception=perceive.metadata,
+                  main_visual=protocol['main_visual'])
     path = Path(cli.result_path); path.parent.mkdir(parents=True,exist_ok=True)
     np.save(path,result)
     print(result)

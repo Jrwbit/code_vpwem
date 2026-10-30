@@ -9,6 +9,7 @@ from momart_boxed_no_history import train as baseline
 from .dataset import ObjectDataset
 from .model import build_agent
 from .perception import file_sha256
+from .main_visual import main_visual_contract
 
 
 def comparison_contract(args):
@@ -20,6 +21,7 @@ def comparison_contract(args):
 
 
 def build_suite(args):
+    visual_contract = main_visual_contract(args)
     datasets, tasks, norm, _, stats = baseline.build_suite(args)
     wrapped = {name: ObjectDataset(ds, args, name) for name, ds in datasets.items()}
     metadata = [ds.perception_metadata for ds in wrapped.values()]
@@ -48,7 +50,10 @@ def build_suite(args):
         source_root/'cleandiffuser/nn_diffusion/longmem_chitransformerptp.py',
         source_root/'cleandiffuser/nn_condition/multi_image_condition.py']
     source_hashes = {str(p.relative_to(source_root)):file_sha256(p) for p in source_paths}
-    manifest = dict(mode=args.object_memory.mode, comparison_sha256=fingerprint,
+    manifest = dict(protocol_version='independent_main_visual_v2',
+                    main_visual=visual_contract,
+                    main_visual_detector=next(iter(datasets.values())).detector_metadata,
+                    mode=args.object_memory.mode, comparison_sha256=fingerprint,
                     source_sha256=source_hashes,
                     comparison_contract=contract, perception=metadata[0])
     path = work/'object_protocol.json'

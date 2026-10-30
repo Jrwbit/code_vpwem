@@ -117,9 +117,19 @@ def test_online_streams_isolated_and_reset_first_frame_once():
     calls=[]
     def perceive(image):
         calls.append(int(image[0,0,0]));return [observation(float(image[0,0,0]))]
-    online=OnlineObjects(cfg,perceive,2)
+    from momart_boxed_no_history.painting import OnlineBoxedRGB
+    from types import SimpleNamespace
+    class MainDetector:
+        def reset_all(self): pass
+        def __call__(self, images):
+            return [SimpleNamespace(valid=True, box=np.array([.6,.6,.9,.9])) for _ in images]
+    boxer=OnlineBoxedRGB(MainDetector(),batch_size=4)
+    online=OnlineObjects(cfg,perceive,2,boxer)
     rgb=np.zeros((2,2,3,90,120),np.float32);rgb[1]=1
     result=online({'rgb':rgb})
+    np.testing.assert_array_equal(result['rgb'],boxer({'rgb':rgb})['rgb'])
+    # Object class-0 boxes at .1-.3 must not paint the main view.
+    assert result['rgb'][0,0,0,9,12] == 0
     assert calls==[0,255]
     np.testing.assert_array_equal(result['_object_event_valid'][:,0].sum(-1),[1,1])
     np.testing.assert_array_equal(result['_object_features'][:,0,-1,0],[0,255])
@@ -225,7 +235,8 @@ def test_dataset_preserves_actions_other_modalities_and_episode_padding(tmp_path
     boxes.attrs.update(complete=True,completed_frames=7,signature=dict(source=str(source.resolve()),
         shape=list(images.shape),episode_ends_sha256=hashlib.sha256(ends.tobytes()).hexdigest(),
         detector=dict(model_id=MODEL_ID,revision=REVISION,prompt='a red bowl.')))
-    boxes.create_dataset('boxes',data=np.zeros((7,4),np.float32));boxes.create_dataset('valid',data=np.zeros(7,bool))
+    boxes.create_dataset('boxes',data=np.tile([.6,.6,.9,.9],(7,1)).astype(np.float32))
+    boxes.create_dataset('valid',data=np.ones(7,bool))
     cfg=OmegaConf.create(dict(data_root=str(tmp_path),device='cpu',obs_steps=2,action_steps=8,
         object_memory=dict(cache_root=str(tmp_path),mode='a3',slots=3,history=3,feature_dim=4,
                            match_iou=.3,period_seconds=.05,classes=['bowl'])))
@@ -240,6 +251,8 @@ def test_dataset_preserves_actions_other_modalities_and_episode_padding(tmp_path
     wrapped=ObjectDataset(base,cfg,'sample')
     for index in (0,2,3,4,6):
         old=base[index];new=wrapped[index]
+        np.testing.assert_array_equal(old['obs']['rgb'],new['obs']['rgb'])
+        assert wrapped.detector_metadata == base.detector_metadata
         np.testing.assert_array_equal(old['actions'],new['actions'])
         np.testing.assert_array_equal(old['obs']['proprio'],new['obs']['proprio'])
         if index in (3,6):np.testing.assert_array_equal(new['obs']['rgb'][0],new['obs']['rgb'][1])
@@ -307,3 +320,15 @@ def test_completed_cache_resume_does_not_repeat_perception(tmp_path):
     assert p.calls==3
     write_cache(cfg,tmp_path/'source.zarr',tmp_path/'objects.zarr',p,resume=True)
     assert p.calls==3
+
+
+def test_main_visual_bundle_is_pinned_and_separate_from_object_perception(tmp_path):
+    import hashlib
+    from momart_object_memory.main_visual import main_visual_contract
+    bundle=tmp_path/'bundle.json';bundle.write_text('{"spec":{"family":"combined_blend"}}')
+    cfg=OmegaConf.create(dict(main_visual=dict(version='archived_red_bowl_v1',
+        precision_bundle=str(bundle),precision_bundle_sha256=hashlib.sha256(bundle.read_bytes()).hexdigest())))
+    contract=main_visual_contract(cfg)
+    assert contract['object_boxes_paint_main_rgb'] is False
+    bundle.write_text('{"spec":{"family":"changed"}}')
+    with pytest.raises(ValueError,match='checksum'):main_visual_contract(cfg)

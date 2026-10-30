@@ -140,3 +140,8 @@ object_memory:
   - a drawer handle.
   feature_checkpoint: /home/jrw/vpwem_outputs/momart_boxed_no_history_bs64_1m_20261029/seed100/models/model_500000.pt
   cache_root: /home/jrw/vpwem_data/momart_objects_causal_v1
+
+main_visual:
+  version: archived_red_bowl_v1
+  precision_bundle: /home/jrw/vpwem_outputs/bbox_strategies_20261020/comparison_v2/detector_bundle.json
+  precision_bundle_sha256: af62860467a1c95d2e60a9df5d89ee1b9001116cb45c1aa7a285c1810f6f7c07
