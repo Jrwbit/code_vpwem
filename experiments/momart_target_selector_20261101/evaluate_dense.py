@@ -35,10 +35,16 @@ def main(a):
             raw=raw if raw<len(objects) else None,locked=chosen,probabilities=probabilities[i].tolist(),objects=objects))
     (a.output/'predictions.json').write_text(json.dumps(dict(ground_truth_input=False,future_input=False,predictions=predictions),indent=2))
     # Labels may only enter the evaluation/visualization below.
-    events=json.loads(a.targets.read_text())['events']
+    proxy_data=json.loads(a.targets.read_text());events=proxy_data['events']
+    prior=np.ones((len(meta['tasks']),6),np.float64)
+    for record in proxy_data['records']:
+        if record['split']=='train' and record['target'] is not None:
+            task=record['episode_id'].split('/')[0]
+            prior[meta['tasks'].index(task),record['target']['class_id']]+=1
+    prior/=prior.sum(-1,keepdims=True)
     truth={row['id']:row['objects'] for row in json.loads((a.corpus/'annotations_all.json').read_text())['annotations']}
     results={};writers={};sheets=[]
-    for name in ('raw','locked','confidence'):
+    for name in ('raw','locked','confidence','task_class_prior'):
         results[name]=dict(labelled=0,visible=0,available=0,correct=0,selected=0)
     for i,pred in enumerate(predictions):
         row=source[pred['id']];objects=pred['objects'];target=target_at([e for e in events if e['episode_id']==row['episode_id']],row['step'])
@@ -46,7 +52,12 @@ def main(a):
         matched=target_candidate(objects,truth[row['id']],target)
         if target:
             for name in results:
-                index=pred[name] if name!='confidence' else (int(np.argmax([o['score'] for o in objects])) if objects else None)
+                if name=='confidence':
+                    index=int(np.argmax([o['score'] for o in objects])) if objects else None
+                elif name=='task_class_prior':
+                    scores=[prior[meta['tasks'].index(row['task']),obj['class_id']]*obj['score'] for obj in objects]
+                    index=int(np.argmax(scores)) if scores else None
+                else:index=pred[name]
                 hit=index is not None and target_candidate([objects[index]],truth[row['id']],target)==0
                 value=results[name];value['labelled']+=1;value['visible']+=reference is not None
                 value['available']+=matched is not None and matched>=0;value['correct']+=hit;value['selected']+=index is not None
