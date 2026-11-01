@@ -42,3 +42,27 @@ def test_recurrent_predictions_are_prefix_causal_and_episode_local():
     a=net(c,x,valid,gap);b=net(c[:,:2],x[:,:2],valid[:,:2],gap[:,:2])
     torch.testing.assert_close(a[:,:2],b)
     single=net(c[:1],x[:1],valid[:1],gap[:1]);torch.testing.assert_close(a[:1],single)
+
+
+def test_tree_public_features_do_not_depend_on_private_targets():
+    from benchmark import candidate_rows
+    data=dict(rows=[{}],valid=np.array([[True]+[False]*7]),y=np.array([0]),
+        positive=np.array([[True]+[False]*7]),weights=np.array([1.]))
+    view=dict(raw=np.ones((1,8,4),np.float32),context=np.ones((1,3),np.float32))
+    first=candidate_rows(data,view)
+    data['y'][0]=8;data['positive'][:]=False;data['weights'][:]=.2
+    second=candidate_rows(data,view)
+    np.testing.assert_array_equal(first[0],second[0]);assert first[3]==second[3]
+
+
+def test_subject_memory_is_prefix_causal_and_uses_public_grasp_signal():
+    from benchmark import subject_memory
+    context=np.zeros((3,280),np.float32);context[:,258]=1
+    candidates=np.ones((3,8,139),np.float32)
+    rows=[dict(episode_id='e',step=t,objects=[dict(class_id=0,box=[0,0,10,10]),dict(class_id=3,box=[20,20,30,30])]) for t in (0,8,16)]
+    data=dict(context=context,candidates=candidates,rows=rows)
+    prob=np.zeros((3,9),np.float32);prob[:,0]=[.8,.25,.2];prob[:,1]=[.1,.65,.7];prob[:,8]=.1
+    full=subject_memory(prob,data,2.)
+    prefix={k:v[:2] for k,v in data.items()};partial=subject_memory(prob[:2],prefix,2.)
+    np.testing.assert_allclose(full[:2],partial)
+    assert full[1].argmax()==0
