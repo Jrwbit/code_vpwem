@@ -51,3 +51,5 @@ CUDA_VISIBLE_DEVICES=3 OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=1 \
 本机及BHR各运行2项针对性检查，均通过：分配覆盖每个数据集一次、总帧数和负载、重复GPU拒绝、子进程强制prepare-only、失败状态记录。`git diff --check` 通过。启动器提交 `e0b1a43`，生产感知/缓存源码未更改。数据、权重、缓存、状态及运行日志不进入Git。
 
 飞书已追加并回读核验：[GPU3–6启动记录](https://ccnuoe6sry36.feishu.cn/docx/RfXudCiBOoeG3Bx0D34cbU1rn0g#doxcniYqEXiT9NDAfIb558CfGrg)。
+
+补充：19:56:50最后一次成功日志读取，GPU3–6分别已提交4480、4480、4032、4288帧，合计17280帧，速度约48.45、48.57、43.98、46.29帧/秒。随后连续两次SSH返回 `Connection refused`，无法继续核验远端最新状态。启动已用nohup/setsid持久化，但SSH断连本身不能证明任务仍在运行或已经停止；不能把最后成功快照写成持续实时状态。

@@ -25,3 +25,4 @@ CUDA_VISIBLE_DEVICES=3 OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=1 \
   --device cuda:0 --prepare-only</code></pre>
 <h2>验证与Git</h2>
 <p>本机及BHR各运行2项针对性检查，均通过：分配覆盖每个数据集一次、总帧数和负载、重复GPU拒绝、子进程强制prepare-only、失败状态记录。`git diff --check` 通过。启动器提交 `e0b1a43`，生产感知/缓存源码未更改。数据、权重、缓存、状态及运行日志不进入Git。</p>
+<p>后续连接状态补充：19:56:50最后成功读取，四卡分别已提交4480、4480、4032、4288帧，合计17280帧，约每卡44–49帧/秒。随后连续两次SSH返回Connection refused，暂不能更新核验。任务已用nohup/setsid持久化，但断连本身不能证明任务继续或停止。</p>
