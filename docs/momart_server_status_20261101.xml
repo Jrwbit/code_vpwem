@@ -1,0 +1,16 @@
+<h1 seq="auto">MoMaRT服务器与既有实验状态核验</h1>
+<p>核验日期：2026-11-01，北京时间19:15起。本轮仅查看连接、用户进程、日志、checkpoint和既有评测文件，没有启动、停止或迁移实验。</p>
+<h2 seq="auto">服务器</h2>
+<p>BHR bhr-server 可连接。jrw用户当前未发现MoMaRT训练/预处理进程。</p>
+<p>SH kai_sh2 仍返回代理HTTP404；kai_shihao_sh2 仍返回 Get proxy url failed。因此不能查看SH当前内部实验状态，不能宣称已同步或开跑。现有连接配置未更新，需要当前SSH别名/实例连接命令。</p>
+<p>BHR部署包仍在，/home/jrw/vpwem_transfer/momart_mask_a123_bs256_20261030/READY 存在。此前GitHub代码已推送至 fix/momart-memory-association-20261030。</p>
+<h2 seq="auto">实验实际状态</h2>
+<table><thead><tr><th><p>实验</p></th><th><p>训练/预处理进度</p></th><th><p>可核实结果</p></th></tr></thead><tbody><tr><td><p>带框No-History，BS64，20261029</p></td><td><p>完成1,000,000更新</p></td><td><p>最后loss 0.0649706355，保存100k至1M共10个checkpoint；本轮未找到该run的评测目录，不能套用旧成功率</p></td></tr><tr><td><p>TTT raw，BS256</p></td><td><p>完成150k</p></td><td><p>150k checkpoint存在；10任务各30回合，总成功31/300=10.33%</p></td></tr><tr><td><p>TTT staged，BS256</p></td><td><p>完成150k</p></td><td><p>150k checkpoint存在；10任务各30回合，总成功0/300</p></td></tr><tr><td><p>旧TTT default，BS256</p></td><td><p>最后日志44k，当前无训练进程</p></td><td><p>只找到25k checkpoint；本轮未查明停止原因，不能称150k完成</p></td></tr><tr><td><p>旧GDINO A1，BS256/250k计划</p></td><td><p>预处理20,928/83,175帧后停止</p></td><td><p>`stopped_for_quality_audit`，无策略checkpoint；因把手框落到碗/机器人及大范围误框而暂停</p></td></tr><tr><td><p>新Mask A1/A2/A3，BS256</p></td><td><p>尚未启动</p></td><td><p>代码与SH部署包就绪，未同步到SH、未生成SH对象缓存，无新三组训练步数/成功率</p></td></tr></tbody></table>
+<p>TTT结果为既有评测，不是本轮新rollout，也不是Mask A1/A2/A3结果。统一eval seed为20260917。训练完成不等于策略成功；staged较低训练loss不能解释成高任务成功率。</p>
+<h2 seq="auto">证据位置</h2>
+<p>带框No-History：/home/jrw/vpwem_outputs/momart_boxed_no_history_bs64_1m_20261029/train.log，结尾明确 saved checkpoint step=1000000；seed100/metrics.jsonl 最后记录step=1000000；seed100/models/model_1000000.pt 存在。</p>
+<p>TTT训练：/home/jrw/vpwem_outputs/ttt_nohistory_momart_{raw,staged}_bs256_150k/seed100/{metrics.jsonl,models/model_150000.pt}。</p>
+<p>TTT评测索引：/home/jrw/vpwem_outputs/ttt_nohistory_125k_150k_eval_20261026_gpu237/summary.json。本轮读取150k的20个原始 source_path 文件，逐个验证SHA256和 episode_success 与索引一致，再按variant汇总；raw 31/300、staged 0/300。</p>
+<p>旧default：/home/jrw/vpwem_outputs/ttt_momart_default_bs256_150k/seed100/metrics.jsonl 最后step=44000；models最高为25000。</p>
+<p>旧GDINO A1：/home/jrw/vpwem_outputs/momart_a1_bs256_250k_20261030/seed100/pipeline_status.json，保留质量审计停止原因和committed_frames=20928。</p>
+<p>本轮不把SH连接错误解释为实验丢失或停机原因；只能确认当前旧连接不可用。恢复当前SH连接后，才能继续核对SH资源并执行已授权三组启动。</p>
