@@ -66,3 +66,36 @@ def test_subject_memory_is_prefix_causal_and_uses_public_grasp_signal():
     prefix={k:v[:2] for k,v in data.items()};partial=subject_memory(prob[:2],prefix,2.)
     np.testing.assert_allclose(full[:2],partial)
     assert full[1].argmax()==0
+
+
+def test_robot_camera_projection_axes_and_observed_depth_distance():
+    from robot_geometry import project_uv,box_geometry
+    uv,valid=project_uv([1,0,0],90)
+    assert valid;np.testing.assert_allclose(uv,[.5,.5])
+    left,_=project_uv([1,1,0],90);assert left[0]<.5
+    assert not project_uv([-1,0,0],90)[1]
+    feature=box_geometry([0,0,1,1],np.array([[1/3]],np.float32),[1,0,0],90,3)
+    assert feature.shape==(16,) and feature[0]<1e-6 and feature[-1]==1
+    missing=box_geometry([0,0,1,1],np.zeros((1,1)),[1,0,0],90,3)
+    assert np.isfinite(missing).all() and missing[-1]==0
+
+
+def test_box_quality_transfers_removed_mass_to_null_without_switching():
+    from refine import multiply_quality
+    p=np.zeros((2,9),np.float32);p[:,0]=.7;p[:,1]=.2;p[:,8]=.1
+    q=np.ones((2,8),np.float32);q[0,0]=0;q[1,1]=.25
+    out=multiply_quality(p,q)
+    np.testing.assert_allclose(out.sum(-1),1)
+    assert out[0].argmax()==8 and out[0,1]==p[0,1]
+    np.testing.assert_allclose(out[1,8],.25)
+
+
+def test_calibration_does_not_pass_by_rejecting_an_entire_role():
+    from refine import calibrate_v2
+    n=20;rows=[dict(episode_id='episode',objects=[dict(class_id=0)],label=dict(target=dict(class_id=0))) for _ in range(n)]
+    data=dict(rows=rows,y=np.zeros(n,int),roles=np.r_[np.zeros(16,int),np.full(4,2)],visible=np.ones(n,bool),positive=np.zeros((n,8),bool))
+    data['positive'][:,0]=True
+    p=np.zeros((n,9));p[:16,0]=.99;p[:16,8]=.01;p[16:,0]=.4;p[16:,8]=.6
+    c=calibrate_v2(p,np.arange(n),data,.6)
+    assert c['overall_precision90_feasible'] and not c['joint_goal_met']
+    assert not c['critical_roles_covered']

@@ -2,11 +2,34 @@
   "protocol": "active_subject_selection_research_v1",
   "primary_target": "current manipulation subject; holding a bowl does not mean no target",
   "separate_goal": "recipient region is separately unknown, not a negative subject label",
-  "development_objective": {"selected_precision_target": 0.90, "recall_requirement": "no lower than same-protocol original pointer at chosen coverage", "primary_error": "non-bowl selected during bowl acquisition"},
+  "development_objective": {
+    "selected_precision_target": 0.9,
+    "recall_requirement": "no lower than same-protocol original pointer at chosen coverage",
+    "primary_error": "non-bowl selected during bowl acquisition",
+    "critical_role_coverage": "For each dev role with >=3 visible samples, retain at least one correct accepted box; report per-role recall and rejection, do not pass by rejecting an entire interaction role"
+  },
   "statistics": "weak geometry/intent proxies, not human intention GT or policy success; report precision and recall with coverage and episode grouping",
   "training": "original train episodes only; all hyperparameter/checkpoint/threshold choices on original dev",
   "regression": "old test plus the eight previously examined stage-pilot episodes are now regression, not fresh holdout",
   "confirmation": "freeze another eight non-overlapping valid-source episodes before fitting; inspect after dev selection",
-  "methods": ["original pointer", "confidence and task priors", "linear pointer", "small/wide MLP", "candidate-query attention", "auxiliary role + soft prior", "extra trees", "histogram gradient boosting", "wrist RGB and depth enrichment", "causal GRU", "causal subject identity/holding memory", "ensemble and uncertainty calibration", "label confidence weighting and oracle upper bounds"],
-  "deployment": "do not replace production model based only on weak-proxy scores; retain causal inputs, missing-target masks and full-scene observations"
+  "methods": [
+    "original pointer",
+    "confidence and task priors",
+    "linear pointer",
+    "small/wide MLP",
+    "candidate-query attention",
+    "auxiliary role + soft prior",
+    "extra trees",
+    "histogram gradient boosting",
+    "wrist RGB and depth enrichment",
+    "causal GRU",
+    "causal subject identity/holding memory",
+    "ensemble and uncertainty calibration",
+    "label confidence weighting and oracle upper bounds",
+    "robot FK and observed depth geometry with explicit measured torso joint input",
+    "diverse-family ensembles",
+    "separate detector-box quality estimation"
+  ],
+  "deployment": "do not replace production model based only on weak-proxy scores; retain causal inputs, missing-target masks and full-scene observations",
+  "acceptance_revision": 2
 }

@@ -51,11 +51,17 @@ def combine(groups):
     return data
 
 
-def feature_view(data,rich=False):
+def feature_view(data,rich=False,geometry=False,spatial=False):
     candidates=data['candidates'];context=data['context']
     if rich:
         candidates=np.concatenate([candidates,data['extra_candidates']],-1)
         context=np.concatenate([context,data['extra_context']],-1)
+    if geometry:
+        candidates=np.concatenate([candidates,data['geometry_candidates']],-1)
+        context=np.concatenate([context,data['geometry_context']],-1)
+    if spatial:
+        candidates=np.concatenate([data['candidates'][:,:,128:],data['geometry_candidates']],-1)
+        context=np.concatenate([data['context'][:,256:],data['geometry_context']],-1)
     mask=data['valid'];pool=(candidates*mask[:,:,None]).sum(1)/mask.sum(1,keepdims=True).clip(1)
     return candidates.astype(np.float32),np.c_[context,pool].astype(np.float32)
 
@@ -103,3 +109,10 @@ def calibrate(prob,index,data,minimum_selected=10):
     elif points:chosen=max(points,key=lambda p:(p['metrics']['f1'],p['metrics']['recall'] or 0,-p['threshold']))
     else:chosen=dict(threshold=0.,metrics=metrics(raw,index,data))
     return dict(chosen,precision_90_feasible=bool(feasible),selection_partition='old/dev only')
+
+
+def attach_geometry(data,path):
+    path=Path(path);meta=json.loads(path.with_suffix('.json').read_text());arrays=np.load(path,allow_pickle=False)
+    assert meta['ids']==[r['id'] for r in data['rows']]
+    data['geometry_candidates']=arrays['candidates'];data['geometry_context']=arrays['context']
+    return data
