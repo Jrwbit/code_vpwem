@@ -17,6 +17,7 @@ from momart_no_history_baseline.cache import training_replay
 from .cache import replay_signature, write_cache
 from .perception import FrozenPerception, validate_perception_metadata
 from .state import ObjectObservation
+from .batch_perception import perceive_batch
 
 
 def encode(observations, feature_dim):
@@ -63,16 +64,25 @@ def prepare_dataset(cfg,name,perceive,status_path):
             raise ValueError('Perception cache has missing frame indices')
         n=len(replay['rgb']);started=time.monotonic();initial=count
         save_status(status_path,stage='perception',dataset=name,completed_frames=count,total_frames=n)
-        for frame in range(count,n):
-            objects=perceive(np.asarray(replay['rgb'][frame]))
-            con.execute('INSERT INTO observations VALUES (?,?)',
-                        (frame,encode(objects,int(cfg.object_memory.feature_dim))))
-            if (frame+1)%64==0 or frame+1==n:
+        batch_size = int(cfg.object_memory.get('inference_batch_size', 1))
+        if batch_size < 1:
+            raise ValueError('Positive inference batch size required')
+        for start in range(count,n,batch_size):
+            end = min(start+batch_size,n)
+            images = np.asarray(replay['rgb'][start:end])
+            batch = perceive_batch(perceive, images) if batch_size > 1 else [perceive(images[0])]
+            if len(batch) != end-start:
+                raise ValueError('Perception batch frame count differs')
+            con.executemany('INSERT INTO observations VALUES (?,?)',
+                            [(frame,encode(objects,int(cfg.object_memory.feature_dim)))
+                             for frame,objects in zip(range(start,end),batch)])
+            if end//64 != start//64 or end==n:
                 con.commit()
-                rate=(frame+1-initial)/max(time.monotonic()-started,1e-6)
+                rate=(end-initial)/max(time.monotonic()-started,1e-6)
                 save_status(status_path,stage='perception',dataset=name,
-                            completed_frames=frame+1,total_frames=n,frames_per_second=rate,
-                            dataset_remaining_seconds=(n-frame-1)/rate)
+                            completed_frames=end,total_frames=n,frames_per_second=rate,
+                            inference_batch_size=batch_size,
+                            dataset_remaining_seconds=(n-end)/rate)
         def read(frame):
             row=con.execute('SELECT payload FROM observations WHERE frame=?',(int(frame),)).fetchone()
             if row is None: raise ValueError('Incomplete perception frame')

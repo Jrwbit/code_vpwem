@@ -80,7 +80,10 @@ def main():
     parser.add_argument('--cache-root', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--gpus', nargs='+', type=int, required=True)
+    parser.add_argument('--inference-batch-size', type=int, default=1)
     args = parser.parse_args()
+    if args.inference_batch_size < 1:
+        parser.error('--inference-batch-size must be positive')
     bundle = args.bundle.resolve()
     if not (bundle/'READY').is_file():
         raise ValueError('Bundle is not ready')
@@ -93,6 +96,7 @@ def main():
         raise ValueError('Input manifest checksum differs')
     inputs = json.loads((bundle/'input_manifest.json').read_text())['datasets']
     cfg = OmegaConf.load(args.base_config)
+    cfg.object_memory.inference_batch_size = args.inference_batch_size
     cfg.data_root = str(args.data_root.resolve())
     cfg.object_memory.cache_root = str(args.cache_root.resolve())
     cfg.object_memory.detector_checkpoint = str(bundle/'assets/mask.pt')
@@ -122,7 +126,7 @@ def main():
         path = output/f'gpu{gpu}.yaml'
         OmegaConf.save(arm, path)
         configs[gpu] = path
-    plan = dict(gpus=args.gpus, queues=queues, frames_per_gpu=loads, total_frames=sum(counts.values()),
+    plan = dict(inference_batch_size=args.inference_batch_size, gpus=args.gpus, queues=queues, frames_per_gpu=loads, total_frames=sum(counts.values()),
                 cache_root=cfg.object_memory.cache_root, data_root=cfg.data_root,
                 python=sys.executable, bundle_commit=manifest['code_commit'],
                 raw_arrays='Original BHR data; replay identity checked, no relocation',
