@@ -329,3 +329,44 @@ def test_audit_confidence_changes_only_train_weights_and_never_labels():
     assert out['y'] is data['y'] and out['positive'] is data['positive']
     import pytest
     with pytest.raises(ValueError):downweight_training(data,[0],np.array([True,False,True]),0)
+
+
+def test_proposal_association_is_one_to_one_and_class_constrained():
+    from candidate_history import associate
+    a=np.zeros((8,139),np.float32);a[0,0]=1;a[1,1]=1
+    a[:2,128:132]=[[.1,.1,.3,.3],[.6,.6,.8,.8]];a[:2,136]=1
+    valid=np.array([True,True]+[False]*6)
+    b=a.copy();b[:2]=a[[1,0]]
+    np.testing.assert_array_equal(associate(a,b,valid,valid)[:2],[1,0])
+    b[1,136]=0;b[1,133]=1
+    assert associate(a,b,valid,valid)[0]==-1
+
+
+def test_candidate_history_is_prefix_causal_label_free_and_episode_local():
+    from candidate_history import add_candidate_history
+    c=np.zeros((4,8,139),np.float32);c[:,0,0]=1;c[:,0,128:132]=[.1,.1,.3,.3];c[:,0,133]=1
+    c[:,0,132]=.9;c[2,0,128:132]+=.01
+    valid=np.zeros((4,8),bool);valid[:,0]=True
+    g=np.ones((4,8,16),np.float32)
+    rows=[dict(episode_id=ep,step=t) for ep,t in [('a',0),('b',0),('a',8),('a',40)]]
+    data=dict(rows=rows,candidates=c,valid=valid,geometry_candidates=g,y=np.array([0,8,0,0]))
+    full=add_candidate_history(data)['candidate_history']
+    prefix={k:v[:3] for k,v in data.items()}
+    np.testing.assert_array_equal(full[:3],add_candidate_history(prefix)['candidate_history'])
+    assert not full[0].any() and not full[1].any() and not full[3].any()
+    assert full[2,0,0]==1
+    data['y'][:]=8
+    np.testing.assert_array_equal(full,add_candidate_history(data)['candidate_history'])
+
+
+def test_policy_observations_use_only_two_recent_public_sensor_frames():
+    from policy_features import prepare_observations
+    obs={k:np.zeros((4,90,120,c),np.uint8 if c==3 else np.float32) for k,c in [('rgb',3),('rgb_wrist',3),('depth',1),('depth_wrist',1)]}
+    obs.update(proprio=np.zeros((4,10)),scan=np.zeros((4,1,100)))
+    obs['rgb'][1]=255;obs['rgb'][2]=128
+    first=prepare_observations(obs,2)
+    obs['rgb'][3]=0;obs['proprio'][3]=1000
+    second=prepare_observations(obs,2)
+    for key in first:np.testing.assert_array_equal(first[key],second[key])
+    assert first['rgb'].shape==(2,3,90,120) and first['rgb'][0].mean()==1
+    np.testing.assert_array_equal(prepare_observations(obs,0)['rgb'][0],prepare_observations(obs,0)['rgb'][1])

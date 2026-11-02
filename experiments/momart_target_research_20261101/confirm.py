@@ -21,7 +21,15 @@ def predict_parent(component,data,root):
             return net(torch.tensor((data['candidates']-ckpt['candidate_mean'])/ckpt['candidate_std']),
                 torch.tensor((data['context']-ckpt['context_mean'])/ckpt['context_std']),torch.tensor(data['valid'])).softmax(-1).numpy()
     ckpt=torch.load(screen/(name+'.pt'),map_location='cpu',weights_only=False);spec=ckpt['spec'];v=spec['view']
-    if spec.get('history_signals'):
+    if spec.get('policy_features_path'):
+        from policy_features import attach_policy,policy_view
+        if 'policy_context' not in data:data=attach_policy(data,Path(spec['policy_features_path']))
+        raw,context=policy_view(data,v)
+    elif spec.get('candidate_history'):
+        from candidate_history import add_candidate_history,tracking_view
+        if 'candidate_history' not in data:data=add_candidate_history(data)
+        raw,context=tracking_view(data,v)
+    elif spec.get('history_signals'):
         from robot_history import attach_history,history_view
         if 'history_gripper' not in data:attach_history(data,Path(spec['history_path']))
         raw,context=history_view(data,v,spec['history_signals'])
