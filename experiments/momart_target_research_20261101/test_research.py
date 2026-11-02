@@ -172,7 +172,7 @@ def test_public_runtime_returns_one_box_or_null_and_rejects_stale_inputs(tmp_pat
     for value in net.parameters():value.data.zero_()
     net.null[-1].bias.data.fill_(-4.)
     torch.save(dict(spec=dict(kind='linear',view='base',width=16),state=net.state_dict(),normalizer=dict(cm=np.zeros(139,np.float32),cs=np.ones(139,np.float32),xm=np.zeros(419,np.float32),xs=np.ones(419,np.float32))),tmp_path/'model.pt')
-    selection=tmp_path/'selected.json';selection.write_text(json.dumps(dict(result=dict(component=dict(kind='parent',name='model',screen=str(tmp_path)),calibration=dict(threshold=0.,margin=0.)))))
+    selection=tmp_path/'selected.json';selection.write_text(json.dumps(dict(name='test_model',result=dict(component=dict(kind='parent',name='model',screen=str(tmp_path)),calibration=dict(threshold=0.,margin=0.)))))
     runtime=SingleBoxSelector(selection,tmp_path);c=np.zeros((8,139),np.float32);c[0,128:132]=[.1,.2,.3,.4];c[0,133]=1
     x=np.zeros(280,np.float32);x[-4]=1;valid=np.array([True]+[False]*7);frame=FrameFeatures(c,x,valid,'t0')
     result=runtime.select(frame,'first',0);assert result['valid'] and result['slot']==0
@@ -185,6 +185,15 @@ def test_public_runtime_returns_one_box_or_null_and_rejects_stale_inputs(tmp_pat
     assert not missing['valid'] and missing['box'] is None and missing['slot']==8
     assert runtime.select(frame,'next_episode',0)['slot']==0
     assert not({'label','positive','future','actions'}&set(FrameFeatures.__dataclass_fields__))
+    from export_runtime_bundle import export_bundle,sha
+    export_bundle(selection,tmp_path,tmp_path/'bundle')
+    (tmp_path/'bundle').rename(tmp_path/'moved_bundle');bundle=tmp_path/'moved_bundle'
+    assert str(tmp_path) not in (bundle/'selected.json').read_text()
+    relocated=SingleBoxSelector(bundle/'selected.json',bundle).select(frame,'new_episode',0)
+    np.testing.assert_array_equal(relocated['probability'],runtime.select(frame,'next_episode',0)['probability'])
+    manifest=json.loads((bundle/'manifest.json').read_text())
+    assert manifest['status']=='research_candidate_not_promoted'
+    assert all(sha(bundle/name)==digest for name,digest in manifest['files'].items())
 
 
 def test_priority_gate_does_not_call_second_confirmation_a_complete_success():

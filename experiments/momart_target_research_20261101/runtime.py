@@ -55,6 +55,8 @@ class SingleBoxSelector:
         self.episode=None;self.last_step=None;self.states={};self.cached_result=None;self.fingerprint=None
 
     def load(self,path):
+        path=Path(path)
+        if not path.is_absolute():path=self.root/path
         key=str(path)
         if key not in self.models:
             loaded=torch.load(path,map_location='cpu',weights_only=False)
