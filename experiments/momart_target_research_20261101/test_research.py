@@ -397,3 +397,12 @@ def test_growth_sampling_reserves_confirmations_and_splits_only_episodes():
     assert [split for _,split in chosen].count('train')==4
     assert [split for _,split in chosen].count('dev')==2
     assert chosen==select_growth(pool,excluded,'task',4,2,np.random.default_rng(7))
+
+
+def test_growth_partitions_keep_old_train_and_new_development_disjoint():
+    from growth_data import growth_partitions
+    rows=[dict(tag='old',split=split,cohort=cohort) for split,cohort in [('train','dense'),('dev','dense'),('train','growth'),('dev','growth')]]
+    data=dict(rows=rows,y=np.zeros(4,dtype=int))
+    split=growth_partitions(data)
+    np.testing.assert_array_equal(split['old_train'],[0]);np.testing.assert_array_equal(split['old_dev'],[1])
+    np.testing.assert_array_equal(split['new_dev'],[3]);assert not set(split['train'])&set(split['dev'])
