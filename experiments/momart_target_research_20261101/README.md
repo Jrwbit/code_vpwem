@@ -58,3 +58,9 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 第四组16条确认整体精度95.19%、召回92.73%，抓碗错类10→2，但旧标签下仍有1次旧类滞留，V4未达成。全4652帧物理接触/支持关系审计完整复现1472帧旧held标记（0差异），其中20帧出现载体共动且缺少双侧抓持证据，另24帧的前瞻held证据全部来自该类冲突；集合可重叠。这些是需复核的标签冲突，不是已证实的人类意图错误。
 
 下一步先区分“实际操纵主体、尝试接触目标、确认抓持状态”，统一修订监督并保持历史分数，不按模型错误单点删标签。验证目标查询/阶段完成证据、接触前目标保持及腕部/动作意图交叉核验；任何oracle类别/场景状态只作上限对照，不能冒充自主部署。当前未完成五任务/十数据源推广或扩散策略闭环实验。
+
+## 意图查询诊断与自主对照
+
+`diagnose_intent.py --research ROOT --prefix confirm4 --predictions ROOT/confirmation4_v4/primary_predictions.npz --audit ROOT/contact_support_corpus_audit.json --output NEW.json`：对齐冻结概率与原始语料，保留旧标签和总分母，分解缺框、拒选、错类及同类实例/框错误；争议监督只旁路分组。oracle类别只作明确标记的离线诊断。
+
+`hard_query.py --root /home/jrw/vpwem_outputs --output NEW_DIRECTORY`：复用8个train-only角色头，在固定expanded/dev比较32个自主硬类别约束。要求第五组manifest已在搜索前冻结；不会加载其标签/特征。本轮最好配置正确367/418，弱于原可用性模型370/418，因此不升级、不进入新确认。详见`docs/momart_target_research_query_diagnosis_20261102.md`。该方案仅接入批量确认器，未扩展公开流式部署接口。
