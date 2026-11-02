@@ -27,6 +27,6 @@ def training_weights(data,train,transition_factor=1.,acquire_factor=1.,window=3)
             if data['roles'][i]==0:weights[i]*=acquire_factor
             previous=i
     return weights,dict(transition_events=len(events),window_frames=len(emphasized),
-        changed_training_frames=sum(weights[i]!=data['weights'][i] for i in train),
+        changed_training_frames=int(sum(weights[i]!=data['weights'][i] for i in train)),
         transition_factor=transition_factor,acquire_factor=acquire_factor,window=window,
         caveat='Weak subject labels affect training loss only; unknown frames break windows; no intent relabelling')

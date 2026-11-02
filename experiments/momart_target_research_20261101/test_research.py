@@ -450,6 +450,8 @@ def test_transition_emphasis_is_train_only_episode_local_and_unknown_breaks_wind
     np.testing.assert_array_equal(weights,[2,8,1,2,8,8,1])
     np.testing.assert_array_equal(data['weights'],np.ones(7))
     assert info['transition_events']==2 and info['window_frames']==3
+    import json
+    json.dumps(info)
     unchanged,_=training_weights(data,[0,1,3,4,5])
     np.testing.assert_array_equal(unchanged,data['weights'])
 
