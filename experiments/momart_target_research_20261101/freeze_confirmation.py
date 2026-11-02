@@ -8,9 +8,16 @@ import numpy as np
 from PIL import Image
 
 
+def excluded_episode_ids(manifests,audits=()):
+    result={ep['episode_id'] for doc in manifests for ep in doc['episodes']}
+    for audit in audits:
+        result.update(ep for episodes in audit['episodes'].values() for ep in episodes)
+    return result
+
+
 def main(a):
     previous=[json.loads((path/'manifest.json').read_text()) for path in a.exclude]
-    excluded={ep['episode_id'] for doc in previous for ep in doc['episodes']}
+    excluded=excluded_episode_ids(previous,[json.loads(path.read_text()) for path in a.exclude_audit])
     rng=np.random.default_rng(20261103);episodes=[];rows=[]
     a.output.mkdir(parents=True,exist_ok=False);(a.output/'images').mkdir()
     for task in sorted({ep['task'] for ep in previous[0]['episodes']}):
@@ -41,4 +48,5 @@ def main(a):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--exclude',type=Path,nargs='+',required=True)
+    p.add_argument('--exclude-audit',type=Path,nargs='*',default=[],help='Also exclude every episode recorded by fitted-data audits')
     p.add_argument('--output',type=Path,required=True);p.add_argument('--id-prefix',default='confirm');p.add_argument('--source-pool',choices=['valid','valid-first'],default='valid');p.add_argument('--episodes-per-task',type=int,default=2);main(p.parse_args())

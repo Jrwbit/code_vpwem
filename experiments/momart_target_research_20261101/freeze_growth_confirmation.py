@@ -20,7 +20,7 @@ def main(a):
     if used&reserved:raise ValueError('Prospective confirmation overlaps examined model data')
     for forbidden in ['annotations_all.json','candidate_manifest.json']:
         if (a.holdout/forbidden).exists():raise ValueError('Expected untouched, unprocessed confirmation corpus')
-    payload=dict(selected,holdout='confirm5',holdout_evaluated=False,holdout_original_manifest_sha256=digest(a.holdout/'manifest.json'),
+    payload=dict(selected,holdout=a.holdout.name.removesuffix('_corpus'),holdout_evaluated=False,holdout_original_manifest_sha256=digest(a.holdout/'manifest.json'),
         source_selection_sha256=digest(a.selection),training_audit_sha256=digest(a.training_audit),
         control_selection_sha256=digest(a.control),control_name=control['name'],control_calibration=control['result']['calibration'],
         control_policy='Original frozen_for_confirm4 selection, not the growth-dev recalibrated control',

@@ -47,15 +47,24 @@ def train_model(data,view,train,dev,seed,device):
 def main(a):
     torch.set_num_threads(2);torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False
     r=a.root/'momart_target_research_20261101';a.output.mkdir(parents=True,exist_ok=False)
-    write_json(a.output/'frozen_search_protocol.json',dict(method='paired training-set growth',train_populations=['old28','enlarged108'],
+    transition=a.weighting=='transition'
+    cases=[('uniform',1.,1.),('transition2',2.,1.),('transition4',4.,1.),('acquire2',1.,2.),('combined2',2.,2.)] if transition else [('uniform',1.,1.)]
+    populations=[('enlarged108','train')] if transition else [('old28','old_train'),('enlarged108','train')]
+    views=['geometry'] if transition else ['base','geometry'];fits=len(cases)*len(populations)*len(views)*3
+    write_json(a.output/'frozen_search_protocol.json',dict(method='train-only transition/acquisition loss emphasis' if transition else 'paired training-set growth',train_populations=[p[0] for p in populations],weighting_cases=cases,
         development='old8 + new16; each subgroup must independently pass original V4 in addition to combined24',
-        views=['base','geometry'],kind='mlp64',seeds=[100,200,300],fit_count=12,bias_controls=[0.,4.],frozen_current_control=True,
+        views=views,kind='mlp64',seeds=[100,200,300],fit_count=fits,bias_controls=[0.,4.],frozen_current_weights_control=True,
         acceptance_revision=4,confirmation5_loaded=False,device=a.device,physical_gpu=__import__('os').environ.get('CUDA_VISIBLE_DEVICES'),tf32=False,
         manifest_sha256=hashlib.sha256((r/'growth_corpus/manifest.json').read_bytes()).hexdigest(),
         confirm5_manifest_sha256=hashlib.sha256((r/'confirm5_corpus/manifest.json').read_bytes()).hexdigest(),
+        reserved_confirmation='confirm6' if transition else 'confirm5',
+        reserved_manifest_sha256=hashlib.sha256((r/(('confirm6' if transition else 'confirm5')+'_corpus')/'manifest.json').read_bytes()).hexdigest(),
         selection='Combined V4 and old/new subgroup V4 feasibility, then maximum correct-box recall (else F1), then fewer raw acquisition wrong-class errors',
         caveat='New development source-train episodes are selector-unseen, not full upstream perception/policy holdout. Weak labels unchanged. Do not mix registry with old8-dev screens.'))
     data=load_growth_data(a.root);splits=growth_partitions(data);dev=splits['dev'];registry={}
+    if transition:
+        reserved={ep['episode_id'] for ep in json.loads((r/'confirm6_corpus/manifest.json').read_text())['episodes']}
+        if reserved&{row['episode_id'] for row in data['rows']}:raise ValueError('Reserved confirmation6 overlaps examined development/training')
     raw_previous=predict_component(dict(kind='parent',name='previous_pointer',screen=str(r/'screen_seed100')),data,a.root).argmax(-1)
     def summarize(pred,index):return dict(raw=metrics(pred,index,data),accepted=metrics(pred,index,data),roles=role_breakdown(pred,index,data),sequence=sequence_metrics(pred,data,index))
     baseline=baseline_for(np.eye(9,dtype=np.float32)[raw_previous],dev,data)
@@ -77,20 +86,29 @@ def main(a):
         print(name,feasible,cal['metrics']['correct'],cal['metrics']['wrong_acquire'],flush=True)
     parent=json.loads((r/'frozen_for_confirm4/selected.json').read_text())['result']['component']
     record('frozen_current_control',predict_component(parent,data,a.root),parent)
-    for view_name in ['base','geometry']:
+    if transition:
+        growth=json.loads((r/'frozen_for_confirm5_growth108/selected.json').read_text())['result']['component']
+        record('frozen_growth_weights_control',predict_component(growth,data,a.root),growth)
+    for view_name in views:
         view=feature_view(data,geometry=view_name=='geometry')
-        for population,key in [('old28','old_train'),('enlarged108','train')]:
+        for population,key,case,transition_factor,acquire_factor in [(p,k,*case) for p,k in populations for case in cases]:
             for seed in [100,200,300]:
-                name=f'{view_name}_{population}_seed{seed}'
-                prob,checkpoint,info=train_model(data,view,splits[key],dev,seed,a.device)
-                checkpoint['spec']=dict(name=name,view=view_name,kind='mlp',width=64,weighted=True,training_population=population)
+                name=f'{view_name}_{population}_seed{seed}'+('_'+case if transition else '')
+                fit_data=data
+                if transition:
+                    from transition_weights import training_weights
+                    weights,emphasis=training_weights(data,splits[key],transition_factor,acquire_factor)
+                    fit_data=dict(data,weights=weights)
+                prob,checkpoint,info=train_model(fit_data,view,splits[key],dev,seed,a.device)
+                if transition:info['emphasis']=emphasis
+                checkpoint['spec']=dict(name=name,view=view_name,kind='mlp',width=64,weighted=True,training_population=population,loss_emphasis=case)
                 torch.save(checkpoint,a.output/(name+'.pt'));write_json(a.output/(name+'_training.json'),info)
                 component=dict(kind='parent',name=name,screen=str(a.output))
                 for offset in [0.,4.]:record(name+'_bias'+str(offset),replace_availability(prob,prob[:,:8].sum(-1),0.,offset),dict(kind='availability',parent=component,model=None,mix=0.,offset=offset))
     def merit(name):
         v=registry[name];c=v['calibration'];return v['joint_growth_goal_met'],c['metrics']['recall'] if v['joint_growth_goal_met'] else c['metrics']['f1'],-v['raw']['dev']['wrong_acquire']
     winner=max(registry,key=merit)
-    write_json(a.output/'selected.json',dict(name=winner,result=registry[winner],method_count=len(registry),fit_count=12,selection_partition='growth combined24-dev with both subgroup gates',acceptance_revision=4,confirmation5_evaluated=False))
+    write_json(a.output/'selected.json',dict(name=winner,result=registry[winner],method_count=len(registry),fit_count=fits,selection_partition='growth combined24-dev with both subgroup gates',acceptance_revision=4,confirmation5_evaluated=transition,confirmation6_evaluated=False))
     write_json(a.output/'status.json',dict(stage='complete',completed=len(registry),winner=winner))
     print(json.dumps(dict(winner=winner,joint_growth_goal_met=registry[winner]['joint_growth_goal_met']),indent=2))
 
@@ -98,4 +116,4 @@ def main(a):
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for key in ['root','output']:p.add_argument('--'+key,type=Path,required=True)
-    p.add_argument('--device',default='cpu');main(p.parse_args())
+    p.add_argument('--device',default='cpu');p.add_argument('--weighting',choices=['uniform','transition'],default='uniform');main(p.parse_args())

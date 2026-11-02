@@ -440,3 +440,21 @@ def test_growth_confirmation_freeze_rejects_overlap_or_already_examined_holdout(
     frozen=json.loads((args.output/'selected.json').read_text())
     assert frozen['control_calibration']==dict(threshold=0,margin=.2)
     assert frozen['holdout_evaluated'] is False
+
+
+def test_transition_emphasis_is_train_only_episode_local_and_unknown_breaks_window():
+    from transition_weights import training_weights
+    labels=[dict(target=dict(instance_id=k)) if k else None for k in ['a','b',None,'b','c','c','other']]
+    data=dict(rows=[dict(episode_id='train' if i<6 else 'dev',step=i*8,label=label) for i,label in enumerate(labels)],weights=np.ones(7),roles=np.zeros(7,int))
+    weights,info=training_weights(data,[0,1,3,4,5],4,2)
+    np.testing.assert_array_equal(weights,[2,8,1,2,8,8,1])
+    np.testing.assert_array_equal(data['weights'],np.ones(7))
+    assert info['transition_events']==2 and info['window_frames']==3
+    unchanged,_=training_weights(data,[0,1,3,4,5])
+    np.testing.assert_array_equal(unchanged,data['weights'])
+
+
+def test_confirmation_sampling_excludes_retained_regressions_from_fitted_audit():
+    from freeze_confirmation import excluded_episode_ids
+    excluded=excluded_episode_ids([dict(episodes=[dict(episode_id='dense_train')])],[dict(episodes=dict(train=['dense_train'],regression=['retained_old_test'],dev=['dense_dev']))])
+    assert excluded=={'dense_train','retained_old_test','dense_dev'}
