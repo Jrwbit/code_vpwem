@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Rendering waits for an idle GPU; detector/extras run on CPU to avoid GPU races.
+# Rendering waits for an idle GPU; detector defaults to CPU, or an explicitly idle GPU.
 set -euo pipefail
 project=${1:?repository root}
 research=${2:?research output root}
 python_bin=${3:?python executable}
 name=${4:?corpus prefix, e.g. dense or confirm2}
+feature_gpu=${5:-cpu}
 cd "$project"
 exec 9>"$research/${name}_prepare.lock"
 flock -n 9 || exit 0
@@ -36,8 +37,19 @@ write_status motion_proxies
 write_status holding_proxies
 "$python_bin" -u experiments/momart_stage_target_20261101/export_phases.py --corpus "$corpus" --events "$research/${name}_events.json" --output "$research/${name}_phases.json" --gpu "$chosen_gpu"
 flock -u 8
-write_status public_features_cpu
-CUDA_VISIBLE_DEVICES='' "$python_bin" -u experiments/momart_target_selector_20261101/export_features.py --corpus "$corpus" --config /home/jrw/vpwem_outputs/momart_mask_cache_gpu3_6_20261101/gpu3.yaml --task-vocabulary /home/jrw/vpwem_outputs/momart_target_selector_20261101/features.json --output "$research/${name}_features.npz" --device cpu --batch-size 4
+if [ "$feature_gpu" = cpu ]; then
+ write_status public_features_cpu
+ CUDA_VISIBLE_DEVICES='' "$python_bin" -u experiments/momart_target_selector_20261101/export_features.py --corpus "$corpus" --config /home/jrw/vpwem_outputs/momart_mask_cache_gpu3_6_20261101/gpu3.yaml --task-vocabulary /home/jrw/vpwem_outputs/momart_target_selector_20261101/features.json --output "$research/${name}_features.npz" --device cpu --batch-size 4
+else
+ write_status "waiting_for_feature_gpu${feature_gpu}"
+ ready=''
+ while [ -z "$ready" ]; do
+  ready=$(nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv,noheader,nounits | awk -F, -v target="$feature_gpu" '$1 == target && $2 < 2500 && $3 <= 5 {print "yes"}')
+  if [ -z "$ready" ]; then sleep 15; fi
+ done
+ write_status "public_features_gpu${feature_gpu}_batch16"
+ CUDA_VISIBLE_DEVICES="$feature_gpu" "$python_bin" -u experiments/momart_target_selector_20261101/export_features.py --corpus "$corpus" --config /home/jrw/vpwem_outputs/momart_mask_cache_gpu3_6_20261101/gpu3.yaml --task-vocabulary /home/jrw/vpwem_outputs/momart_target_selector_20261101/features.json --output "$research/${name}_features.npz" --device cuda:0 --batch-size 16
+fi
 write_status wrist_depth_cpu
 CUDA_VISIBLE_DEVICES='' "$python_bin" -u experiments/momart_target_research_20261101/export_extra.py --corpus "$corpus" --features "$research/${name}_features.npz" --config /home/jrw/vpwem_outputs/momart_mask_cache_gpu3_6_20261101/gpu3.yaml --output "$research/extra_${name}.npz"
 write_status robot_geometry_cpu

@@ -22,9 +22,11 @@ class FrameFeatures:
     geometry_candidates: np.ndarray = None
     geometry_context: np.ndarray = None
     mask_candidates: np.ndarray = None
+    visual_features_available: bool = True
 
 
 def view(frame,name):
+    if not frame.visual_features_available and name not in ['spatial','mask_small','mask_spatial']:raise ValueError('This model requires visual ROI/global features')
     def required(key):
         value=getattr(frame,key)
         if value is None:raise ValueError('Required public feature is missing: '+key)
@@ -54,12 +56,16 @@ class SingleBoxSelector:
 
     def load(self,path):
         key=str(path)
-        if key not in self.models:self.models[key]=torch.load(path,map_location='cpu',weights_only=False)
+        if key not in self.models:
+            loaded=torch.load(path,map_location='cpu',weights_only=False)
+            if 'model' in loaded and hasattr(loaded['model'],'n_jobs'):loaded['model'].n_jobs=1
+            self.models[key]=loaded
         return self.models[key]
 
     def parent(self,component,frame,step):
         name=component['name'];path=Path(component['screen'])/(name+'.pt')
         if name=='previous_pointer':
+            if not frame.visual_features_available:raise ValueError('Previous pointer requires visual features')
             path=self.root/'momart_target_selector_20261101/pilot_seed100/selector.pt';ckpt=self.load(path)
             if '_net' not in ckpt:
                 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'momart_target_selector_20261101'))
@@ -96,10 +102,20 @@ class SingleBoxSelector:
         if kind=='parent':p=self.parent(component,frame,step)
         elif kind=='blend':p=sum(w*self.probability(c,frame,step) for w,c in zip(component['weights'],component['members']))
         elif kind=='quality':
+            if not frame.visual_features_available:raise ValueError('Quality model requires visual features')
             model=self.load(component['model'])['model'];features=np.c_[frame.candidates,frame.extra_candidates,frame.geometry_candidates]
             q=np.zeros(8,np.float32)
             if frame.valid.any():q[frame.valid]=model.predict_proba(features[frame.valid])[:,list(model.classes_).index(True)]
             p=self.probability(component['parent'],frame,step).copy();before=p[:8].copy();p[:8]*=q**component['strength'];p[8]+=(before-p[:8]).sum()
+        elif kind=='availability':
+            from availability_features import public_availability_features,replace_availability
+            base=self.probability(component['parent'],frame,step)
+            if component['model'] is None:q=np.array([base[:8].sum()])
+            else:
+                ckpt=self.load(component['model']);_,context=view(frame,ckpt['view']);model=ckpt['model']
+                x=public_availability_features(frame.candidates[None],frame.valid[None],frame.geometry_candidates[None],context[None])
+                q=model.predict_proba(x)[:,list(model.classes_).index(True)]
+            p=replace_availability(base[None],q,component['mix'],component['offset'])[0]
         elif kind=='role_filter':
             from scipy.linalg import expm
             ckpt=self.load(component['model']);_,x=view(frame,ckpt['view']);model=ckpt['model'];emission=np.full(5,.001,np.float32)

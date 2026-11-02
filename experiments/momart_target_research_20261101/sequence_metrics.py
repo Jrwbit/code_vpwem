@@ -6,8 +6,11 @@ def sequence_metrics(pred,data,index,max_gap_steps=16):
     pred=np.asarray(pred);known=set(int(i) for i in index)
     result=dict(eligible_pairs=0,stable_subject_pairs=0,stable_both_selected=0,stable_class_switches=0,
         stable_correct_to_null=0,gold_subject_changes=0,correct_box_at_change=0,stale_previous_class_at_change=0)
-    for episode in sorted({r['episode_id'] for r in data['rows']}):
-        ids=sorted([i for i,r in enumerate(data['rows']) if r['episode_id']==episode],key=lambda i:data['rows'][i]['step'])
+    episodes={data['rows'][i]['episode_id'] for i in known};groups={ep:[] for ep in episodes}
+    for i,row in enumerate(data['rows']):
+        if row['episode_id'] in groups:groups[row['episode_id']].append(i)
+    for episode in sorted(groups):
+        ids=sorted(groups[episode],key=lambda i:data['rows'][i]['step'])
         for left,right in zip(ids,ids[1:]):
             if left not in known or right not in known:continue
             if not 0<data['rows'][right]['step']-data['rows'][left]['step']<=max_gap_steps:continue

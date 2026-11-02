@@ -185,3 +185,51 @@ def test_public_runtime_returns_one_box_or_null_and_rejects_stale_inputs(tmp_pat
     assert not missing['valid'] and missing['box'] is None and missing['slot']==8
     assert runtime.select(frame,'next_episode',0)['slot']==0
     assert not({'label','positive','future','actions'}&set(FrameFeatures.__dataclass_fields__))
+
+
+def test_priority_gate_does_not_call_second_confirmation_a_complete_success():
+    from expanded import priority_gate
+    baseline=dict(metrics=dict(wrong_acquire=5,wrong_carry=8,acquire_samples=86),
+        sequence=dict(stable_class_switch_rate=24/430,gold_subject_changes=8,stale_previous_class_at_change=1,correct_box_at_change=4))
+    aggregate_winner=dict(wrong_acquire=8,wrong_carry=1)
+    sequence=dict(stable_class_switch_rate=13/434,stale_previous_class_at_change=3,correct_box_at_change=3)
+    gate=priority_gate(aggregate_winner,sequence,baseline)
+    assert not gate['priority_errors_improved'] and not gate['switching_retained']
+    assert gate['acquisition_error_limit']==4 and gate['transition_gate_enabled']
+
+
+def test_raw_spatial_frontend_rejects_future_history_and_unavailable_visuals():
+    import pytest
+    from spatial_frontend import SpatialFrontEnd,RobotObservation
+    from runtime import FrameFeatures,view
+    current=RobotObservation(np.zeros((90,120,3),np.uint8),np.zeros((90,120)),np.zeros(10),0.,'e',8,'t')
+    past=RobotObservation(None,None,np.zeros(10),0.,'e',0,'t');SpatialFrontEnd.validate_pair(current,past)
+    past.step=9
+    with pytest.raises(ValueError,match='eight sensor steps'):SpatialFrontEnd.validate_pair(current,past)
+    frame=FrameFeatures(np.zeros((8,139),np.float32),np.zeros(280,np.float32),np.zeros(8,bool),'t',geometry_context=np.zeros(14),geometry_candidates=np.zeros((8,16)),visual_features_available=False)
+    assert view(frame,'spatial')[0].shape==(8,27)
+    with pytest.raises(ValueError,match='visual ROI'):view(frame,'base')
+
+
+def test_availability_factorization_preserves_identity_and_never_fabricates_empty_candidates():
+    from availability_features import replace_availability
+    rng=np.random.default_rng(4);p=np.zeros((101,9),np.float32)
+    p[:100,:8]=rng.dirichlet(np.ones(8),100).astype(np.float32);p[100,8]=1
+    r=replace_availability(p,np.ones(101),0.,4.)
+    assert (r>=0).all();np.testing.assert_allclose(r.sum(-1),1,atol=1e-6)
+    np.testing.assert_array_equal(r[:100,:8].argmax(-1),p[:100,:8].argmax(-1))
+    assert r[100,8]==1 and not r[100,:8].any()
+    np.testing.assert_array_equal(replace_availability(p,np.zeros(101),0.,0.),p)
+
+
+def test_third_confirmation_priority_improvement_does_not_hide_a_lost_switch():
+    from confirm import evaluation_gate
+    roles={'0':dict(visible=81,correct=78,recall=78/81),'4':dict(visible=189,correct=189,recall=1.)}
+    base_roles={'0':dict(visible=81,correct=73,recall=73/81),'4':dict(visible=189,correct=173,recall=173/189)}
+    base_m=dict(recall=357/430,wrong_acquire=7,wrong_carry=17,acquire_samples=81)
+    primary=dict(accepted=dict(precision=388/410,recall=388/430,wrong_acquire=1,wrong_carry=0,acquire_samples=81),roles=roles,
+        sequence=dict(stable_class_switch_rate=9/361,gold_subject_changes=5,correct_box_at_change=3,stale_previous_class_at_change=0))
+    baseline=dict(raw=base_m,accepted=base_m,roles=base_roles,sequence=dict(stable_class_switch_rate=34/386,gold_subject_changes=5,correct_box_at_change=4,stale_previous_class_at_change=0))
+    gate=evaluation_gate(primary,baseline,4)
+    assert gate['priority_gate']['priority_errors_improved'] and not gate['priority_gate']['switching_retained']
+    assert not gate['joint_goal_met']

@@ -9,9 +9,9 @@
     "critical_role_coverage": "For each dev role with >=3 visible samples, retain at least one correct accepted box; report per-role recall and rejection, do not pass by rejecting an entire interaction role"
   },
   "statistics": "weak geometry/intent proxies, not human intention GT or policy success; report precision and recall with coverage and episode grouping",
-  "training": "original train episodes only; all hyperparameter/checkpoint/threshold choices on original dev",
+  "training": "V1-V3 original train only; V4 original train plus first examined cohort (one train/one dev episode per task by sorted ID) and second examined cohort (all train); historical prospective records retained, never reused as holdout claims",
   "regression": "old test plus the eight previously examined stage-pilot episodes are now regression, not fresh holdout",
-  "confirmation": "freeze another eight non-overlapping valid-source episodes before fitting; inspect after dev selection",
+  "confirmation": "V1 cohort1, V3 cohort2; V4 cohort3 excludes all 50 examined episodes: 7 source-valid + 1 source-nonvalid selector-unseen, source strata must be reported",
   "methods": [
     "original pointer",
     "confidence and task priors",
@@ -42,5 +42,7 @@
     "recall_requirement": "at least frozen baseline on the same dense dev",
     "role_recall_requirement": "at least baseline minus .05 for each role with >=10 visible samples; every role with >=3 visible retains >=1 correct accepted target",
     "timing": "strengthened before dense training and before second confirmation evaluation"
-  }
+  },
+  "active_acceptance_revision": 4,
+  "v4_priority_objective": "In addition to precision/recall and role floors, acquisition wrong-class strictly decreases if baseline>0, carry wrong-class does not increase, stable class chatter and stale/correct at gold subject changes do not regress"
 }
