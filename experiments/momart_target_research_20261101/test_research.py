@@ -416,3 +416,27 @@ def test_growth_loader_excludes_examined_and_reserved_confirmation_episodes():
     for contaminated in ['old_dev','examined3','examined4','reserved5']:
         with pytest.raises(ValueError):require_growth_isolation(old,{contaminated},reserved,exclusions)
     with pytest.raises(ValueError):require_growth_isolation(old,{'new_train'},reserved,{'old_train'})
+
+
+def test_growth_confirmation_freeze_rejects_overlap_or_already_examined_holdout(tmp_path):
+    import json
+    import pytest
+    from types import SimpleNamespace
+    from freeze_growth_confirmation import main
+    selected=tmp_path/'selected.json';control=tmp_path/'control.json';audit=tmp_path/'audit.json'
+    selected.write_text(json.dumps(dict(name='winner',result=dict(joint_growth_goal_met=True,subgroup_gates={'old':dict(joint_goal_met=True),'new':dict(joint_goal_met=True)}))))
+    control.write_text(json.dumps(dict(name='control',result=dict(calibration=dict(threshold=0,margin=.2)))))
+    audit.write_text(json.dumps(dict(episodes=dict(train=['seen']))))
+    holdout=tmp_path/'holdout';holdout.mkdir()
+    manifest=holdout/'manifest.json'
+    manifest.write_text(json.dumps(dict(episodes=[dict(episode_id='seen',source_partition='nonvalid')])) )
+    args=SimpleNamespace(selection=selected,control=control,training_audit=audit,holdout=holdout,output=tmp_path/'frozen')
+    with pytest.raises(ValueError,match='overlaps'):main(args)
+    manifest.write_text(json.dumps(dict(episodes=[dict(episode_id='new',source_partition='nonvalid')])) )
+    examined=holdout/'annotations_all.json';examined.write_text('{}')
+    with pytest.raises(ValueError,match='untouched'):main(args)
+    assert not args.output.exists()
+    examined.unlink();main(args)
+    frozen=json.loads((args.output/'selected.json').read_text())
+    assert frozen['control_calibration']==dict(threshold=0,margin=.2)
+    assert frozen['holdout_evaluated'] is False
