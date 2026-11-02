@@ -318,3 +318,14 @@ def test_robot_history_join_uses_physical_frame_not_reused_corpus_id(tmp_path):
     result=attach_history(dict(rows=rows),path)
     np.testing.assert_array_equal(result['history_gripper'][:,0],[2,1])
     np.testing.assert_array_equal(result['history_actions'][:,0],[4,3])
+
+
+def test_audit_confidence_changes_only_train_weights_and_never_labels():
+    from supervision_confidence import downweight_training
+    data=dict(weights=np.array([.95,.9,.8]),y=np.array([0,1,2]),positive=np.eye(3,dtype=bool))
+    out=downweight_training(data,[0,1],np.array([True,False,True]),.25)
+    np.testing.assert_allclose(out['weights'],[.2375,.9,.8])
+    np.testing.assert_allclose(data['weights'],[.95,.9,.8])
+    assert out['y'] is data['y'] and out['positive'] is data['positive']
+    import pytest
+    with pytest.raises(ValueError):downweight_training(data,[0],np.array([True,False,True]),0)
