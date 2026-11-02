@@ -292,3 +292,29 @@ def test_autonomous_query_history_is_prefix_causal_and_episode_local():
         out=hard_query_distribution(p,full,cls,valid,mode)
         np.testing.assert_allclose(out.sum(-1),1)
         assert out[0,0]==0  # A bowl query cannot silently return the more likely rack.
+
+
+def test_robot_history_does_not_use_current_or_future_commands():
+    from robot_history import command_features,finger_features,history_at
+    commands=np.arange(160,dtype=np.float32).reshape(16,10)
+    q=np.arange(32,dtype=np.float32).reshape(16,2)
+    t=8;finger,before=history_at(q,commands,t)
+    commands[t:]=-999;q[t+1:]=-999
+    changed_finger,changed=history_at(q,commands,t)
+    np.testing.assert_array_equal(finger,changed_finger)
+    np.testing.assert_array_equal(before,changed)
+    np.testing.assert_array_equal(before[:10],commands[t-1])
+    np.testing.assert_array_equal(command_features(np.zeros((0,10))),np.zeros(31))
+    np.testing.assert_allclose(finger_features([.01,.02],[.01,.02],0),[.01,.02,0,0,.015,0])
+
+
+def test_robot_history_join_uses_physical_frame_not_reused_corpus_id(tmp_path):
+    import json
+    from robot_history import attach_history,frame_key
+    rows=[dict(source='/tmp/source.hdf5',demo='demo_1',step=t,id='reused') for t in [8,0]]
+    keys=[frame_key(row) for row in rows[::-1]]
+    path=tmp_path/'history.npz';np.savez(path,gripper=np.array([[1]*6,[2]*6]),actions=np.array([[3]*31,[4]*31]))
+    path.with_suffix('.json').write_text(json.dumps(dict(protocol='causal_robot_history_v1',keys=keys,actions_strictly_before_observation=True)))
+    result=attach_history(dict(rows=rows),path)
+    np.testing.assert_array_equal(result['history_gripper'][:,0],[2,1])
+    np.testing.assert_array_equal(result['history_actions'][:,0],[4,3])

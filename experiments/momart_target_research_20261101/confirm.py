@@ -21,7 +21,11 @@ def predict_parent(component,data,root):
             return net(torch.tensor((data['candidates']-ckpt['candidate_mean'])/ckpt['candidate_std']),
                 torch.tensor((data['context']-ckpt['context_mean'])/ckpt['context_std']),torch.tensor(data['valid'])).softmax(-1).numpy()
     ckpt=torch.load(screen/(name+'.pt'),map_location='cpu',weights_only=False);spec=ckpt['spec'];v=spec['view']
-    if v.startswith('mask_'):
+    if spec.get('history_signals'):
+        from robot_history import attach_history,history_view
+        if 'history_gripper' not in data:attach_history(data,Path(spec['history_path']))
+        raw,context=history_view(data,v,spec['history_signals'])
+    elif v.startswith('mask_'):
         from mask_benchmark import mask_view
         raw,context=mask_view(data,v)
     else:
