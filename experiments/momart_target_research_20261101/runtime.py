@@ -9,6 +9,7 @@ import sys
 import numpy as np
 import torch
 from models import Pointer,RecurrentPointer
+from calibration import apply_calibration
 
 
 @dataclass
@@ -152,7 +153,8 @@ class SingleBoxSelector:
         self.frame_cache={};p=self.probability(self.component,frame,sensor_step)
         if not np.isfinite(p).all() or not np.isclose(p.sum(),1,atol=1e-5):raise ValueError('Invalid probability distribution')
         slot=int(p.argmax());order=np.sort(p);confidence=float(p[slot]);margin=float(order[-1]-order[-2])
-        accepted=slot<8 and frame.valid[slot] and confidence>=self.calibration['threshold'] and margin>=self.calibration.get('margin',0.)
+        chosen=apply_calibration(p[None],self.calibration,frame.candidates[None,:,133:].argmax(-1))[0]
+        accepted=slot<8 and frame.valid[slot] and chosen==slot
         result=dict(valid=bool(accepted),slot=slot if accepted else 8,box=frame.candidates[slot,128:132].copy() if accepted else None,
             class_id=int(frame.candidates[slot,133:].argmax()) if accepted else None,confidence=confidence,margin=margin,probability=p.copy())
         self.last_step=sensor_step;self.fingerprint=fingerprint;self.cached_result=result;return copy.deepcopy(result)

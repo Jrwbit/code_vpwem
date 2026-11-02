@@ -15,7 +15,7 @@ def main(a):
     torch.set_num_threads(2);data=load_geometry_data(a.root);research=a.root/'momart_target_research_20261101'
     if (research/'mask_old.npz').exists():data=attach_masks(data,[research/'mask_old.npz',research/'mask_new.npz'])
     selection=json.loads(a.selection.read_text());component=selection['result']['component'];calibration=selection['result']['calibration']
-    batch=predict_component(component,data,a.root);expected=apply_calibration(batch,calibration)
+    batch=predict_component(component,data,a.root);expected=apply_calibration(batch,calibration,data['candidates'][:,:,133:].argmax(-1))
     runtime=SingleBoxSelector(a.selection,a.root);actual=np.zeros(batch.shape,np.float32);chosen=np.full(len(batch),8,int);elapsed=[]
     public_keys=set(FrameFeatures.__dataclass_fields__)-{'task'}
     for episode in sorted({r['episode_id'] for r in data['rows']}):

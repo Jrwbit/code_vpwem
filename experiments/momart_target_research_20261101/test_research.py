@@ -172,7 +172,7 @@ def test_public_runtime_returns_one_box_or_null_and_rejects_stale_inputs(tmp_pat
     for value in net.parameters():value.data.zero_()
     net.null[-1].bias.data.fill_(-4.)
     torch.save(dict(spec=dict(kind='linear',view='base',width=16),state=net.state_dict(),normalizer=dict(cm=np.zeros(139,np.float32),cs=np.ones(139,np.float32),xm=np.zeros(419,np.float32),xs=np.ones(419,np.float32))),tmp_path/'model.pt')
-    selection=tmp_path/'selected.json';selection.write_text(json.dumps(dict(name='test_model',result=dict(component=dict(kind='parent',name='model',screen=str(tmp_path)),calibration=dict(threshold=0.,margin=0.)))))
+    selection=tmp_path/'selected.json';selection.write_text(json.dumps(dict(name='test_model',result=dict(component=dict(kind='parent',name='model',screen=str(tmp_path)),calibration=dict(threshold=0.,margin=0.,class_thresholds={'0':0.})))))
     runtime=SingleBoxSelector(selection,tmp_path);c=np.zeros((8,139),np.float32);c[0,128:132]=[.1,.2,.3,.4];c[0,133]=1
     x=np.zeros(280,np.float32);x[-4]=1;valid=np.array([True]+[False]*7);frame=FrameFeatures(c,x,valid,'t0')
     result=runtime.select(frame,'first',0);assert result['valid'] and result['slot']==0
@@ -193,6 +193,7 @@ def test_public_runtime_returns_one_box_or_null_and_rejects_stale_inputs(tmp_pat
     np.testing.assert_array_equal(relocated['probability'],runtime.select(frame,'next_episode',0)['probability'])
     manifest=json.loads((bundle/'manifest.json').read_text())
     assert manifest['status']=='research_candidate_not_promoted'
+    assert json.loads((bundle/'selected.json').read_text())['result']['calibration']['class_thresholds']=={'0':0.}
     assert all(sha(bundle/name)==digest for name,digest in manifest['files'].items())
 
 
@@ -498,3 +499,15 @@ def test_switch_diagnosis_does_not_bridge_unknown_or_excessive_gaps():
         rows.append(dict(episode_id='e',id=str(i),demo='demo',step=step,label=dict(target=dict(instance_id=target,class_id=int(target=='b'))) if target else None,objects=[dict(class_id=0)]))
     data=dict(rows=rows,positive=np.ones((5,8),bool));changes=subject_changes(data,np.zeros(5,int),np.zeros(5,bool))
     assert len(changes)==1 and changes[0]['step']==24 and changes[0]['outcome']=='correct'
+
+
+def test_class_rejection_uses_predicted_classes_and_never_turns_null_into_a_box():
+    import pytest
+    from calibration import apply_calibration
+    p=np.zeros((3,9),np.float32);p[:2,0]=.55;p[:2,1]=.45;p[2,8]=.9;p[2,0]=.1
+    classes=np.zeros((3,8),int);classes[1,0]=3
+    cal=dict(threshold=.6,margin=0,class_thresholds={'0':.5})
+    np.testing.assert_array_equal(apply_calibration(p,cal,classes),[0,8,8])
+    np.testing.assert_array_equal(apply_calibration(p,dict(threshold=.6,margin=0)),[8,8,8])
+    with pytest.raises(ValueError,match='public proposal'):apply_calibration(p,cal)
+    np.testing.assert_array_equal(apply_calibration(p,dict(cal,margin=.2,class_margins={'0':0.}),classes),[0,8,8])

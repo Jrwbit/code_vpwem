@@ -42,13 +42,16 @@ def export_bundle(selection,root,output):
     # Validate the entire tree before creating output or copying artifacts.
     output.mkdir(parents=True);(output/'weights').mkdir();api=output/'api';api.mkdir()
     for digest,path in artifacts.items():shutil.copyfile(path,output/'weights'/(digest+'.pt'))
-    for name in ['runtime.py','models.py','availability_features.py']:
+    for name in ['runtime.py','models.py','availability_features.py','calibration.py']:
         shutil.copyfile(Path(__file__).parent/name,api/name)
     metadata=output/'momart_target_selector_20261101';metadata.mkdir()
     (metadata/'features.json').write_text(json.dumps(dict(tasks=tasks),indent=2))
     calibration=selected['result']['calibration']
+    saved_calibration={k:calibration.get(k,0.) for k in ['threshold','margin']}
+    for key in ['class_thresholds','class_margins']:
+        if key in calibration:saved_calibration[key]=calibration[key]
     (output/'selected.json').write_text(json.dumps(dict(name=selected['name'],status='research_candidate_not_promoted',
-        result=dict(component=component,calibration={k:calibration.get(k,0.) for k in ['threshold','margin']})),indent=2))
+        result=dict(component=component,calibration=saved_calibration)),indent=2))
     (output/'README.md').write_text('''# Public-feature single-box selector (research candidate)
 
 This package is not a detector, image encoder, action policy or validated robot

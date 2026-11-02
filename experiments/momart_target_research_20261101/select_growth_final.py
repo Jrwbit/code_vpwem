@@ -44,7 +44,7 @@ def main(a):
         registry=json.loads((screen/'registry.json').read_text())
         sources.append(dict(path=str(screen),records=len(registry),sha256=hashlib.sha256((screen/'registry.json').read_bytes()).hexdigest()))
         for name,value in registry.items():
-            prediction=apply_calibration(np.load(screen/(name+'_probabilities.npz'))['probability'],value['calibration'])
+            prediction=apply_calibration(np.load(screen/(name+'_probabilities.npz'))['probability'],value['calibration'],data['candidates'][:,:,133:].argmax(-1))
             checked={key:incumbent_evaluation_gate(summarize(prediction,splits[key]),incumbent[key],4) for key in keys}
             eligible=bool(value['joint_growth_goal_met'] and all(x['joint_goal_met'] for x in checked.values()))
             comparisons.append(dict(screen=str(screen),name=name,eligible=eligible,incumbent_gates=checked))

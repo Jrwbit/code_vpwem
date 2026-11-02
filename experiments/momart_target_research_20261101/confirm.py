@@ -10,6 +10,7 @@ from models import Pointer,RecurrentPointer
 from benchmark import TargetSelector,candidate_rows,sequence_batch,write_json
 from refine import quality_features,multiply_quality,role_breakdown
 from sequence_metrics import sequence_metrics
+from calibration import apply_calibration
 
 
 def predict_parent(component,data,root):
@@ -91,11 +92,6 @@ def predict_component(component,data,root):
     raise ValueError(kind)
 
 
-def apply_calibration(prob,cal):
-    order=np.sort(prob,axis=-1)
-    return np.where((prob.max(-1)>=cal['threshold'])&((order[:,-1]-order[:,-2])>=cal.get('margin',0)),prob.argmax(-1),8)
-
-
 def evaluation_gate(primary,baseline,revision):
     p=primary['accepted'];b=baseline['raw']
     covered=all(v['correct']>=1 for v in primary['roles'].values() if v['visible']>=3)
@@ -143,7 +139,7 @@ def main(a):
     for key in (['baseline','primary','control'] if 'control' in frozen else ['baseline','primary']):
         item=frozen[key];prob=predict_component(item['component'],data,a.root)
         assert np.isfinite(prob).all() and np.allclose(prob.sum(-1),1,atol=1e-5)
-        pred=apply_calibration(prob,item['calibration']);raw=prob.argmax(-1)
+        pred=apply_calibration(prob,item['calibration'],data['candidates'][:,:,133:].argmax(-1));raw=prob.argmax(-1)
         results[key]=dict(name=item['name'],raw=metrics(raw,index,data),accepted=metrics(pred,index,data),roles=role_breakdown(pred,index,data),sequence=sequence_metrics(pred,data,index),raw_sequence=sequence_metrics(raw,data,index),
             episodes={ep:metrics(pred,np.array([i for i in index if data['rows'][i]['episode_id']==ep]),data) for ep in sorted({r['episode_id'] for r in data['rows']})})
         results[key]['source_partitions']={}

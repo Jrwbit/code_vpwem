@@ -17,7 +17,7 @@ from runtime import FrameFeatures,SingleBoxSelector
 CHILD='''import sys,json
 from pathlib import Path
 bundle=Path(sys.argv[1]);sys.path.insert(0,str(bundle/'api'))
-import numpy as np,torch,runtime,models,availability_features
+import numpy as np,torch,runtime,models,availability_features,calibration
 from runtime import FrameFeatures,SingleBoxSelector
 torch.set_num_threads(2)
 archive=np.load(sys.argv[2],allow_pickle=False)
@@ -27,7 +27,7 @@ for i in range(len(archive['step'])):
  result=selector.select(frame,str(archive['episode'][i]),int(archive['step'][i]))
  probability.append(result['probability']);slots.append(result['slot'])
 np.savez(sys.argv[3],probability=np.asarray(probability),slots=np.asarray(slots))
-paths=[str(Path(m.__file__).resolve()) for m in [runtime,models,availability_features]]
+paths=[str(Path(m.__file__).resolve()) for m in [runtime,models,availability_features,calibration]]
 assert all(Path(p).is_relative_to(bundle/'api') for p in paths)
 print(json.dumps(dict(imported_modules=paths)))
 '''
