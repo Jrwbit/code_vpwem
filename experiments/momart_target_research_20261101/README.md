@@ -92,3 +92,7 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 第五组新候选P92.87%、R90.75%，原冻结控制P93.04%、R88.68%；取碗错类8→12，切换正确8/10→6/10，故未升级。详见`docs/momart_target_research_growth_confirmation_20261102.md`。
 
 `freeze_confirmation.py --exclude ... --exclude-audit FITTED_DATA_AUDIT --output NEW_CORPUS ...`同时排除完整拟合/评分审计里的episode，不能仅传补密train/dev而遗漏保留test/回归。下一轮`benchmark_growth.py --weighting transition`保持108/24划分与输入，15拟合/32记录，比较仅训练损失的切换后3帧2/4倍、取碗2倍及组合，并先校验第六组隔离。标签不进入推理，未知帧打断训练窗口。
+
+重加权单模型完成但相对原冻结模型的抖动门槛未通过。`benchmark_growth_blend.py --root OUTPUT_ROOT --output NEW_DIRECTORY`按五种权重家族的开发胜出成员，比较新模型占25/50/75%的固定概率融合及两个完整固定配置控制，17记录、0拟合；阈值选择同时要求相对原始指针和原冻结模型的combined24/old8/new16门槛。
+
+`select_growth_final.py --root OUTPUT_ROOT --control FROZEN_CONTROL --holdout UNTOUCHED_CORPUS --screens COMPLETE_COMPARABLE_SCREENS --output NEW_SELECTION`检查完整搜索和episode身份，按原/新开发子集与原冻结控制门槛选择。新增`incumbent_evaluation_gate`比较accepted recall，保留旧指针raw recall逻辑；选中配置将`incumbent_gate_required=true`传给confirm.py，确认时相对原控制的总体及每个源分区均须通过。第六组此前未标注，在胜出模型/阈值冻结后才准备。开发胜出transition4_new0.75提高正确框和切换，但正确→拒选及碗架召回有退步，详见`docs/momart_target_research_transition_emphasis_20261102.md`。
