@@ -96,3 +96,7 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 重加权单模型完成但相对原冻结模型的抖动门槛未通过。`benchmark_growth_blend.py --root OUTPUT_ROOT --output NEW_DIRECTORY`按五种权重家族的开发胜出成员，比较新模型占25/50/75%的固定概率融合及两个完整固定配置控制，17记录、0拟合；阈值选择同时要求相对原始指针和原冻结模型的combined24/old8/new16门槛。
 
 `select_growth_final.py --root OUTPUT_ROOT --control FROZEN_CONTROL --holdout UNTOUCHED_CORPUS --screens COMPLETE_COMPARABLE_SCREENS --output NEW_SELECTION`检查完整搜索和episode身份，按原/新开发子集与原冻结控制门槛选择。新增`incumbent_evaluation_gate`比较accepted recall，保留旧指针raw recall逻辑；选中配置将`incumbent_gate_required=true`传给confirm.py，确认时相对原控制的总体及每个源分区均须通过。第六组此前未标注，在胜出模型/阈值冻结后才准备。开发胜出transition4_new0.75提高正确框和切换，但正确→拒选及碗架召回有退步，详见`docs/momart_target_research_transition_emphasis_20261102.md`。
+
+第六组新融合相对原冻结模型正确框774→795、抓碗错类14→10，原模型相对门槛通过；切换6/9仍低于原始指针7/9，完整验收失败，未升级。`diagnose_intent.py`输出全部相邻已知主体切换（含成功），未知和大间隔不跨越，不仅选择失败样本。第七组16条/1272帧在新搜索前另行冻结。详见`docs/momart_target_research_confirmation6_bundle_20261102.md`。
+
+`export_runtime_bundle.py --selection SELECTED_JSON --root OUTPUT_ROOT --output NEW_BUNDLE`只导出本轮公共神经指针/固定可用性/融合，检查点按内容哈希命名，保存相对路径和逐文件SHA，显式标记研究候选。`PYTHONPATH=NEW_BUNDLE/api`下使用`SingleBoxSelector(NEW_BUNDLE/selected.json, NEW_BUNDLE)`；输入仍须由原冻结传感器前端生成，包不包含检测器/动作策略或数据标签。`verify_runtime_bundle.py --selection SELECTED_JSON --root OUTPUT_ROOT --bundle NEW_BUNDLE --output NEW_REPORT`使用复制目录、python -I和仅公共帧特征重放910帧，比原工程概率/选框0差。包、权重、运行缓存保留在输出目录，不提交Git。
