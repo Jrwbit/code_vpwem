@@ -110,6 +110,12 @@ def evaluation_gate(primary,baseline,revision):
     return dict(joint_goal_met=bool(success),priority_gate=priority,role_recall_retained=retained,role_recall_floors=floors)
 
 
+def incumbent_evaluation_gate(primary,control,revision):
+    # A frozen deployed configuration includes rejection calibration. The old
+    # pointer gate intentionally compares raw recall; the incumbent gate must not.
+    return evaluation_gate(primary,dict(control,raw=control['accepted']),revision)
+
+
 def main(a):
     torch.set_num_threads(2);research=a.root/'momart_target_research_20261101'
     a.output.mkdir(parents=True,exist_ok=False)
@@ -152,9 +158,9 @@ def main(a):
     if revision>=4 and 'valid' in source_gates:success=success and source_gates['valid']['joint_goal_met']
     incumbent_gates={}
     if frozen['incumbent_gate_required']:
-        incumbent_gates['overall']=evaluation_gate(results['primary'],results['control'],revision)
+        incumbent_gates['overall']=incumbent_evaluation_gate(results['primary'],results['control'],revision)
         for partition in results['primary']['source_partitions']:
-            incumbent_gates[partition]=evaluation_gate(results['primary']['source_partitions'][partition],results['control']['source_partitions'][partition],revision)
+            incumbent_gates[partition]=incumbent_evaluation_gate(results['primary']['source_partitions'][partition],results['control']['source_partitions'][partition],revision)
         success=bool(success and all(value['joint_goal_met'] for value in incumbent_gates.values()))
     payload=dict(results=results,source_partition_gates=source_gates,overall_gate=gate,priority_gate=gate['priority_gate'],acceptance_revision=revision,role_recall_retained=gate['role_recall_retained'],role_recall_floors=gate['role_recall_floors'],confirmation_joint_goal_met=success if a.purpose=='confirmation' else None,regression_joint_goal_met=success if a.purpose=='regression' else None,evaluation_purpose=a.purpose,total_frames=len(data['rows']),labelled_frames=len(index),
         caveat='Geometry/motion proxy labels, not human intention or closed-loop policy success. All methods share the same frozen proposal arrays; extraction device/batch are in corpus metadata. Source-valid subset also required for V4; source-nonvalid unseen episodes do not establish full visual/policy holdout.')

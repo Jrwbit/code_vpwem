@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import numpy as np
 from benchmark import write_json
-from confirm import apply_calibration,evaluation_gate,predict_component
+from confirm import apply_calibration,incumbent_evaluation_gate,predict_component
 from data import metrics
 from growth_data import load_growth_data,growth_partitions
 from refine import role_breakdown
@@ -45,7 +45,7 @@ def main(a):
         sources.append(dict(path=str(screen),records=len(registry),sha256=hashlib.sha256((screen/'registry.json').read_bytes()).hexdigest()))
         for name,value in registry.items():
             prediction=apply_calibration(np.load(screen/(name+'_probabilities.npz'))['probability'],value['calibration'])
-            checked={key:evaluation_gate(summarize(prediction,splits[key]),incumbent[key],4) for key in keys}
+            checked={key:incumbent_evaluation_gate(summarize(prediction,splits[key]),incumbent[key],4) for key in keys}
             eligible=bool(value['joint_growth_goal_met'] and all(x['joint_goal_met'] for x in checked.values()))
             comparisons.append(dict(screen=str(screen),name=name,eligible=eligible,incumbent_gates=checked))
             if eligible:candidates.append((screen,name,dict(value,incumbent_gates=checked)))

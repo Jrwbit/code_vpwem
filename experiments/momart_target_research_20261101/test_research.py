@@ -468,3 +468,14 @@ def test_growth_screen_join_checks_episode_identity_not_just_equal_counts():
     a=dict(episodes=dict(train=['a'],dev=['b']),counts=dict(train=10,dev=10))
     require_same_development(a,a)
     with pytest.raises(ValueError):require_same_development(dict(a,episodes=dict(train=['a'],dev=['other'])),a)
+
+
+def test_incumbent_gate_compares_frozen_accepted_recall_instead_of_raw_recall():
+    from confirm import incumbent_evaluation_gate
+    role={'0':dict(visible=20,correct=19,recall=.95)}
+    sequence=dict(stable_class_switch_rate=0,gold_subject_changes=0,correct_box_at_change=0,stale_previous_class_at_change=0)
+    primary=dict(accepted=dict(precision=.95,recall=.95,wrong_acquire=0,wrong_carry=0,acquire_samples=20),roles=role,sequence=sequence)
+    control=dict(accepted=dict(precision=.95,recall=.9,wrong_acquire=1,wrong_carry=0,acquire_samples=20),raw=dict(recall=.99),roles=role,sequence=sequence)
+    assert incumbent_evaluation_gate(primary,control,4)['joint_goal_met']
+    control['accepted']['recall']=.96;control['raw']['recall']=.5
+    assert not incumbent_evaluation_gate(primary,control,4)['joint_goal_met']
