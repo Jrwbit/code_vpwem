@@ -41,7 +41,8 @@
     "self-predicted future-command auxiliary training, true actions used as loss targets only",
     "paired old28/enlarged108 training populations with old8/new16 development gates",
     "train-only switch-window and acquisition loss emphasis",
-    "fixed incumbent/weighting-family probability blends with dual-comparator calibration"
+    "fixed incumbent/weighting-family probability blends with dual-comparator calibration",
+    "predicted-proposal-class confidence and top-two-gap rejection calibration"
   ],
   "deployment": "do not replace production model based only on weak-proxy scores; retain causal inputs, missing-target masks and full-scene observations",
   "acceptance_revision": 2,

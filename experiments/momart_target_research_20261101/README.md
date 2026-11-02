@@ -100,3 +100,5 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 第六组新融合相对原冻结模型正确框774→795、抓碗错类14→10，原模型相对门槛通过；切换6/9仍低于原始指针7/9，完整验收失败，未升级。`diagnose_intent.py`输出全部相邻已知主体切换（含成功），未知和大间隔不跨越，不仅选择失败样本。第七组16条/1272帧在新搜索前另行冻结。详见`docs/momart_target_research_confirmation6_bundle_20261102.md`。
 
 `export_runtime_bundle.py --selection SELECTED_JSON --root OUTPUT_ROOT --output NEW_BUNDLE`只导出本轮公共神经指针/固定可用性/融合，检查点按内容哈希命名，保存相对路径和逐文件SHA，显式标记研究候选。`PYTHONPATH=NEW_BUNDLE/api`下使用`SingleBoxSelector(NEW_BUNDLE/selected.json, NEW_BUNDLE)`；输入仍须由原冻结传感器前端生成，包不包含检测器/动作策略或数据标签。`verify_runtime_bundle.py --selection SELECTED_JSON --root OUTPUT_ROOT --bundle NEW_BUNDLE --output NEW_REPORT`使用复制目录、python -I和仅公共帧特征重放910帧，比原工程概率/选框0差。包、权重、运行缓存保留在输出目录，不提交Git。
+
+`benchmark_class_calibration.py --root OUTPUT_ROOT --output NEW_DIRECTORY [--class-margins]`冻结模型权重，在原108/24划分只用预测框类别研究置信度/分差门槛，每轮37配置，要求双对照和old8/new16全部V4门槛。`calibration.py`为批量与逐帧共用实现，类别配置缺少公开类别数组时明确报错；包导出保留class_thresholds/class_margins及源码。两轮最好仅增加1个持碗正确框，抓碗/即时切换未改善，不进入第七组确认。146episode/10984帧扩充自身历史已准备，3616共有帧完全复现，尚未训练；详见`docs/momart_target_research_class_calibration_20261102.md`。
