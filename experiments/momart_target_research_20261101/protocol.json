@@ -28,8 +28,19 @@
     "label confidence weighting and oracle upper bounds",
     "robot FK and observed depth geometry with explicit measured torso joint input",
     "diverse-family ensembles",
-    "separate detector-box quality estimation"
+    "separate detector-box quality estimation",
+    "train-only continuous-time soft role filter",
+    "predicted-mask-restricted observed-depth geometry",
+    "three-seed stability and ensembles",
+    "dense original train/dev sequences; second independent confirmation"
   ],
   "deployment": "do not replace production model based only on weak-proxy scores; retain causal inputs, missing-target masks and full-scene observations",
-  "acceptance_revision": 2
+  "acceptance_revision": 2,
+  "dense_acceptance_revision": 3,
+  "dense_development_objective": {
+    "selected_precision_target": 0.9,
+    "recall_requirement": "at least frozen baseline on the same dense dev",
+    "role_recall_requirement": "at least baseline minus .05 for each role with >=10 visible samples; every role with >=3 visible retains >=1 correct accepted target",
+    "timing": "strengthened before dense training and before second confirmation evaluation"
+  }
 }

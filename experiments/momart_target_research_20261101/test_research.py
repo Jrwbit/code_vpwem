@@ -99,3 +99,53 @@ def test_calibration_does_not_pass_by_rejecting_an_entire_role():
     c=calibrate_v2(p,np.arange(n),data,.6)
     assert c['overall_precision90_feasible'] and not c['joint_goal_met']
     assert not c['critical_roles_covered']
+
+
+def test_soft_role_filter_is_causal_and_ignores_private_labels():
+    from temporal import soft_role_filter
+    n=4;candidate=np.zeros((n,8,139),np.float32);candidate[:,0,133]=1;candidate[:,1,136]=1
+    data=dict(rows=[dict(episode_id='e',step=8*i,task='task') for i in range(n)],tasks=['task'],
+        valid=np.array([[True,True]+[False]*6]*n),candidates=candidate)
+    p=np.zeros((n,9));p[:,0]=.45;p[:,1]=.45;p[:,8]=.1
+    emissions=np.full((n,5),.025);emissions[:,2]=.9
+    rates=np.full((5,5),.01);np.fill_diagonal(rates,-.04);priors=np.full((1,5),.2)
+    full=soft_role_filter(p,emissions,data,rates,priors)
+    prefix=dict(data,rows=data['rows'][:2],valid=data['valid'][:2],candidates=candidate[:2])
+    short=soft_role_filter(p[:2],emissions[:2],prefix,rates,priors)
+    np.testing.assert_allclose(full[:2],short)
+    data['roles']=np.zeros(n);data['y']=np.full(n,8)
+    np.testing.assert_allclose(full,soft_role_filter(p,emissions,data,rates,priors))
+    assert full[0].argmax()==1 and np.allclose(full.sum(-1),1)
+
+
+def test_mask_geometry_rejects_background_inside_loose_box():
+    from mask_surface import surface_features
+    depth=np.full((3,3),1/3,np.float32);prob=np.zeros((3,3),np.float32)
+    # Center background has depth equal to EEF; foreground mask is away from center.
+    prob[0,0]=1
+    value=surface_features([0,0,1,1],depth,prob,[1,0,0],[.5,.5],90,3)
+    assert value.shape==(23,) and value[0]>.1 and value[-1]==1
+    assert value[-2]==0  # no object mask at projected EEF
+
+
+def test_role_recall_floor_prevents_aggregate_gain_hiding_stage_regression():
+    from benchmark_dense import calibrate_v3
+    n=40;roles=np.r_[np.zeros(20,int),np.full(20,2)]
+    rows=[dict(episode_id='e',objects=[dict(class_id=0 if role==0 else 3)],label=dict(target=dict(class_id=0 if role==0 else 3))) for role in roles]
+    data=dict(rows=rows,y=np.zeros(n,int),roles=roles,visible=np.ones(n,bool),positive=np.zeros((n,8),bool));data['positive'][:,0]=True
+    p=np.zeros((n,9));p[:30,0]=1;p[30:,8]=1
+    baseline=dict(metrics=dict(recall=.6),roles={'0':dict(visible=20,recall=.2),'2':dict(visible=20,recall=1.)})
+    cal=calibrate_v3(p,np.arange(n),data,baseline)
+    assert cal['metrics']['precision']==1 and cal['metrics']['recall']>.6
+    assert cal['critical_roles_covered'] and not cal['role_recall_retained'] and not cal['joint_goal_met']
+
+
+def test_mask_feature_views_pool_only_valid_candidates():
+    from mask_benchmark import mask_view
+    data=dict(candidates=np.zeros((1,8,139),np.float32),context=np.zeros((1,280),np.float32),
+        geometry_candidates=np.zeros((1,8,16),np.float32),geometry_context=np.zeros((1,14),np.float32),
+        mask_candidates=np.ones((1,8,23),np.float32),valid=np.array([[True]+[False]*7]))
+    data['mask_candidates'][:,1:]=100
+    candidate,context=mask_view(data,'mask_small')
+    assert candidate.shape==(1,8,34) and context.shape==(1,72)
+    np.testing.assert_array_equal(context[0,-23:],np.ones(23))

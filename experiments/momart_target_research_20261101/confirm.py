@@ -20,7 +20,11 @@ def predict_parent(component,data,root):
             return net(torch.tensor((data['candidates']-ckpt['candidate_mean'])/ckpt['candidate_std']),
                 torch.tensor((data['context']-ckpt['context_mean'])/ckpt['context_std']),torch.tensor(data['valid'])).softmax(-1).numpy()
     ckpt=torch.load(screen/(name+'.pt'),map_location='cpu',weights_only=False);spec=ckpt['spec'];v=spec['view']
-    raw,context=feature_view(data,rich=v in ('rich','rich_geometry'),geometry=v in ('geometry','rich_geometry','spatial'),spatial=v=='spatial')
+    if v.startswith('mask_'):
+        from mask_benchmark import mask_view
+        raw,context=mask_view(data,v)
+    else:
+        raw,context=feature_view(data,rich=v in ('rich','rich_geometry'),geometry=v in ('geometry','rich_geometry','spatial'),spatial=v=='spatial')
     if 'model' in ckpt:
         x,_,_,positions=candidate_rows(data,dict(raw=raw,context=context))
         model=ckpt['model'];scores=model.predict_proba(x)[:,list(model.classes_).index(1)]
@@ -45,6 +49,12 @@ def predict_component(component,data,root):
     kind=component['kind']
     if kind=='parent':return predict_parent(component,data,root)
     if kind=='blend':return sum(w*predict_component(c,data,root) for w,c in zip(component['weights'],component['members']))
+    if kind=='role_filter':
+        from temporal import role_features,soft_role_filter
+        ckpt=torch.load(component['model'],map_location='cpu',weights_only=False);net=ckpt['model']
+        emission=np.full((len(data['rows']),5),.001,np.float32)
+        emission[:,net.classes_]=net.predict_proba(role_features(data,ckpt['view']));emission/=emission.sum(-1,keepdims=True)
+        return soft_role_filter(predict_component(component['parent'],data,root),emission,data,ckpt['rates'],ckpt['priors'],component['strength'],temporal=component['temporal'])
     if kind=='quality':
         model=torch.load(component['model'],map_location='cpu',weights_only=False)['model']
         q=np.zeros(data['valid'].shape,np.float32);mask=data['valid']
@@ -65,10 +75,14 @@ def main(a):
     baseline_screen=research/'screen_seed100';baseline=json.loads((baseline_screen/'registry.json').read_text())['previous_pointer']
     frozen=dict(primary=dict(name=selected['name'],component=selected['result']['component'],calibration=selected['result']['calibration']),
         baseline=dict(name='previous_pointer',component=dict(kind='parent',name='previous_pointer',screen=str(baseline_screen)),calibration=baseline['calibration']),
+        evaluation_purpose=a.purpose,corpus_prefix=a.prefix,
         selection_sha256=hashlib.sha256((a.selection/'selected.json').read_bytes()).hexdigest(),
         selection_policy='old dev only; frozen before confirmation labels/features are loaded',acceptance_revision=2)
     write_json(a.output/'frozen_evaluation_manifest.json',frozen)
-    data=attach_geometry(load_group(research/'confirmation_corpus',research/'confirmation_features.npz',research/'confirmation_phases.json','confirm',research/'extra_confirmation.npz'),research/'geometry_confirmation.npz')
+    data=attach_geometry(load_group(research/(a.prefix+'_corpus'),research/(a.prefix+'_features.npz'),research/(a.prefix+'_phases.json'),'confirm',research/('extra_'+a.prefix+'.npz')),research/('geometry_'+a.prefix+'.npz'))
+    if (research/('mask_'+a.prefix+'.npz')).exists():
+        from mask_benchmark import attach_masks
+        data=attach_masks(data,[research/('mask_'+a.prefix+'.npz')])
     index=np.flatnonzero(data['y']>=0);results={}
     for key in ['baseline','primary']:
         item=frozen[key];prob=predict_component(item['component'],data,a.root)
@@ -79,12 +93,18 @@ def main(a):
         np.savez_compressed(a.output/(key+'_predictions.npz'),probability=prob,prediction=pred,ids=np.array([r['id'] for r in data['rows']]))
     p=results['primary']['accepted'];b=results['baseline']['raw']
     success=(p['precision'] or 0)>=.9 and (p['recall'] or 0)>=(b['recall'] or 0) and all(r['correct']>=1 for r in results['primary']['roles'].values() if r['visible']>=3)
-    write_json(a.output/'results.json',dict(results=results,confirmation_joint_goal_met=success,total_frames=len(data['rows']),labelled_frames=len(index),
-        caveat='Geometry/motion proxy labels, not human intention or closed-loop policy success. CPU batch4 proposal extraction on confirmation; all methods share proposals.'))
-    print(json.dumps(dict(results=results,confirmation_joint_goal_met=success),indent=2))
+    revision=frozen['primary']['calibration'].get('acceptance_revision',2)
+    floors={role:max(0.,(v['recall'] or 0)-.05) for role,v in results['baseline']['roles'].items() if v['visible']>=10} if revision>=3 else {}
+    retained=all((results['primary']['roles'][role]['recall'] or 0)>=floor for role,floor in floors.items())
+    success=success and retained
+    payload=dict(results=results,acceptance_revision=revision,role_recall_retained=retained,role_recall_floors=floors,confirmation_joint_goal_met=success if a.purpose=='confirmation' else None,regression_joint_goal_met=success if a.purpose=='regression' else None,evaluation_purpose=a.purpose,total_frames=len(data['rows']),labelled_frames=len(index),
+        caveat='Geometry/motion proxy labels, not human intention or closed-loop policy success. CPU batch4 proposal extraction on confirmation; all methods share proposals.')
+    write_json(a.output/'results.json',payload)
+    print(json.dumps(payload,indent=2))
 
 
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for k in ['root','selection','output']:p.add_argument('--'+k,type=Path,required=True)
+    p.add_argument('--prefix',default='confirmation');p.add_argument('--purpose',choices=['confirmation','regression'],default='confirmation')
     main(p.parse_args())
