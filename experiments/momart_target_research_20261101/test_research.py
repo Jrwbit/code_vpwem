@@ -386,3 +386,14 @@ def test_plan_targets_are_label_only_and_end_padding_is_masked():
     logits,plan=net(torch.zeros(2,8,4),torch.zeros(2,5),torch.tensor([[True]+[False]*7]*2))
     assert logits.shape==(2,9) and plan.shape==(2,8,10)
     assert torch.isneginf(logits[:,1:8]).all() and torch.isfinite(logits[:,[0,8]]).all()
+
+
+def test_growth_sampling_reserves_confirmations_and_splits_only_episodes():
+    from freeze_growth import select_growth
+    pool=[f'demo_{i}' for i in range(10)];excluded={'task/demo_1','task/demo_8'}
+    chosen=select_growth(pool,excluded,'task',4,2,np.random.default_rng(7))
+    assert len(chosen)==len({demo for demo,_ in chosen})==6
+    assert all('task/'+demo not in excluded for demo,_ in chosen)
+    assert [split for _,split in chosen].count('train')==4
+    assert [split for _,split in chosen].count('dev')==2
+    assert chosen==select_growth(pool,excluded,'task',4,2,np.random.default_rng(7))
