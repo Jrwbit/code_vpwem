@@ -78,7 +78,11 @@ def box_geometry(box,depth,ee,fov,depth_high):
 def main(a):
     if a.output.exists():raise FileExistsError(a.output)
     manifest=json.loads((a.corpus/'manifest.json').read_text());meta=json.loads(a.features.with_suffix('.json').read_text())
-    arrays=np.load(a.features,allow_pickle=False);assert meta['ids']==[row['id'] for row in manifest['records']]
+    # NpzFile.__getitem__ decompresses the entire member on every access.
+    # Cache these two arrays once before the per-frame/per-proposal loop.
+    with np.load(a.features,allow_pickle=False) as archive:
+        arrays={key:archive[key] for key in ('candidates','valid')}
+    assert meta['ids']==[row['id'] for row in manifest['records']]
     assert meta['manifest_sha256']==hashlib.sha256((a.corpus/'manifest.json').read_bytes()).hexdigest()
     files={};geometry=None;layouts={};candidate=[];contexts=[]
     try:
