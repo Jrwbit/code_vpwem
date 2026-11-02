@@ -117,12 +117,14 @@ def main(a):
     baseline_screen=research/'screen_seed100';baseline=json.loads((baseline_screen/'registry.json').read_text())['previous_pointer']
     frozen=dict(primary=dict(name=selected['name'],component=selected['result']['component'],calibration=selected['result']['calibration']),
         baseline=dict(name='previous_pointer',component=dict(kind='parent',name='previous_pointer',screen=str(baseline_screen)),calibration=baseline['calibration']),
-        evaluation_purpose=a.purpose,corpus_prefix=a.prefix,public_views=a.public_views,
+        evaluation_purpose=a.purpose,corpus_prefix=a.prefix,public_views=a.public_views,incumbent_gate_required=selected.get('incumbent_gate_required',False),
         selection_sha256=hashlib.sha256((a.selection/'selected.json').read_bytes()).hexdigest(),
         selection_policy='Registered development cohort only; frozen before confirmation labels/features are loaded',acceptance_revision=selected['result']['calibration'].get('acceptance_revision',2))
     if a.control_selection is not None:
         control=json.loads((a.control_selection/'selected.json').read_text())
         frozen['control']=dict(name=control['name'],component=control['result']['component'],calibration=control['result']['calibration'])
+    if frozen['incumbent_gate_required'] and 'control' not in frozen:
+        raise ValueError('Registered incumbent-relative confirmation requires the frozen control')
     write_json(a.output/'frozen_evaluation_manifest.json',frozen)
     extra=research/('extra_'+a.prefix+'.npz') if a.public_views=='rich' else None
     data=attach_geometry(load_group(research/(a.prefix+'_corpus'),research/(a.prefix+'_features.npz'),research/(a.prefix+'_phases.json'),'confirm',extra),research/('geometry_'+a.prefix+'.npz'))
@@ -148,8 +150,15 @@ def main(a):
     source_gates={partition:evaluation_gate(results['primary']['source_partitions'][partition],results['baseline']['source_partitions'][partition],revision) for partition in results['primary']['source_partitions']}
     success=gate['joint_goal_met']
     if revision>=4 and 'valid' in source_gates:success=success and source_gates['valid']['joint_goal_met']
+    incumbent_gates={}
+    if frozen['incumbent_gate_required']:
+        incumbent_gates['overall']=evaluation_gate(results['primary'],results['control'],revision)
+        for partition in results['primary']['source_partitions']:
+            incumbent_gates[partition]=evaluation_gate(results['primary']['source_partitions'][partition],results['control']['source_partitions'][partition],revision)
+        success=bool(success and all(value['joint_goal_met'] for value in incumbent_gates.values()))
     payload=dict(results=results,source_partition_gates=source_gates,overall_gate=gate,priority_gate=gate['priority_gate'],acceptance_revision=revision,role_recall_retained=gate['role_recall_retained'],role_recall_floors=gate['role_recall_floors'],confirmation_joint_goal_met=success if a.purpose=='confirmation' else None,regression_joint_goal_met=success if a.purpose=='regression' else None,evaluation_purpose=a.purpose,total_frames=len(data['rows']),labelled_frames=len(index),
         caveat='Geometry/motion proxy labels, not human intention or closed-loop policy success. All methods share the same frozen proposal arrays; extraction device/batch are in corpus metadata. Source-valid subset also required for V4; source-nonvalid unseen episodes do not establish full visual/policy holdout.')
+    payload['incumbent_gates']=incumbent_gates
     write_json(a.output/'results.json',payload)
     print(json.dumps(payload,indent=2))
 

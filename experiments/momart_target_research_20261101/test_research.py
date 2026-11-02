@@ -460,3 +460,11 @@ def test_confirmation_sampling_excludes_retained_regressions_from_fitted_audit()
     from freeze_confirmation import excluded_episode_ids
     excluded=excluded_episode_ids([dict(episodes=[dict(episode_id='dense_train')])],[dict(episodes=dict(train=['dense_train'],regression=['retained_old_test'],dev=['dense_dev']))])
     assert excluded=={'dense_train','retained_old_test','dense_dev'}
+
+
+def test_growth_screen_join_checks_episode_identity_not_just_equal_counts():
+    import pytest
+    from select_growth_final import require_same_development
+    a=dict(episodes=dict(train=['a'],dev=['b']),counts=dict(train=10,dev=10))
+    require_same_development(a,a)
+    with pytest.raises(ValueError):require_same_development(dict(a,episodes=dict(train=['a'],dev=['other'])),a)
