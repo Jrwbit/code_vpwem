@@ -51,7 +51,11 @@ def main(a):
     from cleandiffuser.nn_condition.multi_image_condition import MultiImageObsConditionMomart
     from cleandiffuser.dataset.dataset_utils import MinMaxNormalizer,ImageNormalizer
     if a.output.exists() or a.output.with_suffix('.json').exists():raise FileExistsError(a.output)
-    torch.set_num_threads(2);cfg=OmegaConf.load(a.config);cfg=OmegaConf.to_container(cfg,resolve=True)
+    torch.set_num_threads(2)
+    if a.disable_tf32:
+        torch.backends.cuda.matmul.allow_tf32=False
+        torch.backends.cudnn.allow_tf32=False
+    cfg=OmegaConf.load(a.config);cfg=OmegaConf.to_container(cfg,resolve=True)
     condition=TaskConditionedObsEncoder(MultiImageObsConditionMomart(shape_meta=cfg['shape_meta'],emb_dim=256,
         rgb_model_name=cfg['rgb_model'],resize_shape=cfg['resize_shape'],crop_shape=cfg['crop_shape'],random_crop=cfg['random_crop'],
         use_group_norm=cfg['use_group_norm'],use_seq=True,keep_horizon_dims=True),cfg['num_tasks'],emb_dim=256)
@@ -93,6 +97,7 @@ def main(a):
         checkpoint_sha256=hashlib.sha256(a.checkpoint.read_bytes()).hexdigest(),config_sha256=hashlib.sha256(a.config.read_bytes()).hexdigest(),
         normalizers_sha256=hashlib.sha256(a.normalizers.read_bytes()).hexdigest(),manifest_sha256=manifests,
         checkpoint=str(a.checkpoint),config=str(a.config),normalizers=str(a.normalizers),task_ids=task_ids,
+        matmul_allow_tf32=torch.backends.cuda.matmul.allow_tf32,cudnn_allow_tf32=torch.backends.cudnn.allow_tf32,
         device=a.device,cuda_visible_devices=__import__('os').environ.get('CUDA_VISIBLE_DEVICES'),batch_size=a.batch_size,
         inputs='Raw RGB/wrist/depth/wrist-depth/proprio/scan at max(0,t-1),t; native5-task ID. Saved normalization and eval center crop.',
         no_actions_or_future_inputs=True,trainable=False,weight_source='model_ema.condition.*',
@@ -102,4 +107,6 @@ def main(a):
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--corpora',type=Path,nargs='+',required=True)
     for key in ['checkpoint','config','normalizers','output']:p.add_argument('--'+key,type=Path,required=True)
-    p.add_argument('--device',default='cpu');p.add_argument('--batch-size',type=int,default=16);main(p.parse_args())
+    p.add_argument('--device',default='cpu');p.add_argument('--batch-size',type=int,default=16)
+    p.add_argument('--disable-tf32',action='store_true',help='Use strict float32 convolutions/matmul; record numerical backend in metadata')
+    main(p.parse_args())
