@@ -72,3 +72,11 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 `benchmark_history.py --root OUTPUT_ROOT --history NEW.npz --output NEW_DIRECTORY`：24次拟合，48个概率对照及1控制；最好370/409，原模型370/410，未增加正确框。
 
 `benchmark_confidence.py --root OUTPUT_ROOT --audit contact_support_corpus_audit.json --output NEW_DIRECTORY`：仅对14个已审计冲突训练帧降权，9次拟合、19条记录；开发标签、权重和全分母不变，原权重三个种子完全复现历史参数，降权未胜出。两个实验合入相同开发集573条V4记录后，既定select_final规则仍保留原可用性模型。新确认集未评分。详见`docs/momart_target_research_history_confidence_20261102.md`。
+
+## 候选对应、冻结策略表示与动作辅助
+
+`benchmark_tracking.py --root OUTPUT_ROOT --output NEW_DIRECTORY`比较12个拟合、25条记录；candidate_history.py仅用相邻公开检测框/外观/观测深度几何对应，无GT身份输入、无跨遮挡追踪保证。
+
+`policy_features.py --corpora ... --checkpoint RAW_POLICY --config SAVED_CONFIG --normalizers SAVED_NPZ --output NEW.npz --device cuda:0 --batch-size 16 --disable-tf32`提取原图策略的冻结EMA观测表示。记录源检查点和归一化SHA、GPU映射及TF32开关；默认数值后端出现过batch1/16差异，后续使用显式严格FP32并保留旧失败输出。benchmark_policy_features.py --root OUTPUT_ROOT --features NEW.npz --output NEW_DIRECTORY比较相同开发集。它不是读取真实未来动作或预测目标标签。
+
+`plan_labels.py --observation-metadata policy_features.json --output NEW_LABELS.npz`仅导出禁止作为推理输入的未来动作标签；benchmark_plan.py --root OUTPUT_ROOT --labels NEW_LABELS.npz --output NEW_DIRECTORY比较9个自预测计划辅助模型。真实命令仅用于损失，目标查询始终使用模型自己预测的计划。上述研究检查点仅支持批量确认器，未加入公开流式部署接口。详见docs/momart_target_research_temporal_plan_20261102.md。
