@@ -149,3 +149,39 @@ def test_mask_feature_views_pool_only_valid_candidates():
     candidate,context=mask_view(data,'mask_small')
     assert candidate.shape==(1,8,34) and context.shape==(1,72)
     np.testing.assert_array_equal(context[0,-23:],np.ones(23))
+
+
+def test_sequence_diagnostics_separate_chatter_from_gold_switches_and_nulls():
+    from sequence_metrics import sequence_metrics
+    rows=[]
+    for i,target in enumerate(['bowl','bowl','rack','rack']):
+        rows.append(dict(episode_id='e',step=i*8,objects=[dict(class_id=0),dict(class_id=3)],label=dict(target=dict(instance_id=target,class_id=0 if target=='bowl' else 3))))
+    positive=np.zeros((4,8),bool);positive[:2,0]=True;positive[2:,1]=True
+    data=dict(rows=rows,positive=positive)
+    m=sequence_metrics(np.array([0,1,1,8]),data,range(4))
+    assert m['stable_class_switches']==1 and m['gold_subject_changes']==1 and m['correct_box_at_change']==1
+    assert m['stable_correct_to_null']==1 and m['stable_both_selected']==1
+
+
+def test_public_runtime_returns_one_box_or_null_and_rejects_stale_inputs(tmp_path):
+    import json
+    import pytest
+    from runtime import FrameFeatures,SingleBoxSelector
+    previous=tmp_path/'momart_target_selector_20261101';previous.mkdir();(previous/'features.json').write_text(json.dumps(dict(tasks=['t0','t1','t2','t3'])))
+    net=Pointer(139,419,width=16,kind='linear').eval()
+    for value in net.parameters():value.data.zero_()
+    net.null[-1].bias.data.fill_(-4.)
+    torch.save(dict(spec=dict(kind='linear',view='base',width=16),state=net.state_dict(),normalizer=dict(cm=np.zeros(139,np.float32),cs=np.ones(139,np.float32),xm=np.zeros(419,np.float32),xs=np.ones(419,np.float32))),tmp_path/'model.pt')
+    selection=tmp_path/'selected.json';selection.write_text(json.dumps(dict(result=dict(component=dict(kind='parent',name='model',screen=str(tmp_path)),calibration=dict(threshold=0.,margin=0.)))))
+    runtime=SingleBoxSelector(selection,tmp_path);c=np.zeros((8,139),np.float32);c[0,128:132]=[.1,.2,.3,.4];c[0,133]=1
+    x=np.zeros(280,np.float32);x[-4]=1;valid=np.array([True]+[False]*7);frame=FrameFeatures(c,x,valid,'t0')
+    result=runtime.select(frame,'first',0);assert result['valid'] and result['slot']==0
+    np.testing.assert_array_equal(result['box'],c[0,128:132]);result['probability'][0]=123
+    assert runtime.select(frame,'first',0)['probability'][0]<1
+    with pytest.raises(ValueError,match='increase'):runtime.select(frame,'first',-1)
+    changed=FrameFeatures(c,x.copy(),valid,'t0');changed.context[0]=1
+    with pytest.raises(ValueError,match='different public inputs'):runtime.select(changed,'first',0)
+    empty=FrameFeatures(c,x,np.zeros(8,bool),'t0');missing=runtime.select(empty,'first',8)
+    assert not missing['valid'] and missing['box'] is None and missing['slot']==8
+    assert runtime.select(frame,'next_episode',0)['slot']==0
+    assert not({'label','positive','future','actions'}&set(FrameFeatures.__dataclass_fields__))

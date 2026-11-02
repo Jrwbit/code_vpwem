@@ -9,6 +9,7 @@ from data import load_group,attach_geometry,feature_view,metrics
 from models import Pointer,RecurrentPointer
 from benchmark import TargetSelector,candidate_rows,sequence_batch,write_json
 from refine import quality_features,multiply_quality,role_breakdown
+from sequence_metrics import sequence_metrics
 
 
 def predict_parent(component,data,root):
@@ -88,7 +89,7 @@ def main(a):
         item=frozen[key];prob=predict_component(item['component'],data,a.root)
         assert np.isfinite(prob).all() and np.allclose(prob.sum(-1),1,atol=1e-5)
         pred=apply_calibration(prob,item['calibration']);raw=prob.argmax(-1)
-        results[key]=dict(name=item['name'],raw=metrics(raw,index,data),accepted=metrics(pred,index,data),roles=role_breakdown(pred,index,data),
+        results[key]=dict(name=item['name'],raw=metrics(raw,index,data),accepted=metrics(pred,index,data),roles=role_breakdown(pred,index,data),sequence=sequence_metrics(pred,data,index),raw_sequence=sequence_metrics(raw,data,index),
             episodes={ep:metrics(pred,np.array([i for i in index if data['rows'][i]['episode_id']==ep]),data) for ep in sorted({r['episode_id'] for r in data['rows']})})
         np.savez_compressed(a.output/(key+'_predictions.npz'),probability=prob,prediction=pred,ids=np.array([r['id'] for r in data['rows']]))
     p=results['primary']['accepted'];b=results['baseline']['raw']

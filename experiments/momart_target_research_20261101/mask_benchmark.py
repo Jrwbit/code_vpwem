@@ -7,8 +7,8 @@ import torch
 from benchmark import train_torch,train_tree,write_json
 from benchmark_geometry import load_geometry_data
 from data import partitions,feature_view,metrics
-from refine import calibrate_v2
-from confirm import apply_calibration
+from refine import calibrate_v2,role_breakdown
+from confirm import apply_calibration,predict_component
 
 
 def attach_masks(data,paths):
@@ -35,13 +35,20 @@ def mask_view(data,name):
 
 def main(a):
     torch.set_num_threads(2);research=a.root/'momart_target_research_20261101'
-    data=attach_masks(load_geometry_data(a.root),[research/'mask_old.npz',research/'mask_new.npz']);splits=partitions(data);train=splits['train'];a.output.mkdir(parents=True,exist_ok=False)
+    if a.dense:
+        from benchmark_dense import load_dense_data,calibrate_v3
+        data=attach_masks(load_dense_data(a.root),[research/'mask_dense.npz',research/'mask_old.npz',research/'mask_new.npz'])
+    else:data=attach_masks(load_geometry_data(a.root),[research/'mask_old.npz',research/'mask_new.npz'])
+    splits=partitions(data);train=splits['train'];a.output.mkdir(parents=True,exist_ok=False)
     write_json(a.output/'frozen_search_protocol.json',dict(views=['mask_small','mask_spatial','mask_full'],seeds=[100,200,300],
-        kinds=['mlp64','mlp128','query64','query128','boost7','extra2','extra5'],selection='original train/dev only; first confirmation already examined, diagnostic regression only'))
+        dense=a.dense,acceptance_revision=3 if a.dense else 2,kinds=['mlp64','mlp128','query64','query128','boost7','extra2','extra5'],selection='original train/dev only; first confirmation already examined, diagnostic regression only'))
     baseline=json.loads((research/'screen_seed100/registry.json').read_text())['previous_pointer']['raw']['dev']['recall']
+    if a.dense:
+        old=predict_component(dict(kind='parent',name='previous_pointer',screen=str(research/'screen_seed100')),data,a.root).argmax(-1)
+        dense_baseline=dict(metrics=metrics(old,splits['dev'],data),roles=role_breakdown(old,splits['dev'],data))
     registry={};probabilities={};groups={}
     def record(name,prob,component):
-        cal=calibrate_v2(prob,splits['dev'],data,baseline);pred=apply_calibration(prob,cal)
+        cal=calibrate_v3(prob,splits['dev'],data,dense_baseline) if a.dense else calibrate_v2(prob,splits['dev'],data,baseline);pred=apply_calibration(prob,cal)
         registry[name]=dict(name=name,component=component,calibration=cal,raw={k:metrics(prob.argmax(-1),v,data) for k,v in splits.items() if len(v)},reject={k:metrics(pred,v,data) for k,v in splits.items() if len(v)})
         probabilities[name]=prob;np.savez_compressed(a.output/(name+'_probabilities.npz'),probability=prob);write_json(a.output/'registry.json',registry)
     for view_name in ['mask_small','mask_spatial','mask_full']:
@@ -61,9 +68,9 @@ def main(a):
     for family,names in groups.items():record(family+'_ensemble3',np.mean([probabilities[n] for n in names],0),dict(kind='blend',members=[registry[n]['component'] for n in names],weights=[1/3]*3))
     def merit(name):
         r=registry[name];c=r['calibration'];return (c['joint_goal_met'],c['metrics']['recall'] if c['joint_goal_met'] else r['raw']['dev']['f1'],-r['raw']['dev']['wrong_acquire'])
-    winner=max(registry,key=merit);write_json(a.output/'selected.json',dict(name=winner,result=registry[winner],method_count=len(registry),selection_partition='old/dev only',confirmation_evaluated=False))
+    winner=max(registry,key=merit);write_json(a.output/'selected.json',dict(name=winner,result=registry[winner],method_count=len(registry),selection_partition='dense old/dev only' if a.dense else 'old/dev only',acceptance_revision=3 if a.dense else 2,confirmation_evaluated=False))
     print(json.dumps(dict(winner=winner,calibration=registry[winner]['calibration']),indent=2))
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);main(p.parse_args())
+    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--dense',action='store_true');main(p.parse_args())

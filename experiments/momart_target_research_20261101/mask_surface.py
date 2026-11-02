@@ -43,21 +43,21 @@ def main(a):
     assert meta['manifest_sha256']==file_sha256(a.corpus/'manifest.json')
     base=np.load(a.features,allow_pickle=False);cfg=OmegaConf.load(a.config).object_memory
     assert file_sha256(cfg.detector_checkpoint)==meta['perception']['detector_checkpoint_sha256']
-    net=FrozenMaskDetector(cfg.detector_checkpoint,cfg.detector_thresholds if 'detector_thresholds' in cfg else meta['perception']['thresholds'],'cpu').model
+    net=FrozenMaskDetector(cfg.detector_checkpoint,cfg.detector_thresholds if 'detector_thresholds' in cfg else meta['perception']['thresholds'],a.device).model
     features=np.zeros((len(meta['ids']),8,23),np.float32);unmatched=[];files={}
     try:
-        for start in range(0,len(meta['ids']),4):
-            rows=manifest['records'][start:start+4];images=[]
+        for start in range(0,len(meta['ids']),a.batch_size):
+            rows=manifest['records'][start:start+a.batch_size];images=[]
             for row in rows:
                 rgb=np.asarray(Image.open(a.corpus/row['file']).convert('RGB'));assert hashlib.sha256(rgb.tobytes()).hexdigest()==row['sha256']
-                images.append(torch.from_numpy(rgb.copy()).permute(2,0,1).float()/255)
+                images.append(torch.from_numpy(rgb.copy()).permute(2,0,1).float().to(a.device)/255)
             with torch.inference_mode():outputs=net(images)
             for j,(row,result) in enumerate(zip(rows,outputs)):
                 i=start+j
                 if row['source'] not in files:files[row['source']]=h5py.File(row['source'],'r')
                 depth=np.asarray(files[row['source']]['data'][row['demo']]['obs/depth'][row['step']])
                 ctx=geometry['context'][i];ee,uv=ctx[:3],ctx[3:5];fov,high=ctx[7]*90,ctx[8]
-                boxes=result['boxes'].numpy()/[120,90,120,90];classes=result['labels'].numpy()-1;masks=result['masks'][:,0].numpy()
+                boxes=result['boxes'].detach().cpu().numpy()/[120,90,120,90];classes=result['labels'].detach().cpu().numpy()-1;masks=result['masks'][:,0].detach().cpu().numpy()
                 for slot in np.flatnonzero(base['valid'][i]):
                     candidate=base['candidates'][i,slot];box=candidate[128:132];cls=candidate[133:].argmax()
                     indices=np.flatnonzero(classes==cls)
@@ -65,17 +65,18 @@ def main(a):
                     values=overlap(box,boxes[indices]);best=int(values.argmax())
                     if values[best]<.9:unmatched.append([row['id'],int(slot)]);continue
                     features[i,slot]=surface_features(box,depth,masks[indices[best]],ee,uv,fov,high)
-            print(json.dumps(dict(processed=min(start+4,len(meta['ids'])),total=len(meta['ids']),unmatched=len(unmatched))),flush=True)
+            print(json.dumps(dict(processed=min(start+a.batch_size,len(meta['ids'])),total=len(meta['ids']),unmatched=len(unmatched))),flush=True)
     finally:
         for f in files.values():f.close()
     np.savez_compressed(a.output,candidates=features)
     a.output.with_suffix('.json').write_text(json.dumps(dict(ids=meta['ids'],manifest_sha256=meta['manifest_sha256'],unmatched=unmatched,
-        proposal_policy='Original proposals retained; same-class CPU mask matched at IoU>=.9; unmatched explicit zero validity flag',
-        device='cpu',batch_size=4,checkpoint_sha256=file_sha256(cfg.detector_checkpoint),
+        proposal_policy='Original proposals retained; same-class predicted mask matched at IoU>=.9; unmatched explicit zero validity flag',
+        device=a.device,batch_size=a.batch_size,checkpoint_sha256=file_sha256(cfg.detector_checkpoint),
         inputs='Current RGB predicted mask, observed depth and measured-robot FK; no scene GT, actions, targets or future'),indent=2))
 
 
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for name in ['corpus','features','geometry','config','output']:p.add_argument('--'+name,type=Path,required=True)
+    p.add_argument('--device',default='cpu');p.add_argument('--batch-size',type=int,default=4)
     main(p.parse_args())
