@@ -370,3 +370,19 @@ def test_policy_observations_use_only_two_recent_public_sensor_frames():
     for key in first:np.testing.assert_array_equal(first[key],second[key])
     assert first['rgb'].shape==(2,3,90,120) and first['rgb'][0].mean()==1
     np.testing.assert_array_equal(prepare_observations(obs,0)['rgb'][0],prepare_observations(obs,0)['rgb'][1])
+
+
+def test_plan_targets_are_label_only_and_end_padding_is_masked():
+    from plan_labels import future_commands
+    from plan_model import plan_loss,ActionPlanPointer
+    commands=np.arange(30,dtype=np.float32).reshape(3,10)
+    target,valid=future_commands(commands,2)
+    np.testing.assert_array_equal(target[0],commands[2]);assert valid.sum()==1
+    p=torch.zeros(1,8,10,requires_grad=True);y=torch.tensor(target[None]);mask=torch.tensor(valid[None])
+    a=plan_loss(p,y,mask);y[:,1:]=1e6
+    torch.testing.assert_close(a,plan_loss(p,y,mask))
+    a.backward();assert p.grad[:,1:].abs().sum()==0
+    net=ActionPlanPointer(4,5).eval()
+    logits,plan=net(torch.zeros(2,8,4),torch.zeros(2,5),torch.tensor([[True]+[False]*7]*2))
+    assert logits.shape==(2,9) and plan.shape==(2,8,10)
+    assert torch.isneginf(logits[:,1:8]).all() and torch.isfinite(logits[:,[0,8]]).all()

@@ -46,7 +46,10 @@ def predict_parent(component,data,root):
         empty=prob.sum(-1)==0;prob[empty,8]=1
         return prob/prob.sum(-1,keepdims=True)
     n=ckpt['normalizer'];c=torch.tensor((raw-n['cm'])/n['cs']);x=torch.tensor((context-n['xm'])/n['xs'])
-    if spec['kind']=='gru':net=RecurrentPointer(c.shape[-1],x.shape[-1],spec['width'])
+    if spec['kind']=='plan_query':
+        from plan_model import ActionPlanPointer
+        net=ActionPlanPointer(c.shape[-1],x.shape[-1],spec['width'],spec['horizon'])
+    elif spec['kind']=='gru':net=RecurrentPointer(c.shape[-1],x.shape[-1],spec['width'])
     else:net=Pointer(c.shape[-1],x.shape[-1],spec['width'],spec.get('dropout',.1),spec['kind'],spec.get('soft_role',0.))
     net.load_state_dict(ckpt['state']);net.eval()
     with torch.inference_mode():
