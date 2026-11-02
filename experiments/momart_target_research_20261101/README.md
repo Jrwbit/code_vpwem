@@ -80,3 +80,15 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 `policy_features.py --corpora ... --checkpoint RAW_POLICY --config SAVED_CONFIG --normalizers SAVED_NPZ --output NEW.npz --device cuda:0 --batch-size 16 --disable-tf32`提取原图策略的冻结EMA观测表示。记录源检查点和归一化SHA、GPU映射及TF32开关；默认数值后端出现过batch1/16差异，后续使用显式严格FP32并保留旧失败输出。benchmark_policy_features.py --root OUTPUT_ROOT --features NEW.npz --output NEW_DIRECTORY比较相同开发集。它不是读取真实未来动作或预测目标标签。
 
 `plan_labels.py --observation-metadata policy_features.json --output NEW_LABELS.npz`仅导出禁止作为推理输入的未来动作标签；benchmark_plan.py --root OUTPUT_ROOT --labels NEW_LABELS.npz --output NEW_DIRECTORY比较9个自预测计划辅助模型。真实命令仅用于损失，目标查询始终使用模型自己预测的计划。上述研究检查点仅支持批量确认器，未加入公开流式部署接口。详见docs/momart_target_research_temporal_plan_20261102.md。
+
+## 训练轨迹扩充与切换训练权重
+
+`freeze_growth.py --reference CORPUS --exclude ALL_EXAMINED_AND_RESERVED --output NEW_CORPUS`固定source-train池的新train/dev，默认每任务20/4条，排除已查看轨迹和保留确认组。`growth_data.py`保留原划分，校验原/新episode以及第三至第五组隔离，合并108train/24dev，仅使用本轮必要公共特征。
+
+`MOMART_ASSIGNED_GPU=1 prepare_corpus.sh PROJECT ROOT PYTHON PREFIX 1 geometry`使用用户明确分配的卡1并跳过未使用腕部特征；不指定分配卡时保留原等待逻辑。`run_growth_when_ready.py --resume-geometry ...`仅在旧进程结束且前置数据存在时显式续跑，原失败状态留档。几何导出已改为候选NPZ一次解压，555帧逐元素等价。
+
+`benchmark_growth.py --root OUTPUT_ROOT --output NEW_DIRECTORY --device cuda:0`做old28/enlarged108的12拟合/25记录，选择同时要求原8/新16dev分别通过V4。两种控制的权重冻结，开发阈值仍重新校准；不得称完整配置冻结。`freeze_growth_confirmation.py`在确认组未标注/未提取候选前冻结胜出结果、原控制、训练隔离审计及确认manifest SHA。`confirm.py --public-views geometry`显式读取无需腕部的公共特征；默认rich保持原要求。`bootstrap_confirmation.py --reference baseline|control`按episode成对抽样。
+
+第五组新候选P92.87%、R90.75%，原冻结控制P93.04%、R88.68%；取碗错类8→12，切换正确8/10→6/10，故未升级。详见`docs/momart_target_research_growth_confirmation_20261102.md`。
+
+`freeze_confirmation.py --exclude ... --exclude-audit FITTED_DATA_AUDIT --output NEW_CORPUS ...`同时排除完整拟合/评分审计里的episode，不能仅传补密train/dev而遗漏保留test/回归。下一轮`benchmark_growth.py --weighting transition`保持108/24划分与输入，15拟合/32记录，比较仅训练损失的切换后3帧2/4倍、取碗2倍及组合，并先校验第六组隔离。标签不进入推理，未知帧打断训练窗口。
