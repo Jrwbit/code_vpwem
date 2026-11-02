@@ -49,6 +49,9 @@ def predict_parent(component,data,root):
 def predict_component(component,data,root):
     kind=component['kind']
     if kind=='parent':return predict_parent(component,data,root)
+    if kind=='hard_query':
+        from hard_query import predict_query
+        return predict_query(component,data,root)
     if kind=='blend':return sum(w*predict_component(c,data,root) for w,c in zip(component['weights'],component['members']))
     if kind=='availability':
         from availability_features import replace_availability

@@ -243,3 +243,52 @@ def test_support_audit_separates_carrier_motion_from_bilateral_grasp_evidence():
     assert facts(current,before)['carrier_motion_with_unilateral_grip']
     current['finger_distances']['l_gripper_finger_link']=.0002
     assert facts(current,before)['bilateral_bowl_5mm'] and not facts(current,before)['carrier_motion_with_unilateral_grip']
+
+
+def test_class_query_cannot_fall_back_to_rack_or_invalid_bowl():
+    from query_grounding import ground_query
+    p=np.zeros((4,9),np.float32);p[:,0]=.8;p[:,1]=.1;p[:,8]=.1
+    classes=np.full((4,8),-1);classes[:,:2]=[3,0]
+    valid=np.zeros((4,8),bool);valid[:,:2]=True;valid[1,1]=False
+    query=np.array([0,0,-1,3])
+    result=ground_query(p,classes,valid,query,keep_null=False)
+    np.testing.assert_array_equal(result.argmax(-1),[1,8,8,0])
+    assert result[0,0]==0 and result[1,0]==0
+    np.testing.assert_allclose(result.sum(-1),1)
+
+
+def test_class_query_preserves_instance_ranking_and_optional_null():
+    from query_grounding import ground_query
+    p=np.array([[.15,.05,.1,0,0,0,0,0,.7]])
+    cls=np.array([[0,0,3,-1,-1,-1,-1,-1]])
+    valid=cls>=0
+    masked=ground_query(p,cls,valid,np.array([0]))
+    assert masked.argmax(-1)[0]==8
+    np.testing.assert_allclose(masked[0,0]/masked[0,1],3)
+    assert ground_query(p,cls,valid,np.array([0]),keep_null=False).argmax(-1)[0]==0
+
+
+def test_failure_decomposition_keeps_missing_proposals_separate_from_intent():
+    from diagnose_intent import failure_bucket
+    data=dict(positive=np.array([[False]*8,[True]+[False]*7,[True]+[False]*7]),
+        rows=[dict(label=dict(target=dict(class_id=0)),objects=[dict(class_id=3),dict(class_id=0)]) for _ in range(3)])
+    assert failure_bucket(0,[0,0,0],data)=='no_matching_instance_proposal'
+    assert failure_bucket(1,[0,8,0],data)=='rejected_matching_proposal'
+    assert failure_bucket(2,[0,0,0],data)=='correct'
+
+
+def test_autonomous_query_history_is_prefix_causal_and_episode_local():
+    from hard_query import query_beliefs,hard_query_distribution
+    rows=[dict(episode_id=ep,step=t,task='task') for ep,t in [('a',0),('b',0),('a',8),('a',16)]]
+    emissions=np.array([[.8,.05,.05,.05,.05],[.05,.05,.8,.05,.05],[.4,.1,.3,.1,.1],[.05,.05,.8,.05,.05]])
+    rates=np.full((5,5),.02);np.fill_diagonal(rates,-.08)
+    priors=np.full((1,5),.2)
+    full=query_beliefs(emissions,rows,['task'],rates,priors,True)
+    np.testing.assert_allclose(full[:3],query_beliefs(emissions[:3],rows[:3],['task'],rates,priors,True))
+    np.testing.assert_allclose(full[[0,2,3]],query_beliefs(emissions[[0,2,3]],[rows[i] for i in [0,2,3]],['task'],rates,priors,True))
+    p=np.zeros((4,9));p[:,0]=.8;p[:,1]=.1;p[:,8]=.1
+    cls=np.full((4,8),-1);cls[:,:2]=[3,0];valid=cls>=0
+    for mode in ['parent','product']:
+        out=hard_query_distribution(p,full,cls,valid,mode)
+        np.testing.assert_allclose(out.sum(-1),1)
+        assert out[0,0]==0  # A bowl query cannot silently return the more likely rack.
