@@ -488,3 +488,13 @@ def test_incumbent_gate_compares_frozen_accepted_recall_instead_of_raw_recall():
     assert incumbent_evaluation_gate(primary,control,4)['joint_goal_met']
     control['accepted']['recall']=.96;control['raw']['recall']=.5
     assert not incumbent_evaluation_gate(primary,control,4)['joint_goal_met']
+
+
+def test_switch_diagnosis_does_not_bridge_unknown_or_excessive_gaps():
+    from diagnose_intent import subject_changes
+    subjects=['a',None,'b','a','b'];steps=[0,8,16,24,48]
+    rows=[]
+    for i,(target,step) in enumerate(zip(subjects,steps)):
+        rows.append(dict(episode_id='e',id=str(i),demo='demo',step=step,label=dict(target=dict(instance_id=target,class_id=int(target=='b'))) if target else None,objects=[dict(class_id=0)]))
+    data=dict(rows=rows,positive=np.ones((5,8),bool));changes=subject_changes(data,np.zeros(5,int),np.zeros(5,bool))
+    assert len(changes)==1 and changes[0]['step']==24 and changes[0]['outcome']=='correct'

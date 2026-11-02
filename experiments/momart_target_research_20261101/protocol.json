@@ -32,7 +32,16 @@
     "train-only continuous-time soft role filter",
     "predicted-mask-restricted observed-depth geometry",
     "three-seed stability and ensembles",
-    "dense original train/dev sequences; second independent confirmation"
+    "dense original train/dev sequences; second independent confirmation",
+    "autonomous hard class queries and privileged class-only diagnostic upper bounds",
+    "causal own-finger and strictly past commanded-action histories",
+    "train-only carrier-conflict label confidence weighting",
+    "public class/box/appearance candidate associations",
+    "frozen raw action-policy observation features with strict FP32 batch parity",
+    "self-predicted future-command auxiliary training, true actions used as loss targets only",
+    "paired old28/enlarged108 training populations with old8/new16 development gates",
+    "train-only switch-window and acquisition loss emphasis",
+    "fixed incumbent/weighting-family probability blends with dual-comparator calibration"
   ],
   "deployment": "do not replace production model based only on weak-proxy scores; retain causal inputs, missing-target masks and full-scene observations",
   "acceptance_revision": 2,
@@ -44,5 +53,16 @@
     "timing": "strengthened before dense training and before second confirmation evaluation"
   },
   "active_acceptance_revision": 4,
-  "v4_priority_objective": "In addition to precision/recall and role floors, acquisition wrong-class strictly decreases if baseline>0, carry wrong-class does not increase, stable class chatter and stale/correct at gold subject changes do not regress"
+  "v4_priority_objective": "In addition to precision/recall and role floors, acquisition wrong-class strictly decreases if baseline>0 and >=10 acquisition samples (else no increase), carry wrong-class does not increase, stable class chatter and stale/correct at gold subject changes do not regress; transition gate enabled at >=3 changes",
+  "current_training": "108 train/24 dev episodes, 5794/1243 known unchanged active_subject_v1 labels; source-train growth excludes all previously examined and reserved episodes; old8 and new16 dev checked separately",
+  "incumbent_promotion": {
+    "registered_before": "confirmation6 annotations or candidate extraction",
+    "control": "original frozen_for_confirm4 complete configuration, threshold=0 and margin=.2; not development-recalibrated control weights",
+    "development": "Original pointer V4 AND frozen incumbent V4, on combined24 and old8/new16 separately; compare incumbent accepted recall, not raw recall",
+    "confirmation": "incumbent_gate_required=true requires the original frozen control; original pointer gate plus incumbent-relative overall and every source-stratum gate must pass",
+    "selection": "Among eligible configurations, maximize correct-box recall, then fewer acquisition wrong-class errors, then precision",
+    "holdout": "confirmation6: 16 selector-unseen source-nonvalid episodes, 1265 original frames; upstream visual/policy holdout not established",
+    "original_manifest_sha256": "d84825c66da2ef7800ecac75ceaf5654ff2812cb5312aa7955ca40bfec3f1984"
+  },
+  "runtime_bundle": "Relocatable public-feature selector only, always labelled research_candidate_not_promoted; bundle parity does not establish reliable intent, raw perception, full task coverage or closed-loop policy success"
 }

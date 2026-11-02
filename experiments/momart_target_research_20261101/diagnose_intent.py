@@ -27,6 +27,24 @@ def failure_bucket(i,pred,data):
     return 'wrong_instance_or_box_with_matching_proposal'
 
 
+def subject_changes(data,pred,flags,max_gap_steps=16):
+    """Return every eligible change, including successes, without bridging unknowns."""
+    changes=[]
+    for episode in sorted({r['episode_id'] for r in data['rows']}):
+        ids=sorted([i for i,r in enumerate(data['rows']) if r['episode_id']==episode],key=lambda i:data['rows'][i]['step'])
+        for left,right in zip(ids,ids[1:]):
+            a,b=data['rows'][left],data['rows'][right]
+            if a['label'] is None or b['label'] is None or not 0<b['step']-a['step']<=max_gap_steps:continue
+            old,new=a['label']['target'],b['label']['target']
+            if old['instance_id']==new['instance_id']:continue
+            slot=int(pred[right]);cls=b['objects'][slot]['class_id'] if slot<8 else None
+            changes.append(dict(episode_id=episode,id=b['id'],demo=b['demo'],step=b['step'],previous_step=a['step'],
+                old_class=old['class_id'],new_class=new['class_id'],predicted_class=cls,
+                outcome=failure_bucket(right,pred,data),carrier_conflict_review=bool(flags[right]),
+                stale_previous_class=bool(cls is not None and old['class_id']!=new['class_id'] and cls==old['class_id'])))
+    return changes
+
+
 def main(a):
     if a.output.exists():raise FileExistsError(a.output)
     data=load_group(a.research/(a.prefix+'_corpus'),a.research/(a.prefix+'_features.npz'),a.research/(a.prefix+'_phases.json'),'confirm')
@@ -63,7 +81,7 @@ def main(a):
             outcome=bucket,oracle_outcome=failure_bucket(i,oracle,data),carrier_conflict_review=bool(flags[i]),
             candidate_classes=classes[i].tolist(),probability=prob[i].tolist()))
     payload=dict(protocol='posthoc_intent_grounding_diagnosis_v1',prefix=a.prefix,total_frames=n,known_frames=len(index),unknown_frames=n-len(index),
-        subsets=report,examples=examples,input_sha256={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [a.predictions,a.audit]},
+        subsets=report,examples=examples,subject_changes=subject_changes(data,pred,flags),input_sha256={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [a.predictions,a.audit]},
         caveat='Examined regression only. Oracle class reads weak labels, not autonomous intent. Same-class instance/box ranking unchanged. Null removal is an optimistic grounding diagnostic, not calibrated deployment. Carrier conflicts remain in every full-denominator metric; no label changed. Review flags do not prove intent errors.')
     a.output.write_text(json.dumps(payload,indent=2))
     print(json.dumps(dict(prefix=a.prefix,total_frames=n,known_frames=len(index),subsets=report),indent=2))
