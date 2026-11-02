@@ -117,14 +117,15 @@ def main(a):
     baseline_screen=research/'screen_seed100';baseline=json.loads((baseline_screen/'registry.json').read_text())['previous_pointer']
     frozen=dict(primary=dict(name=selected['name'],component=selected['result']['component'],calibration=selected['result']['calibration']),
         baseline=dict(name='previous_pointer',component=dict(kind='parent',name='previous_pointer',screen=str(baseline_screen)),calibration=baseline['calibration']),
-        evaluation_purpose=a.purpose,corpus_prefix=a.prefix,
+        evaluation_purpose=a.purpose,corpus_prefix=a.prefix,public_views=a.public_views,
         selection_sha256=hashlib.sha256((a.selection/'selected.json').read_bytes()).hexdigest(),
         selection_policy='Registered development cohort only; frozen before confirmation labels/features are loaded',acceptance_revision=selected['result']['calibration'].get('acceptance_revision',2))
     if a.control_selection is not None:
         control=json.loads((a.control_selection/'selected.json').read_text())
         frozen['control']=dict(name=control['name'],component=control['result']['component'],calibration=control['result']['calibration'])
     write_json(a.output/'frozen_evaluation_manifest.json',frozen)
-    data=attach_geometry(load_group(research/(a.prefix+'_corpus'),research/(a.prefix+'_features.npz'),research/(a.prefix+'_phases.json'),'confirm',research/('extra_'+a.prefix+'.npz')),research/('geometry_'+a.prefix+'.npz'))
+    extra=research/('extra_'+a.prefix+'.npz') if a.public_views=='rich' else None
+    data=attach_geometry(load_group(research/(a.prefix+'_corpus'),research/(a.prefix+'_features.npz'),research/(a.prefix+'_phases.json'),'confirm',extra),research/('geometry_'+a.prefix+'.npz'))
     if (research/('mask_'+a.prefix+'.npz')).exists():
         from mask_benchmark import attach_masks
         data=attach_masks(data,[research/('mask_'+a.prefix+'.npz')])
@@ -157,4 +158,5 @@ if __name__=='__main__':
     p=argparse.ArgumentParser()
     for k in ['root','selection','output']:p.add_argument('--'+k,type=Path,required=True)
     p.add_argument('--control-selection',type=Path);p.add_argument('--prefix',default='confirmation');p.add_argument('--purpose',choices=['confirmation','regression'],default='confirmation')
+    p.add_argument('--public-views',choices=['rich','geometry'],default='rich')
     main(p.parse_args())
