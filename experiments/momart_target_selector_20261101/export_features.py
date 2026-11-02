@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 import h5py
@@ -54,7 +55,7 @@ def main(a):
     a.output.parent.mkdir(parents=True,exist_ok=True)
     np.savez_compressed(a.output,candidates=np.stack(features),valid=np.stack(valid),context=np.stack(contexts).astype(np.float32))
     a.output.with_suffix('.json').write_text(json.dumps(dict(ids=[row['id'] for row in rows],tasks=tasks,
-        detections=detections,perception=perceive.metadata,batch_size=a.batch_size,
+        detections=detections,perception=perceive.metadata,batch_size=a.batch_size,device=a.device,cuda_visible_devices=os.environ.get('CUDA_VISIBLE_DEVICES'),
         features='128D ROI + xyxy + score + class one-hot; current/past global visual, current/delta proprio, task',
         past_offset_steps=8,ground_truth_input=False,future_input=False,
         manifest_sha256=file_sha256(a.corpus/'manifest.json')),indent=2))

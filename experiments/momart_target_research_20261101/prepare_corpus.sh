@@ -12,11 +12,11 @@ flock -n 9 || exit 0
 corpus="$research/${name}_corpus"
 status="$research/${name}_prepare_status.json"
 write_status() {
- "$python_bin" - "$status" "$1" <<'PY'
+ "$python_bin" - "$status" "$1" "$feature_gpu" <<'PY'
 import json,os,sys,time
 from pathlib import Path
 path=Path(sys.argv[1]);temp=path.with_suffix('.tmp')
-temp.write_text(json.dumps(dict(stage=sys.argv[2],updated_unix=time.time(),pid=os.getppid()),indent=2));temp.replace(path)
+temp.write_text(json.dumps(dict(stage=sys.argv[2],updated_unix=time.time(),pid=os.getppid(),feature_device='cpu' if sys.argv[3]=='cpu' else 'cuda:0',feature_physical_gpu=None if sys.argv[3]=='cpu' else sys.argv[3],feature_batch_size=4 if sys.argv[3]=='cpu' else 16),indent=2));temp.replace(path)
 PY
 }
 trap 'write_status failed' ERR
@@ -54,4 +54,4 @@ write_status wrist_depth_cpu
 CUDA_VISIBLE_DEVICES='' "$python_bin" -u experiments/momart_target_research_20261101/export_extra.py --corpus "$corpus" --features "$research/${name}_features.npz" --config /home/jrw/vpwem_outputs/momart_mask_cache_gpu3_6_20261101/gpu3.yaml --output "$research/extra_${name}.npz"
 write_status robot_geometry_cpu
 "$python_bin" -u experiments/momart_target_research_20261101/robot_geometry.py --corpus "$corpus" --features "$research/${name}_features.npz" --urdf /home/jrw/code/iGibson_momart/gibson2/data/assets/models/fetch/fetch_gripper.urdf --output "$research/geometry_${name}.npz"
-write_status ready_cpu_features
+write_status ready_public_features

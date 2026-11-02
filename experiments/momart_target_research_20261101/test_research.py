@@ -233,3 +233,13 @@ def test_third_confirmation_priority_improvement_does_not_hide_a_lost_switch():
     gate=evaluation_gate(primary,baseline,4)
     assert gate['priority_gate']['priority_errors_improved'] and not gate['priority_gate']['switching_retained']
     assert not gate['joint_goal_met']
+
+
+def test_support_audit_separates_carrier_motion_from_bilateral_grasp_evidence():
+    from audit_support_corpus import facts
+    before=dict(supports={'rack':dict(position=[0,0,0],orientation=[0,0,0,1],bowl_relative=[0,0,.17],hand_links=[1,2])})
+    current=dict(finger_distances={'r_gripper_finger_link':.0001,'l_gripper_finger_link':.031},
+        supports={'rack':dict(position=[.05,0,0],orientation=[0,0,0,1],bowl_relative=[0,0,.17],hand_links=[1,2])})
+    assert facts(current,before)['carrier_motion_with_unilateral_grip']
+    current['finger_distances']['l_gripper_finger_link']=.0002
+    assert facts(current,before)['bilateral_bowl_5mm'] and not facts(current,before)['carrier_motion_with_unilateral_grip']

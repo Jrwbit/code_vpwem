@@ -17,7 +17,7 @@ def main(a):
     delta=measures(arrays['primary'])-measures(arrays['baseline']);ci=np.quantile(deltas,[.025,.975],axis=0)
     result=dict(episodes=episodes,seed=20261105,repeats=a.repeats,unit='paired episode clusters; primary accepted vs baseline accepted',
         differences={key:dict(point=float(delta[i]),percentile95=[float(ci[0,i]),float(ci[1,i])]) for i,key in enumerate(['precision','pooled_recall','episode_macro_recall'])},
-        limitation='8 clusters only; uncertainty interval describes this proxy-labelled corpus, not policy success')
+        limitation=f'{len(episodes)} clusters only; uncertainty interval describes this proxy-labelled corpus, not policy success')
     a.output.write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2))
 
 

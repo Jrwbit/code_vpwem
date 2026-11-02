@@ -130,7 +130,7 @@ def main(a):
     success=gate['joint_goal_met']
     if revision>=4 and 'valid' in source_gates:success=success and source_gates['valid']['joint_goal_met']
     payload=dict(results=results,source_partition_gates=source_gates,overall_gate=gate,priority_gate=gate['priority_gate'],acceptance_revision=revision,role_recall_retained=gate['role_recall_retained'],role_recall_floors=gate['role_recall_floors'],confirmation_joint_goal_met=success if a.purpose=='confirmation' else None,regression_joint_goal_met=success if a.purpose=='regression' else None,evaluation_purpose=a.purpose,total_frames=len(data['rows']),labelled_frames=len(index),
-        caveat='Geometry/motion proxy labels, not human intention or closed-loop policy success. CPU batch4 proposals shared across methods. Source-valid subset also required for V4; source-nonvalid unseen episodes do not establish full visual/policy holdout.')
+        caveat='Geometry/motion proxy labels, not human intention or closed-loop policy success. All methods share the same frozen proposal arrays; extraction device/batch are in corpus metadata. Source-valid subset also required for V4; source-nonvalid unseen episodes do not establish full visual/policy holdout.')
     write_json(a.output/'results.json',payload)
     print(json.dumps(payload,indent=2))
 
