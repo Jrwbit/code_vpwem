@@ -406,3 +406,13 @@ def test_growth_partitions_keep_old_train_and_new_development_disjoint():
     split=growth_partitions(data)
     np.testing.assert_array_equal(split['old_train'],[0]);np.testing.assert_array_equal(split['old_dev'],[1])
     np.testing.assert_array_equal(split['new_dev'],[3]);assert not set(split['train'])&set(split['dev'])
+
+
+def test_growth_loader_excludes_examined_and_reserved_confirmation_episodes():
+    import pytest
+    from growth_data import require_growth_isolation
+    old={'old_train','old_dev'};reserved={'examined3','examined4','reserved5'};exclusions=old|reserved
+    require_growth_isolation(old,{'new_train','new_dev'},reserved,exclusions)
+    for contaminated in ['old_dev','examined3','examined4','reserved5']:
+        with pytest.raises(ValueError):require_growth_isolation(old,{contaminated},reserved,exclusions)
+    with pytest.raises(ValueError):require_growth_isolation(old,{'new_train'},reserved,{'old_train'})
