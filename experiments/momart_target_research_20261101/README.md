@@ -64,3 +64,11 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 `diagnose_intent.py --research ROOT --prefix confirm4 --predictions ROOT/confirmation4_v4/primary_predictions.npz --audit ROOT/contact_support_corpus_audit.json --output NEW.json`：对齐冻结概率与原始语料，保留旧标签和总分母，分解缺框、拒选、错类及同类实例/框错误；争议监督只旁路分组。oracle类别只作明确标记的离线诊断。
 
 `hard_query.py --root /home/jrw/vpwem_outputs --output NEW_DIRECTORY`：复用8个train-only角色头，在固定expanded/dev比较32个自主硬类别约束。要求第五组manifest已在搜索前冻结；不会加载其标签/特征。本轮最好配置正确367/418，弱于原可用性模型370/418，因此不升级、不进入新确认。详见`docs/momart_target_research_query_diagnosis_20261102.md`。该方案仅接入批量确认器，未扩展公开流式部署接口。
+
+## 自身历史与监督置信度
+
+`robot_history.py --corpora ... --geometry-metadata ... --urdf ... --output NEW.npz`读取经过验证的机器人自身双指列，生成6维位置/变化及31维严格过去命令统计；以source/demo/step物理键对齐，避开语料复用ID。需要部署端实际自身测量和已执行命令，不能将示范当前/未来动作当输入。默认模型接口未扩展这些新通道。
+
+`benchmark_history.py --root OUTPUT_ROOT --history NEW.npz --output NEW_DIRECTORY`：24次拟合，48个概率对照及1控制；最好370/409，原模型370/410，未增加正确框。
+
+`benchmark_confidence.py --root OUTPUT_ROOT --audit contact_support_corpus_audit.json --output NEW_DIRECTORY`：仅对14个已审计冲突训练帧降权，9次拟合、19条记录；开发标签、权重和全分母不变，原权重三个种子完全复现历史参数，降权未胜出。两个实验合入相同开发集573条V4记录后，既定select_final规则仍保留原可用性模型。新确认集未评分。详见`docs/momart_target_research_history_confidence_20261102.md`。
