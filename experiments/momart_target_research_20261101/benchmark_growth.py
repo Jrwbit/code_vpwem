@@ -19,7 +19,7 @@ from sequence_metrics import sequence_metrics
 from training_consistency import class_consistency_loss
 
 
-def train_model(data,view,train,dev,seed,device,ranking_strength=0.,consistency_strength=0.,consistency_mode='temporal',consistency_predecessor=None,epoch_callback=None):
+def train_model(data,view,train,dev,seed,device,ranking_strength=0.,consistency_strength=0.,consistency_mode='temporal',consistency_predecessor=None,epoch_callback=None,augmentation=None,augmentation_strength=0.):
     torch.manual_seed(seed);np.random.seed(seed);raw,context=view;valid=data['valid']
     cm=raw[train][valid[train]].mean(0);cs=raw[train][valid[train]].std(0).clip(.05)
     xm=context[train].mean(0);xs=context[train].std(0).clip(.05)
@@ -27,6 +27,12 @@ def train_model(data,view,train,dev,seed,device,ranking_strength=0.,consistency_
     mask=torch.tensor(valid,device=device);labels=torch.tensor(data['y'],device=device);weights=torch.tensor(data['weights'],device=device)
     positive=torch.tensor(data['positive'],device=device) if ranking_strength else None
     classes=torch.tensor(data['candidates'][:,:,133:].argmax(-1),device=device) if consistency_strength else None
+    if augmentation_strength<0 or not np.isfinite(augmentation_strength):raise ValueError('Invalid augmentation loss strength')
+    aug=None
+    if augmentation_strength:
+        if augmentation is None:raise ValueError('Augmentation archive required for nonzero loss')
+        from augmentation_loss import prepare_augmentation
+        aug=prepare_augmentation(data,augmentation,train,dict(cm=cm,cs=cs,xm=xm,xs=xs),device)
     net=Pointer(c.shape[-1],x.shape[-1],width=64,kind='mlp').to(device)
     opt=torch.optim.AdamW(net.parameters(),lr=.001,weight_decay=.001)
     best=-1.;best_epoch=0;state=None;history=[];started=time.monotonic()
@@ -35,6 +41,9 @@ def train_model(data,view,train,dev,seed,device,ranking_strength=0.,consistency_
         for batch in np.array_split(np.random.permutation(train),max(1,(len(train)+31)//32)):
             opt.zero_grad();logits,_=net(c[batch],x[batch],mask[batch])
             loss=weighted_loss(logits,labels[batch],weights[batch],mask[batch])
+            if aug is not None:
+                augmented=aug['lookup'][batch];extra=net(aug['c'][augmented],aug['x'][augmented],aug['mask'][augmented])[0]
+                loss=loss+augmentation_strength*weighted_loss(extra,aug['labels'][augmented],weights[batch],aug['mask'][augmented])
             if ranking_strength:loss=loss+ranking_strength*hard_negative_ranking_loss(logits,labels[batch],positive[batch],weights[batch],mask[batch])
             if consistency_strength:
                 linked=np.flatnonzero(consistency_predecessor[batch]>=0)

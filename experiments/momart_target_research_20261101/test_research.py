@@ -866,3 +866,17 @@ def test_cropped_labels_use_transformed_visible_mask_including_target_absence():
     g=np.zeros(14,np.float32);g[3:5]=[.5,.6];g[12:14]=[.1,-.05]
     a=pixel_affine([0,14,96,72]);new=transform_geometry_context(g,[0,14,96,72])
     np.testing.assert_allclose(new[3:5]-new[12:14],(g[3:5]-g[12:14])*a[:2]+a[2:],atol=1e-7)
+
+
+def test_augmentation_loss_uses_original_normalization_and_exact_training_partition():
+    from augmentation_loss import prepare_augmentation
+    data=dict(y=np.array([0,0,0,0]));train=np.array([0,2]);raw=np.full((2,8,3),5,np.float32);context=np.full((2,4),6,np.float32)
+    aug=dict(base_index=np.array([2,0]),candidates=raw,context=context,valid=np.ones((2,8),bool),y=np.array([8,1]))
+    norm=dict(cm=np.ones(3),cs=np.ones(3)*2,xm=np.ones(4)*2,xs=np.ones(4)*4)
+    value=prepare_augmentation(data,aug,train,norm,'cpu');assert value['lookup'].tolist()==[1,-1,0,-1]
+    np.testing.assert_array_equal(value['c'].numpy(),np.ones((2,8,3))*2);np.testing.assert_array_equal(value['x'].numpy(),np.ones((2,4)))
+    assert value['labels'].tolist()==[8,1]
+    with pytest.raises(ValueError):prepare_augmentation(data,dict(aug,base_index=np.array([0,1])),train,norm,'cpu')
+    invalid=aug['valid'].copy();invalid[1,1]=False
+    with pytest.raises(ValueError):prepare_augmentation(data,dict(aug,valid=invalid),train,norm,'cpu')
+    with pytest.raises(ValueError):prepare_augmentation(dict(y=np.array([-100,0,0,0])),aug,train,norm,'cpu')
