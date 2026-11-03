@@ -15,7 +15,7 @@ def main(a):
     if a.output.exists():raise FileExistsError(a.output)
     if json.loads((a.study/'status.json').read_text())['stage']!='complete':raise ValueError('Replay study incomplete')
     data=load_growth_data(a.root);registry=json.loads((a.study/'registry.json').read_text());records={}
-    names=[f'epoch{epoch}_bias{offset}' for epoch in a.epochs for offset in [0.,4.]]
+    names=list(a.names) if a.names is not None else [f'epoch{epoch}_bias{offset}' for epoch in a.epochs for offset in [0.,4.]]
     if a.include_selection:names.append(json.loads((a.study/'selected.json').read_text())['name'])
     for name in dict.fromkeys(names):
         v=registry[name]
@@ -32,4 +32,4 @@ def main(a):
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for key in ['root','study','output']:p.add_argument('--'+key,type=Path,required=True)
-    p.add_argument('--epochs',type=int,nargs='+',default=[13,37]);p.add_argument('--include-selection',action='store_true');main(p.parse_args())
+    p.add_argument('--names',nargs='+',help='Explicit saved registry configurations; overrides epoch naming');p.add_argument('--epochs',type=int,nargs='+',default=[13,37]);p.add_argument('--include-selection',action='store_true');main(p.parse_args())
