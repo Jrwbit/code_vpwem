@@ -16,6 +16,11 @@ def excluded_episode_ids(manifests,audits=()):
     return result
 
 
+def shared_sensor_metadata(manifest):
+    # A new raw cohort has not inherited its ancestor's annotations/alignment.
+    return {key:manifest[key] for key in ['image_hw','classes']}
+
+
 def main(a):
     previous=[json.loads((path/'manifest.json').read_text()) for path in a.exclude]
     excluded=excluded_episode_ids(previous,[json.loads(path.read_text()) for path in a.exclude_audit])
@@ -40,9 +45,10 @@ def main(a):
                     Image.fromarray(image).save(a.output/file)
                     rows.append(dict(id=key,episode_id=task+'/'+demo,source=source,task=task,demo=demo,split='confirm',step=step,
                         file=file,anchor=True,clip=False,sha256=hashlib.sha256(image.tobytes()).hexdigest()))
-    doc=previous[0].copy();doc.update(episodes=episodes,records=rows,seed=20261103,
+    doc=shared_sensor_metadata(previous[0]);doc.update(episodes=episodes,records=rows,seed=20261103,stride=8,
         protocol='frozen_subject_confirmation_v1',id_prefix=a.id_prefix,source_pool=a.source_pool,episodes_per_task=a.episodes_per_task,excluded_episodes=sorted(excluded),
-        exclusions_sha256=hashlib.sha256('\n'.join(sorted(excluded)).encode()).hexdigest())
+        exclusions_sha256=hashlib.sha256('\n'.join(sorted(excluded)).encode()).hexdigest(),
+        sampling_exclusion_manifest_sha256={str((path/'manifest.json').resolve()):hashlib.sha256((path/'manifest.json').read_bytes()).hexdigest() for path in a.exclude})
     (a.output/'manifest.json').write_text(json.dumps(doc,indent=2))
     print(json.dumps(dict(episodes=episodes,frames=len(rows))),flush=True)
 

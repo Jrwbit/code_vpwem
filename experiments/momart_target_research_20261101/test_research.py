@@ -641,3 +641,25 @@ def test_paired_error_changes_separate_same_class_instance_errors_from_wrong_cla
     data=dict(rows=rows,positive=positive,roles=np.array([0,0,4,4]))
     changes=paired_error_sets(data,np.array([0,1,1,0]),np.array([1,0,8,1]),np.arange(4))
     assert changes==dict(correct_gained=[0,3],correct_lost=[1],acquire_added=[1],acquire_fixed=[0],carry_added=[],carry_fixed=[])
+
+
+def test_raw_confirmation_sampling_does_not_inherit_processing_claims(tmp_path):
+    import argparse,json,h5py
+    from freeze_confirmation import main
+    source=tmp_path/'source.hdf5'
+    with h5py.File(source,'w') as f:
+        f.create_dataset('mask/valid',data=np.array([b'demo_1']))
+        for demo in ['demo_0','demo_1']:
+            ep=f.create_group('data/'+demo);ep.create_dataset('actions',data=np.zeros((9,1)))
+            ep.create_dataset('obs/rgb',data=np.zeros((9,2,3,3),np.uint8))
+    prior=tmp_path/'prior';prior.mkdir()
+    old=dict(episodes=[dict(task='task',source=str(source),demo='demo_0',episode_id='task/demo_0')],image_hw=[2,3],classes=['bowl'],
+        excluded_episodes=['task/earlier'],alignment_filter=dict(candidates=999,rejected=['old_id']),annotation_version='old_processed',source_manifest_sha256='stale',selection_restriction='old train/dev')
+    (prior/'manifest.json').write_text(json.dumps(old));out=tmp_path/'new'
+    main(argparse.Namespace(exclude=[prior],exclude_audit=[],output=out,id_prefix='new',source_pool='valid-first',episodes_per_task=1))
+    actual=json.loads((out/'manifest.json').read_text())
+    assert len(actual['records'])==2 and actual['episodes'][0]['demo']=='demo_1'
+    assert actual['image_hw']==[2,3] and actual['classes']==['bowl'] and actual['stride']==8
+    assert not {'alignment_filter','annotation_version','source_manifest_sha256','selection_restriction'}&actual.keys()
+    assert 'task/earlier' in actual['excluded_episodes'] and len(actual['sampling_exclusion_manifest_sha256'])==1
+    assert not (out/'annotations_all.json').exists()
