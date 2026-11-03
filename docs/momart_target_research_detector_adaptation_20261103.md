@@ -23,3 +23,9 @@
 `--smoke`两组各2步、仅16开发帧，已真实执行并退出0。初始7条已知目标的提案可用性与缓存0差；backbone始终SHA不变，两组有真实检测损失与权重更新；峰值分配显存约1.83GB，未停止卡1上的其他任务。小样本没有新提案收益，smoke强制不选新模型，不作为完整开发结果。原图与裁剪后全部可见实例、空target、重复框/错类的FP、一对一匹配和覆盖/FP门槛均有测试。
 
 复现：`train_perception_adaptation.py --root OUTPUT_ROOT --config GPU_CONFIG --output NEW_DIRECTORY --device cuda:0`。加`--smoke`只做明确标记的管线检查。模型权重、图像、数据与运行输出不入Git。任务目标仍active，尚无本轮可靠性改进结论。
+
+## 权重回缩后续协议
+
+观察到前五个实际适配检查点均因总误检和碗误检增加而失败后，登记一次探索性权重回缩：对两组全部250/500/1000步检查点分别取新权重占比.1/.25/.5，合计18个固定配方。参数为原权重加alpha倍适配增量；所有backbone张量必须逐元素不变，非浮点缓冲也必须一致，不插值检测结果或原槽编号。alpha为0/1精确复现端点，异常alpha或变动backbone明确拒绝；相关测试已通过。这里不是新的18次训练，也不是独立留出证据。
+
+`benchmark_detector_interpolation.py --root OUTPUT_ROOT --study COMPLETED_DETECTOR_STUDY --config GPU_CONFIG --output NEW_DIRECTORY --device cuda:0`在父实验六个状态全部结束后才允许运行。开始评价前保存完整配方、父检查点SHA、基线/协议SHA、开发查询ID及确认10 SHA；全部18项使用相同原始1794开发帧、原后处理与原检测门槛，不因结果调类别阈值。选择只在合格项中按抓碗可用性、总可用性、边缘匹配、micro precision排序；全失败则保留原检测器。仅合格胜出者保存确定性插值权重，仍需完整选择器评估与新轨迹确认后才能讨论升级。

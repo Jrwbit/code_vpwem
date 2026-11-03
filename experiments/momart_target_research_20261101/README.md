@@ -2,6 +2,8 @@
 
 持续目标与验收：`protocol.json`、`docs/momart_target_research_goal_20261101.md`。当前不自动替换正式检测器、对象缓存或动作策略；离线选择器分数不代表策略任务成功率。
 
+检测适配入口：`train_perception_adaptation.py --root OUTPUT_ROOT --config GPU_CONFIG --output NEW_DIRECTORY --device cuda:0`。固定主视角108训练/24开发，原检测权重严格加载、冻结backbone，原图/一半随机裁剪配对训练；全部可见实例监督包含未知意图帧，后处理不变。`--smoke`仅检查两步/16开发帧。后续`benchmark_detector_interpolation.py --root OUTPUT_ROOT --study COMPLETED_DETECTOR_STUDY --config GPU_CONFIG --output NEW_DIRECTORY --device cuda:0`测试六真实状态各.1/.25/.5权重回缩，严格保持backbone和非浮点缓冲，不增加训练或输入视角；检测门槛通过也不等于选择器/策略成功。协议、失败和实际状态见`docs/momart_target_research_detector_adaptation_20261103.md`。
+
 ## 公共输入与单框输出
 
 `runtime.SingleBoxSelector(selection_json, output_root)`读取已冻结的开发集选择结果和可信本地检查点。`select(FrameFeatures(...), episode_id, sensor_step)`只读取公开观测特征，返回`valid / box / class_id / confidence / probability`；`box`为归一化xyxy四坐标，拒选时为`None`。输入类型不包含标签、动作、场景物体GT位置或未来帧。同一sensor_step重复调用不会再次更新状态；跨episode清空状态；倒序或同帧不同输入会报错。

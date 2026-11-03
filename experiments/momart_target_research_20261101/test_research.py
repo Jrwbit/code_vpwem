@@ -923,3 +923,21 @@ def test_detector_gate_requires_real_gain_without_extra_false_boxes_or_lost_clas
     changed=copy.deepcopy(candidate);changed['bounded8']['micro']['fp']=1;assert not detector_gate(changed,baseline)['eligible']
     changed=copy.deepcopy(candidate);changed['bounded8']['classes']['0']['fp']=1;assert not detector_gate(changed,baseline)['eligible']
     changed=copy.deepcopy(candidate);changed['bounded8']['classes']['3']['recall']=.9;assert not detector_gate(changed,baseline)['eligible']
+
+
+def test_detector_interpolation_preserves_initializer_endpoints_and_frozen_backbone():
+    import torch
+    from detector_interpolation import interpolate_detector
+    initial={'backbone.weight':torch.tensor([1.,2.]),'head.weight':torch.tensor([2.,4.]),'count':torch.tensor(3)}
+    adapted={k:v.clone() for k,v in initial.items()};adapted['head.weight']+=4
+    for alpha,endpoint in [(0,initial),(1,adapted)]:
+        result=interpolate_detector(initial,adapted,alpha)
+        assert all(torch.equal(result[k],v) and result[k].data_ptr()!=v.data_ptr() for k,v in endpoint.items())
+    result=interpolate_detector(initial,adapted,.25)
+    assert torch.equal(result['head.weight'],torch.tensor([3.,5.]))
+    assert torch.equal(result['backbone.weight'],initial['backbone.weight'])
+    for alpha in [-.1,1.1,float('nan')]:
+        with pytest.raises(ValueError):interpolate_detector(initial,adapted,alpha)
+    for key in ['backbone.weight','count']:
+        changed={k:v.clone() for k,v in adapted.items()};changed[key]+=1
+        with pytest.raises(ValueError):interpolate_detector(initial,changed,.25)
