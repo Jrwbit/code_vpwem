@@ -16,15 +16,17 @@ from growth_data import load_growth_data,growth_partitions
 from models import Pointer,weighted_loss,hard_negative_ranking_loss
 from refine import role_breakdown
 from sequence_metrics import sequence_metrics
+from training_consistency import class_consistency_loss
 
 
-def train_model(data,view,train,dev,seed,device,ranking_strength=0.):
+def train_model(data,view,train,dev,seed,device,ranking_strength=0.,consistency_strength=0.,consistency_mode='temporal',consistency_predecessor=None):
     torch.manual_seed(seed);np.random.seed(seed);raw,context=view;valid=data['valid']
     cm=raw[train][valid[train]].mean(0);cs=raw[train][valid[train]].std(0).clip(.05)
     xm=context[train].mean(0);xs=context[train].std(0).clip(.05)
     c=torch.tensor((raw-cm)/cs,device=device);x=torch.tensor((context-xm)/xs,device=device)
     mask=torch.tensor(valid,device=device);labels=torch.tensor(data['y'],device=device);weights=torch.tensor(data['weights'],device=device)
     positive=torch.tensor(data['positive'],device=device) if ranking_strength else None
+    classes=torch.tensor(data['candidates'][:,:,133:].argmax(-1),device=device) if consistency_strength else None
     net=Pointer(c.shape[-1],x.shape[-1],width=64,kind='mlp').to(device)
     opt=torch.optim.AdamW(net.parameters(),lr=.001,weight_decay=.001)
     best=-1.;best_epoch=0;state=None;history=[];started=time.monotonic()
@@ -34,6 +36,14 @@ def train_model(data,view,train,dev,seed,device,ranking_strength=0.):
             opt.zero_grad();logits,_=net(c[batch],x[batch],mask[batch])
             loss=weighted_loss(logits,labels[batch],weights[batch],mask[batch])
             if ranking_strength:loss=loss+ranking_strength*hard_negative_ranking_loss(logits,labels[batch],positive[batch],weights[batch],mask[batch])
+            if consistency_strength:
+                linked=np.flatnonzero(consistency_predecessor[batch]>=0)
+                if len(linked):
+                    current=batch[linked];past=consistency_predecessor[current]
+                    other=past if consistency_mode=='temporal' else current
+                    other_logits=net(c[other],x[other],mask[other])[0]
+                    pair_weight=torch.minimum(weights[current],weights[past])
+                    loss=loss+consistency_strength*class_consistency_loss(logits[linked],other_logits,classes[current],classes[other],pair_weight)
             loss.backward();opt.step()
         net.eval()
         with torch.inference_mode():prob=net(c,x,mask)[0].softmax(-1).cpu().numpy()

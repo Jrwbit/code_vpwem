@@ -547,3 +547,29 @@ def test_hard_negative_ranking_masks_unknown_unavailable_and_other_correct_boxes
     assert torch.isfinite(empty) and empty==0
     all_correct=hard_negative_ranking_loss(logits[:1],labels[:1],valid[:1],weights[:1],valid[:1])
     assert torch.isfinite(all_correct) and all_correct==0
+
+
+def test_training_consistency_does_not_bridge_unknown_unavailable_split_or_identity():
+    from training_consistency import stable_training_predecessors
+    rows=[dict(episode_id='a',step=i*8,label=dict(target=dict(instance_id=k)) if k else None) for i,k in enumerate(['a','a',None,'a','a','b','b','b','b'])]
+    positive=np.ones((9,8),bool);positive[6]=False
+    data=dict(rows=rows,positive=positive)
+    previous=stable_training_predecessors(data,[0,1,2,3,4,5,6,8])
+    np.testing.assert_array_equal(previous,[-1,0,-1,-1,3,-1,-1,-1,-1])
+    rows[4]['step']=100
+    assert stable_training_predecessors(data,[3,4])[4]==-1
+
+
+def test_class_consistency_is_slot_invariant_and_includes_null_with_finite_gradients():
+    from training_consistency import class_consistency_loss
+    a=torch.tensor([[2.,1.,float('-inf'),0.]],requires_grad=True)
+    b=torch.tensor([[1.,2.,float('-inf'),0.]],requires_grad=True)
+    ca=torch.tensor([[0,3,5]]);cb=torch.tensor([[3,0,2]])
+    loss=class_consistency_loss(a,b,ca,cb,torch.ones(1))
+    assert torch.allclose(loss,torch.tensor(0.),atol=1e-7)
+    shifted=torch.tensor([[1.,2.,float('-inf'),4.]],requires_grad=True)
+    changed=class_consistency_loss(a,shifted,ca,cb,torch.ones(1))
+    assert 0<float(changed)<.7
+    changed.backward()
+    assert torch.isfinite(a.grad).all() and torch.isfinite(shifted.grad).all()
+    assert torch.isfinite(class_consistency_loss(a[:0],b[:0],ca[:0],cb[:0],torch.ones(0)))
