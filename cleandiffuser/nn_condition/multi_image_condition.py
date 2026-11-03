@@ -470,8 +470,11 @@ class MultiImageObsConditionMomart(BaseNNCondition):
             else:
                 raise RuntimeError(f"Unsupported obs type: {type}")
         
-        key_transform_map['depth'] = key_transform_map['rgb']
-        key_transform_map['depth_wrist'] = key_transform_map['rgb_wrist']
+        for depth_key in depth_keys:
+            rgb_key=depth_key.replace('depth','rgb',1)
+            if rgb_key not in key_transform_map:
+                raise ValueError('Depth input requires its corresponding RGB transform: '+depth_key)
+            key_transform_map[depth_key]=key_transform_map[rgb_key]
         rgb_keys = sorted(rgb_keys)
         low_dim_keys = sorted(low_dim_keys)
         depth_keys = sorted(depth_keys)
