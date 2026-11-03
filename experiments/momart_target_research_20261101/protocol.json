@@ -48,7 +48,10 @@
     "train108 audited carrier-conflict confidence, factors 1/.5/.25 paired with uniform/transition4 losses and fixed family blends; unchanged main-view inference and full development denominators",
     "train-only stable-subject class-distribution JS consistency, temporal strengths .5/2 versus same-frame dropout strength2 and exact zero controls; null included, public candidate classes pooled without slot matching, no added online inputs",
     "actual epoch13/37 replay of examined priority-vs-F1 history discrepancy; saved real snapshots, reconstruction audit, unchanged full dev gates and fixed blends with original/current frozen parents",
-    "all actual visited epochs under unchanged training/early-stop trajectory; original V4 plus predeclared current-candidate non-regression on combined/old/new dev, full calibrated gates and fixed original/current parent blends"
+    "all actual visited epochs under unchanged training/early-stop trajectory; original V4 plus predeclared current-candidate non-regression on combined/old/new dev, full calibrated gates and fixed original/current parent blends",
+    "fixed-clock main-only train108 paired stateful/reset GRU, including unlabelled and alignment-rejected public context; off-grid queries never advance persistent state",
+    "direct current public context concatenated with GRU hidden; matched reset controls and two checkpoint policies",
+    "registered complementary hidden-only/current-skip GRU probability blends, complete three-group original V4 plus current retention gates"
   ],
   "deployment": "do not replace production model based only on weak-proxy scores; retain causal inputs, missing-target masks and full-scene observations",
   "acceptance_revision": 2,
@@ -95,6 +98,34 @@
     "next_reserved_current_manifest_sha256": "0206d3011b46833572c23da835d6595bb3c75e8950c16bc67dc204a4ab2f6acd",
     "next_reserved_cohort_sha256": "288743ad1c40a58cceadd52fad3aae0e7c3258bf1de8e50cf25ba53412874481"
   },
-  "next_unexamined_confirmation": "confirm8",
-  "next_unexamined_manifest_sha256": "0206d3011b46833572c23da835d6595bb3c75e8950c16bc67dc204a4ab2f6acd"
+  "next_unexamined_confirmation": "confirm9",
+  "next_unexamined_manifest_sha256": "35d9cd684ea33a60521aec00ac6678add6ca48b5714f3457f88b93b8ab089d90",
+  "current_recurrent_confirmation": {
+    "holdout": "confirm8",
+    "selection": "growth_recurrent_architecture_blends_v4/current_gru_uniform_new0.25_skip0.5",
+    "frozen_selection": "frozen_for_confirm8_recurrent_architecture",
+    "frozen_selection_sha256": "92c8c1e476ee5514c5bbeae9f6c7039ad5f397c42d80f85f512d82c4ff2c3b9e",
+    "threshold": 0.5,
+    "margin": 0.1,
+    "original_manifest_sha256": "0206d3011b46833572c23da835d6595bb3c75e8950c16bc67dc204a4ab2f6acd",
+    "frozen_weight_count": 4,
+    "public_contract": "fixed-clock8 main RGB/proprio/own robot geometry, strict FP32, training encoder/URDF/task order frozen",
+    "status": "completed; failed current retention; regression-only from now on",
+    "no_promotion": true,
+    "confirmation_joint_goal_met": false,
+    "original_comparator_gates_passed": true,
+    "current_retention_passed": false,
+    "result_summary": "1316 aligned/879 known: candidate771/826 vs current764/818; acquisition3->4, chatter12->16, correct switches4/7 unchanged; no promotion or retuning",
+    "examined_now_regression_only": [
+      "confirm8"
+    ]
+  },
+  "next_unexamined_reserve": {
+    "episodes": 16,
+    "frames": 1395,
+    "excluded_episodes": 234,
+    "all_rgb_hashes_verified": true,
+    "annotations_proposals_features": false,
+    "created_before": "confirmation8 scores"
+  }
 }
