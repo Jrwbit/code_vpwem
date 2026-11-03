@@ -597,3 +597,22 @@ def test_epoch_snapshot_callback_preserves_training_and_captures_real_weights():
     for key in selected['state']:assert torch.equal(selected['state'][key],checkpoint['state'][key])
     np.testing.assert_array_equal(probability,replay)
     assert len(saved)==len(history['history'])
+
+
+def test_current_checkpoint_retention_rejects_priority_and_temporal_regressions():
+    from checkpoint_selection import current_retention_gate,checkpoint_merit
+    import copy
+    current=dict(accepted=dict(correct=100,wrong_acquire=2,wrong_carry=0),sequence=dict(stable_class_switch_rate=.01,correct_box_at_change=3,stale_previous_class_at_change=0),roles={'0':dict(visible=20,recall=.9)})
+    assert current_retention_gate(current,current)['joint_goal_met']
+    for section,key,value in [('accepted','correct',99),('accepted','wrong_acquire',3),('accepted','wrong_carry',1),('sequence','stable_class_switch_rate',.02),('sequence','correct_box_at_change',2),('sequence','stale_previous_class_at_change',1)]:
+        candidate=copy.deepcopy(current);candidate[section][key]=value
+        assert not current_retention_gate(candidate,current)['joint_goal_met']
+    candidate=copy.deepcopy(current);candidate['roles']['0']['recall']=.84
+    assert not current_retention_gate(candidate,current)['joint_goal_met']
+    def point(eligible,recall,f1,acquire,rate):
+        return dict(joint_growth_goal_met=eligible,calibration=dict(metrics=dict(recall=recall,f1=f1,wrong_acquire=acquire,wrong_carry=0,precision=.95),sequence=dict(stable_class_switch_rate=rate,correct_box_at_change=3)))
+    good=point(True,.9,.91,2,.01);high_f1_failure=point(False,.99,.99,0,0.)
+    assert checkpoint_merit(good)>checkpoint_merit(high_f1_failure)
+    assert checkpoint_merit(point(True,.91,.9,2,.01))>checkpoint_merit(good)
+    assert checkpoint_merit(point(True,.9,.9,1,.01))>checkpoint_merit(good)
+    assert checkpoint_merit(point(True,.9,.9,2,.005))>checkpoint_merit(good)
