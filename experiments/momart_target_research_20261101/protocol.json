@@ -51,7 +51,8 @@
     "all actual visited epochs under unchanged training/early-stop trajectory; original V4 plus predeclared current-candidate non-regression on combined/old/new dev, full calibrated gates and fixed original/current parent blends",
     "fixed-clock main-only train108 paired stateful/reset GRU, including unlabelled and alignment-rejected public context; off-grid queries never advance persistent state",
     "direct current public context concatenated with GRU hidden; matched reset controls and two checkpoint policies",
-    "registered complementary hidden-only/current-skip GRU probability blends, complete three-group original V4 plus current retention gates"
+    "registered complementary hidden-only/current-skip GRU probability blends, complete three-group original V4 plus current retention gates",
+    "Any-matching-box marginal/uniform losses versus exact canonical CE controls; unchanged positive labels and main-only inference; same full three-group gates"
   ],
   "deployment": "do not replace production model based only on weak-proxy scores; retain causal inputs, missing-target masks and full-scene observations",
   "acceptance_revision": 2,
@@ -212,7 +213,31 @@
       "planned_recipes": 18,
       "status": "running",
       "output": "detector_weight_interpolation_v1",
-      "thresholds_changed": false
+      "thresholds_changed": false,
+      "progress_snapshot_completed": 11
     }
+  },
+  "positive_set_study": {
+    "planned_fits": 12,
+    "planned_records": 62,
+    "progress_snapshot": {
+      "completed_fits": 3,
+      "completed_records": 14,
+      "canonical_exact_controls": 1,
+      "status": "running"
+    },
+    "train_multiple_positive": 111,
+    "dev_multiple_positive": 18,
+    "train_ambiguous_positive_queries": 81,
+    "dev_ambiguous_positive_queries": 21,
+    "current_dev_weak_correct": {
+      "unambiguous_under_box_reference": 1121,
+      "ambiguous_under_box_reference": 13,
+      "original_total_unchanged": 1134
+    },
+    "first_marginal": "1145correct but acquire5/carry1/switch15/chatter22 versus current1134/2/0/16/10; failed",
+    "holdout_opened": false,
+    "promotion": false,
+    "limitation": "Weak equivalent target boxes may also match other instances; no claim of corrected intention or physical instance ground truth"
   }
 }

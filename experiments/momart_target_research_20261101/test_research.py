@@ -972,3 +972,11 @@ def test_positive_set_loss_rewards_either_matching_box_without_accepting_rivals(
     with pytest.raises(ValueError):positive_set_loss(logits,torch.tensor([3]),positive,weights,valid)
     invalid=valid.clone();invalid[0,1]=False
     with pytest.raises(ValueError):positive_set_loss(logits,torch.tensor([0]),positive,weights,invalid)
+
+
+def test_box_matching_does_not_hide_cross_instance_ambiguity():
+    from audit_positive_sets import matching_instances
+    truth=[dict(class_id=0,instance_id='bowl_a',box=[0,0,10,10]),dict(class_id=0,instance_id='bowl_b',box=[2,0,12,10]),
+        dict(class_id=3,instance_id='rack',box=[0,0,10,10])]
+    assert matching_instances(dict(class_id=0,box=[1,0,11,10]),truth)==['bowl_a','bowl_b']
+    assert matching_instances(dict(class_id=3,box=[1,0,11,10]),truth)==['rack']
