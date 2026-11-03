@@ -468,8 +468,8 @@ def test_transition_emphasis_is_train_only_episode_local_and_unknown_breaks_wind
 
 def test_confirmation_sampling_excludes_retained_regressions_from_fitted_audit():
     from freeze_confirmation import excluded_episode_ids
-    excluded=excluded_episode_ids([dict(episodes=[dict(episode_id='dense_train')])],[dict(episodes=dict(train=['dense_train'],regression=['retained_old_test'],dev=['dense_dev']))])
-    assert excluded=={'dense_train','retained_old_test','dense_dev'}
+    excluded=excluded_episode_ids([dict(episodes=[dict(episode_id='dense_train')],excluded_episodes=['earlier_examined'])],[dict(episodes=dict(train=['dense_train'],regression=['retained_old_test'],dev=['dense_dev']))])
+    assert excluded=={'dense_train','retained_old_test','dense_dev','earlier_examined'}
 
 
 def test_growth_screen_join_checks_episode_identity_not_just_equal_counts():

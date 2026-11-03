@@ -10,6 +10,7 @@ from PIL import Image
 
 def excluded_episode_ids(manifests,audits=()):
     result={ep['episode_id'] for doc in manifests for ep in doc['episodes']}
+    result.update(ep for doc in manifests for ep in doc.get('excluded_episodes',[]))
     for audit in audits:
         result.update(ep for episodes in audit['episodes'].values() for ep in episodes)
     return result

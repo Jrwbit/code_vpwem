@@ -22,4 +22,4 @@ def main(a):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--input',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--repeats',type=int,default=10000);p.add_argument('--reference',choices=['baseline','control'],default='baseline');main(p.parse_args())
+    p=argparse.ArgumentParser();p.add_argument('--input',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--repeats',type=int,default=10000);p.add_argument('--reference',choices=['baseline','control','retention'],default='baseline');main(p.parse_args())
