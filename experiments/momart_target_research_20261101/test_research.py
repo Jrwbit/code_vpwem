@@ -511,3 +511,21 @@ def test_class_rejection_uses_predicted_classes_and_never_turns_null_into_a_box(
     np.testing.assert_array_equal(apply_calibration(p,dict(threshold=.6,margin=0)),[8,8,8])
     with pytest.raises(ValueError,match='public proposal'):apply_calibration(p,cal)
     np.testing.assert_array_equal(apply_calibration(p,dict(cal,margin=.2,class_margins={'0':0.}),classes),[0,8,8])
+
+
+def test_review_sampling_includes_every_change_and_blinds_labels_with_matched_controls():
+    from build_switch_review import select_cases,reviewer_entry
+    rows=[]
+    for i,target in enumerate(['a']*10+['b']*10+[None]+['c']*9):
+        label=dict(target=dict(instance_id=target,class_id={'a':3,'b':0,'c':2}[target])) if target else None
+        rows.append(dict(source='/tmp/source.hdf5',demo='demo',episode_id='task/demo',task='task',step=i*8,label=label))
+    groups={'dev':(rows,np.flatnonzero([r['label'] is not None for r in rows]))}
+    selected=select_cases(groups,7);again=select_cases(groups,7)
+    assert [(x['row']['step'],x['kind']) for x in selected]==[(x['row']['step'],x['kind']) for x in again]
+    assert len(selected)==2
+    assert [x['row']['step'] for x in selected if x['kind']=='proxy_change']==[80]
+    entry=reviewer_entry('R001',dict(rows[1]),[0,0,8,16,24])
+    assert entry['annotations'][0]['relative_steps']==-8
+    assert all(x['status']=='pending' and x['target_class'] is None for x in entry['annotations'])
+    assert not {'label','proxy_class','kind','cohort','predicted_class'}&set(entry)
+    assert select_cases({'gap':([rows[0],dict(rows[10],step=40)],[0,1])})==[]
