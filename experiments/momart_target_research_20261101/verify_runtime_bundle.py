@@ -20,7 +20,8 @@ bundle=Path(sys.argv[1]);sys.path.insert(0,str(bundle/'api'))
 import numpy as np,torch,runtime,models,availability_features,calibration
 from runtime import FrameFeatures,SingleBoxSelector
 torch.set_num_threads(2)
-archive=np.load(sys.argv[2],allow_pickle=False)
+with np.load(sys.argv[2],allow_pickle=False) as raw:
+ archive={key:raw[key] for key in raw.files}
 selector=SingleBoxSelector(bundle/'selected.json',bundle);probability=[];slots=[]
 for i in range(len(archive['step'])):
  frame=FrameFeatures(**{k:archive[k][i] for k in FrameFeatures.__dataclass_fields__ if k in archive})
@@ -36,7 +37,11 @@ print(json.dumps(dict(imported_modules=paths)))
 def main(a):
     torch.set_num_threads(2);manifest=json.loads((a.bundle/'manifest.json').read_text())
     assert all(sha(a.bundle/name)==digest for name,digest in manifest['files'].items())
-    data=load_geometry_data(a.root);selector=SingleBoxSelector(a.selection,a.root)
+    if a.growth:
+        from growth_data import load_growth_data
+        data=load_growth_data(a.root)
+    else:data=load_geometry_data(a.root)
+    selector=SingleBoxSelector(a.selection,a.root)
     order=sorted(range(len(data['rows'])),key=lambda i:(data['rows'][i]['episode_id'],data['rows'][i]['step']))
     public={key:data[key][order] for key in FrameFeatures.__dataclass_fields__ if key in data}
     public['task']=np.array([data['rows'][i]['task'] for i in order]);public['episode']=np.array([data['rows'][i]['episode_id'] for i in order]);public['step']=np.array([data['rows'][i]['step'] for i in order])
@@ -62,4 +67,5 @@ def main(a):
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for key in ['root','selection','bundle','output']:p.add_argument('--'+key,type=Path,required=True)
+    p.add_argument('--growth',action='store_true',help='Use enlarged main-only public arrays on all10592 queries')
     main(p.parse_args())
