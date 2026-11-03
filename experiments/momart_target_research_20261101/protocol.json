@@ -189,5 +189,30 @@
     "archive_sha256": "c432d119611360f9dfb068effc28d5f5c3cdfc6021d7ad82b66b9bf2d185cf2f",
     "result": "Crop transition blend1142 vs1134 correct but switches16->15/chatter10->11; border<=8px24->25 also improves in identity control; no attributable reliable improvement",
     "perception_audit": "815 training partial targets:376 retained; bowl282/344, rack16/259, doorhandle46/108, drawerhandle32/104; red gate loses only1bowl; no postprocessing retuning"
+  },
+  "detector_head_adaptation_study": {
+    "train_frames": 8348,
+    "train_episodes": 108,
+    "dev_frames": 1794,
+    "dev_episodes": 24,
+    "fits": 2,
+    "real_checkpoints": 6,
+    "all_new_failed": true,
+    "selector_records_unchanged": 1927,
+    "result": "coverage1174->1180..1188 but FP948->1313..1717 and bowlFP106->190..274; acquire availability224 unchanged; no promotion",
+    "holdout_opened": false,
+    "backbone_unchanged": true,
+    "follow_up": {
+      "method": "head weight interpolation toward common initializer",
+      "alphas": [
+        0.1,
+        0.25,
+        0.5
+      ],
+      "planned_recipes": 18,
+      "status": "running",
+      "output": "detector_weight_interpolation_v1",
+      "thresholds_changed": false
+    }
   }
 }
