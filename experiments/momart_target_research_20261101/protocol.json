@@ -84,6 +84,17 @@
       "frozen_for_confirm6_incumbent_blend current retention"
     ],
     "current_retention": "Same registered additional retention overall and every source stratum; exact comparator and candidate/control/retention weight hashes frozen before preprocessing",
-    "next_reserved": "confirm8:16 episodes/1380 original main frames; SHA256 d380b7ea224c788b805e39454f6f4db8826f7eab1414d2b5a5f2655aebbbb1f4; unprocessed"
-  }
+    "next_reserved": "confirm8:16 episodes/1380 original main frames, same cohort; original manifest archived, metadata-only correction; no annotations/proposals/features/scores",
+    "confirmation_joint_goal_met": false,
+    "no_promotion": true,
+    "examined_now_regression_only": [
+      "confirm7"
+    ],
+    "result_summary": "1194 aligned/823 known: primary759/799, current754/793; acquisition13->14, stable chatter9->10, switch4/4 unchanged; no retuning",
+    "next_reserved_original_manifest_sha256": "d380b7ea224c788b805e39454f6f4db8826f7eab1414d2b5a5f2655aebbbb1f4",
+    "next_reserved_current_manifest_sha256": "0206d3011b46833572c23da835d6595bb3c75e8950c16bc67dc204a4ab2f6acd",
+    "next_reserved_cohort_sha256": "288743ad1c40a58cceadd52fad3aae0e7c3258bf1de8e50cf25ba53412874481"
+  },
+  "next_unexamined_confirmation": "confirm8",
+  "next_unexamined_manifest_sha256": "0206d3011b46833572c23da835d6595bb3c75e8950c16bc67dc204a4ab2f6acd"
 }

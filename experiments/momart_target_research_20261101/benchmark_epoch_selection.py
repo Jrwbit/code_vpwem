@@ -25,8 +25,8 @@ from checkpoint_selection import current_retention_gate,checkpoint_merit
 
 def main(a):
     torch.set_num_threads(2);torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False
-    r=a.root/'momart_target_research_20261101';holdout=r/'confirm7_corpus'
-    if any((holdout/name).exists() for name in ['annotations_all.json','candidate_manifest.json']):raise ValueError('Confirmation7 already examined')
+    r=a.root/'momart_target_research_20261101';holdout=r/(a.holdout_prefix+'_corpus')
+    if any((holdout/name).exists() for name in ['annotations_all.json','candidate_manifest.json']):raise ValueError('Requested confirmation already examined')
     data=load_growth_data(a.root);splits=growth_partitions(data);keys=['dev','old_dev','new_dev'];train=splits['train'];dev=splits['dev']
     if {row['episode_id'] for row in data['rows']}&{ep['episode_id'] for ep in json.loads((holdout/'manifest.json').read_text())['episodes']}:raise ValueError('Confirmation overlap')
     predecessors=stable_training_predecessors(data,train)
@@ -123,4 +123,4 @@ def main(a):
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for key in ['root','output']:p.add_argument('--'+key,type=Path,required=True)
-    p.add_argument('--device',default='cpu');main(p.parse_args())
+    p.add_argument('--device',default='cpu');p.add_argument('--holdout-prefix',default='confirm7');main(p.parse_args())
