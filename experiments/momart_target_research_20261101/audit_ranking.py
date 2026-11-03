@@ -43,11 +43,21 @@ def main(a):
             delta=max(float((n['state'][key]-o['state'][key]).abs().max()) for key in n['state'])
             controls.append(dict(loss=loss,seed=seed,max_parameter_difference=delta,best_epoch=n['best_epoch'],reference_best_epoch=o['best_epoch']))
     if any(c['max_parameter_difference']!=0 or c['best_epoch']!=c['reference_best_epoch'] for c in controls):raise ValueError('Paired CE control failed to reproduce')
-    records={}
+    records={};pair_js={};diagnostic_pairs={}
+    if a.study=='consistency':
+        from training_consistency import stable_training_predecessors,class_consistency_loss
+        diagnostic_pairs={key:stable_training_predecessors(data,splits[key]) for key in ['train','dev']}
+        public_classes=torch.tensor(data['candidates'][:,:,133:].argmax(-1))
     for directory in [source,r/f'growth_{a.study}_blends_v4']:
         registry=json.loads((directory/'registry.json').read_text())
         for name,value in registry.items():
             probability=np.load(directory/(name+'_probabilities.npz'))['probability'];pred=apply_calibration(probability,value['calibration'])
+            if a.study=='consistency':
+                logits=torch.from_numpy(probability).clamp_min(1e-30).log();scores={}
+                for split,previous in diagnostic_pairs.items():
+                    right=np.flatnonzero(previous>=0);left=previous[right]
+                    scores[split]=dict(pairs=len(right),mean_class_js=float(class_consistency_loss(logits[right],logits[left],public_classes[right],public_classes[left],torch.ones(len(right)))))
+                pair_js[directory.name+'/'+name]=scores
             records[directory.name+'/'+name]={key:error_counts(pred,splits[key],data) for key in (['dev','old_dev','new_dev','dev_review','dev_other'] if a.study=='confidence' else ['dev','old_dev','new_dev'])}
     pair_audit=None
     if a.study=='consistency':
@@ -56,7 +66,7 @@ def main(a):
         assert all(data['rows'][i]['episode_id']==data['rows'][pairs[i]]['episode_id'] and 0<data['rows'][i]['step']-data['rows'][pairs[i]]['step']<=16 for i in right)
         assert all(data['rows'][i]['label']['target']['instance_id']==data['rows'][pairs[i]]['label']['target']['instance_id'] and data['positive'][i].any() and data['positive'][pairs[i]].any() for i in right)
         pair_audit=dict(pairs=len(right),episodes=len({data['rows'][i]['episode_id'] for i in right}),classes={str(cls):sum(data['rows'][i]['label']['target']['class_id']==cls for i in right) for cls in range(6)},development_pair_members=0)
-    report=dict(controls=controls,records=records,pair_audit=pair_audit,caveat='Known unchanged proxy labels only. Same-class nonmatching includes poor localization and cannot alone establish an identity error. All class errors include unavailable-target rows; bowl_to_rack includes all roles, not acquisition alone. No confirmation labels loaded.')
+    report=dict(controls=controls,records=records,pair_audit=pair_audit,uncalibrated_pair_js=pair_js,caveat='Known unchanged proxy labels only. Same-class nonmatching includes poor localization and cannot alone establish an identity error. All class errors include unavailable-target rows; bowl_to_rack includes all roles, not acquisition alone. No confirmation labels loaded.')
     write_json(a.output,report);print(json.dumps(dict(controls=controls,records=len(records)),indent=2))
 
 
