@@ -34,11 +34,11 @@ def initialize_modalities(args):
     ObsUtils.initialize_obs_modality_mapping_from_dict(mapping)
 
 
-def build_suite(args):
+def build_suite(args, dataset_type=BoxedNoHistoryDataset):
     datasets, task_ids = {}, {}
     for spec in args.task_datasets:
         name = str(spec.name)
-        datasets[name] = BoxedNoHistoryDataset(
+        datasets[name] = dataset_type(
             zarr_path=os.path.join(str(args.data_root), name+".zarr"),
             bbox_path=os.path.join(str(args.bbox_root), name+".bbox.zarr"),
             obs_keys=args.shape_meta["obs"], seq_length=int(args.horizon),

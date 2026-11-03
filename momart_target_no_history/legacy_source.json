@@ -1,0 +1,13 @@
+{
+  "source": "/home/jrw/code_vpwem_boxed_eval_20261026/momart_boxed_tokens",
+  "source_commit_reported_by_historical_manifest": "dbf6779ac90c7a19b7543a1eb3d5509ef2253f13",
+  "legacy_tokens.py": {
+    "original": "model.py",
+    "sha256": "6a8eef9b725e4e4c05313cdb94ba61c7c4dea5d8ea461dee63f5e578477332e9"
+  },
+  "inputs.py": {
+    "object_inputs": "Copied unchanged from historical inputs.py; replaced old detector wrapper with explicit selected-box bridge",
+    "original_file_sha256": "8ffa894e927cce23ff3862eff1e0509754880c3921fa6426a9fbd8adc35e3a9f"
+  },
+  "scope": "Historical model copied verbatim; no weights or datasets. New sidecar/adapter has separate implementation."
+}
