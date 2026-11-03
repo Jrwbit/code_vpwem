@@ -742,6 +742,11 @@ def test_fixed_clock_query_logits_match_streaming_and_ignore_temporary_queries()
                     actual,_=net.step(c[q:q+1],x[q:q+1],mask[q:q+1],gap,state)
                 stream.append(actual[0])
             torch.testing.assert_close(torch.stack(stream),expected,atol=1e-6,rtol=1e-6)
+            from verify_grid_replay import stream_probability
+            clock_rows=[history_rows[0],dict(episode_id='a',step=5,is_grid=False),*history_rows[1:]]
+            clock_context=torch.cat([h[:1],x[1:2],h[1:]]).numpy()
+            actual=stream_probability(net,dict(rows=rows),dict(rows=clock_rows,context=clock_context),c,x,mask,dict(xm=np.zeros(4,np.float32),xs=np.ones(4,np.float32)))
+            np.testing.assert_allclose(actual,expected.softmax(-1).numpy(),atol=1e-6,rtol=1e-6)
             extra=grid_batch(rows+[dict(episode_id='a',step=3)],torch.cat([c,c[:1]]),torch.cat([x,x[:1]+10]),torch.cat([mask,mask[:1]]),h,history_rows)
             torch.testing.assert_close(query_logits(net,extra)[:5],expected,atol=1e-6,rtol=1e-6)
             future=h.clone();future[2]+=10
