@@ -155,5 +155,39 @@
     "promotion": false,
     "decision": "Preserve original development eligibility; no new confirmation because intended border/core-error benefit is not demonstrated",
     "scope_limit": "Loss emphasis on real recorded features, not pixel truncation augmentation; one-box policy integration remains incomplete"
+  },
+  "pixel_crop_study": {
+    "training_queries": 5794,
+    "crop": [
+      96,
+      72
+    ],
+    "original_hw": [
+      90,
+      120
+    ],
+    "synchronized": [
+      "current main RGB",
+      "past main RGB",
+      "observed depth",
+      "reference masks for labels only",
+      "UV/inverse-ray geometry"
+    ],
+    "cases": [
+      "none",
+      "identity extra CE .5",
+      "crop extra CE .5"
+    ],
+    "fits": 12,
+    "real_checkpoints": 24,
+    "records": 62,
+    "cumulative_records": 1927,
+    "all4_original_controls_exact": true,
+    "new_eligible": false,
+    "holdout_opened": false,
+    "no_promotion": true,
+    "archive_sha256": "c432d119611360f9dfb068effc28d5f5c3cdfc6021d7ad82b66b9bf2d185cf2f",
+    "result": "Crop transition blend1142 vs1134 correct but switches16->15/chatter10->11; border<=8px24->25 also improves in identity control; no attributable reliable improvement",
+    "perception_audit": "815 training partial targets:376 retained; bowl282/344, rack16/259, doorhandle46/108, drawerhandle32/104; red gate loses only1bowl; no postprocessing retuning"
   }
 }
