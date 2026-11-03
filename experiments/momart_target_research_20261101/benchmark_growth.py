@@ -19,7 +19,7 @@ from sequence_metrics import sequence_metrics
 from training_consistency import class_consistency_loss
 
 
-def train_model(data,view,train,dev,seed,device,ranking_strength=0.,consistency_strength=0.,consistency_mode='temporal',consistency_predecessor=None):
+def train_model(data,view,train,dev,seed,device,ranking_strength=0.,consistency_strength=0.,consistency_mode='temporal',consistency_predecessor=None,epoch_callback=None):
     torch.manual_seed(seed);np.random.seed(seed);raw,context=view;valid=data['valid']
     cm=raw[train][valid[train]].mean(0);cs=raw[train][valid[train]].std(0).clip(.05)
     xm=context[train].mean(0);xs=context[train].std(0).clip(.05)
@@ -48,7 +48,8 @@ def train_model(data,view,train,dev,seed,device,ranking_strength=0.,consistency_
         net.eval()
         with torch.inference_mode():prob=net(c,x,mask)[0].softmax(-1).cpu().numpy()
         value=metrics(prob.argmax(-1),dev,data)
-        history.append(dict(epoch=epoch+1,loss=float(loss),dev=value))
+        history.append(dict(epoch=epoch+1,loss=float(loss.detach()),dev=value))
+        if epoch_callback is not None:epoch_callback(epoch+1,net,prob,dict(cm=cm,cs=cs,xm=xm,xs=xs))
         if value['f1']>best:
             best=value['f1'];best_epoch=epoch+1;state={k:v.detach().cpu().clone() for k,v in net.state_dict().items()}
         if epoch+1-best_epoch>=30:break

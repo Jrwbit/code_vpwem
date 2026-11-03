@@ -573,3 +573,27 @@ def test_class_consistency_is_slot_invariant_and_includes_null_with_finite_gradi
     changed.backward()
     assert torch.isfinite(a.grad).all() and torch.isfinite(shifted.grad).all()
     assert torch.isfinite(class_consistency_loss(a[:0],b[:0],ca[:0],cb[:0],torch.ones(0)))
+
+
+def test_epoch_snapshot_callback_preserves_training_and_captures_real_weights():
+    from benchmark_growth import train_model
+    rng=np.random.default_rng(73);n=8
+    raw=rng.normal(size=(n,8,3)).astype(np.float32);context=rng.normal(size=(n,4)).astype(np.float32)
+    valid=np.zeros((n,8),bool);valid[:,:2]=True
+    rows=[dict(episode_id=str(i//2),objects=[dict(class_id=0),dict(class_id=3)],label=dict(target=dict(class_id=0))) for i in range(n)]
+    positive=np.zeros((n,8),bool);positive[:,0]=True
+    data=dict(rows=rows,valid=valid,y=np.zeros(n,np.int64),positive=positive,weights=np.ones(n,np.float32),visible=np.ones(n,bool),roles=np.zeros(n,np.int64))
+    train=np.arange(4);dev=np.arange(4,8)
+    plain,reference,history=train_model(data,(raw,context),train,dev,17,'cpu')
+    saved={}
+    def snapshot(epoch,net,probability,normalizer):
+        saved[epoch]=(dict(state={k:v.detach().clone() for k,v in net.state_dict().items()},normalizer=normalizer),probability.copy())
+    replay,checkpoint,observed=train_model(data,(raw,context),train,dev,17,'cpu',epoch_callback=snapshot)
+    assert checkpoint['best_epoch']==reference['best_epoch']
+    assert observed['history']==history['history']
+    for key in reference['state']:assert torch.equal(reference['state'][key],checkpoint['state'][key])
+    np.testing.assert_array_equal(plain,replay)
+    selected,probability=saved[checkpoint['best_epoch']]
+    for key in selected['state']:assert torch.equal(selected['state'][key],checkpoint['state'][key])
+    np.testing.assert_array_equal(probability,replay)
+    assert len(saved)==len(history['history'])
