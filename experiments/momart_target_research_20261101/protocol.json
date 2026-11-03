@@ -98,8 +98,8 @@
     "next_reserved_current_manifest_sha256": "0206d3011b46833572c23da835d6595bb3c75e8950c16bc67dc204a4ab2f6acd",
     "next_reserved_cohort_sha256": "288743ad1c40a58cceadd52fad3aae0e7c3258bf1de8e50cf25ba53412874481"
   },
-  "next_unexamined_confirmation": "confirm9",
-  "next_unexamined_manifest_sha256": "35d9cd684ea33a60521aec00ac6678add6ca48b5714f3457f88b93b8ab089d90",
+  "next_unexamined_confirmation": "confirm10",
+  "next_unexamined_manifest_sha256": "f9994c2299be146296808abab81c67cae0a7c85b95d5928e425b4d1f9b590785",
   "current_recurrent_confirmation": {
     "holdout": "confirm8",
     "selection": "growth_recurrent_architecture_blends_v4/current_gru_uniform_new0.25_skip0.5",
@@ -122,10 +122,21 @@
   },
   "next_unexamined_reserve": {
     "episodes": 16,
-    "frames": 1395,
-    "excluded_episodes": 234,
+    "frames": 1190,
+    "excluded_episodes": 250,
     "all_rgb_hashes_verified": true,
     "annotations_proposals_features": false,
-    "created_before": "confirmation8 scores"
+    "created_before": "confirmation9 scores"
+  },
+  "far_future_confidence_confirmation": {
+    "holdout": "confirm9",
+    "winner": "geometry_far_future0.5_transition4_new0.25",
+    "frozen_selection_sha256": "f49721dd85edbe6bc357e7959e4d8debc03e56d1c12924742c7b1e16044e1b15",
+    "confirmation_joint_goal_met": false,
+    "no_promotion": true,
+    "result": "1363aligned/936known:822/896 vscurrent817/894; acquire13 same(1added/1fixed),chatter14->16,stale1->2",
+    "examined_now_regression_only": [
+      "confirm9"
+    ]
   }
 }
