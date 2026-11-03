@@ -941,3 +941,34 @@ def test_detector_interpolation_preserves_initializer_endpoints_and_frozen_backb
     for key in ['backbone.weight','count']:
         changed={k:v.clone() for k,v in adapted.items()};changed[key]+=1
         with pytest.raises(ValueError):interpolate_detector(initial,changed,.25)
+
+
+def test_positive_set_loss_matches_singleton_ce_and_keeps_unknown_and_missing_semantics():
+    import torch
+    from positive_set_loss import positive_set_loss
+    logits=torch.tensor([[2.,1.,*([float('-inf')]*6),0.],[1.,3.,*([float('-inf')]*6),2.],[0.,1.,*([float('-inf')]*6),2.]],requires_grad=True)
+    valid=torch.tensor([[True,True,*([False]*6)]]*3);positive=torch.tensor([[True,*([False]*7)],[False]*8,[False]*8])
+    labels=torch.tensor([0,-100,8]);weights=torch.tensor([1.,5.,2.])
+    expected=weighted_loss(logits,labels,weights,valid)
+    for mode in ['uniform','marginal']:
+        actual=positive_set_loss(logits,labels,positive,weights,valid,mode)
+        torch.testing.assert_close(actual,expected)
+        grad=torch.autograd.grad(actual,logits,retain_graph=True)[0]
+        assert torch.isfinite(grad).all() and (grad[1]==0).all() and (grad[:,2]==0).all()
+
+
+def test_positive_set_loss_rewards_either_matching_box_without_accepting_rivals():
+    import torch
+    from positive_set_loss import positive_set_loss
+    logits=torch.tensor([[0.,3.,-1.,-2.]],requires_grad=True)
+    positive=torch.tensor([[True,True,False]]);valid=torch.ones_like(positive);weights=torch.ones(1)
+    value=positive_set_loss(logits,torch.tensor([0]),positive,weights,valid)
+    probability=logits.softmax(-1)
+    torch.testing.assert_close(value,-probability[0,:2].sum().log())
+    grad=torch.autograd.grad(value,logits)[0]
+    assert (grad[0,:2]<0).all() and (grad[0,2:]>0).all()
+    for labels in [torch.tensor([0]),torch.tensor([1])]:
+        torch.testing.assert_close(positive_set_loss(logits,labels,positive,weights,valid),value)
+    with pytest.raises(ValueError):positive_set_loss(logits,torch.tensor([3]),positive,weights,valid)
+    invalid=valid.clone();invalid[0,1]=False
+    with pytest.raises(ValueError):positive_set_loss(logits,torch.tensor([0]),positive,weights,invalid)

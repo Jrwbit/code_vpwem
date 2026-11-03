@@ -19,13 +19,14 @@ from sequence_metrics import sequence_metrics
 from training_consistency import class_consistency_loss
 
 
-def train_model(data,view,train,dev,seed,device,ranking_strength=0.,consistency_strength=0.,consistency_mode='temporal',consistency_predecessor=None,epoch_callback=None,augmentation=None,augmentation_strength=0.):
+def train_model(data,view,train,dev,seed,device,ranking_strength=0.,consistency_strength=0.,consistency_mode='temporal',consistency_predecessor=None,epoch_callback=None,augmentation=None,augmentation_strength=0.,positive_mode='canonical'):
+    if positive_mode not in ('canonical','marginal','uniform'):raise ValueError('Invalid positive-set objective')
     torch.manual_seed(seed);np.random.seed(seed);raw,context=view;valid=data['valid']
     cm=raw[train][valid[train]].mean(0);cs=raw[train][valid[train]].std(0).clip(.05)
     xm=context[train].mean(0);xs=context[train].std(0).clip(.05)
     c=torch.tensor((raw-cm)/cs,device=device);x=torch.tensor((context-xm)/xs,device=device)
     mask=torch.tensor(valid,device=device);labels=torch.tensor(data['y'],device=device);weights=torch.tensor(data['weights'],device=device)
-    positive=torch.tensor(data['positive'],device=device) if ranking_strength else None
+    positive=torch.tensor(data['positive'],device=device) if ranking_strength or positive_mode!='canonical' else None
     classes=torch.tensor(data['candidates'][:,:,133:].argmax(-1),device=device) if consistency_strength else None
     if augmentation_strength<0 or not np.isfinite(augmentation_strength):raise ValueError('Invalid augmentation loss strength')
     aug=None
@@ -40,7 +41,10 @@ def train_model(data,view,train,dev,seed,device,ranking_strength=0.,consistency_
         net.train()
         for batch in np.array_split(np.random.permutation(train),max(1,(len(train)+31)//32)):
             opt.zero_grad();logits,_=net(c[batch],x[batch],mask[batch])
-            loss=weighted_loss(logits,labels[batch],weights[batch],mask[batch])
+            if positive_mode=='canonical':loss=weighted_loss(logits,labels[batch],weights[batch],mask[batch])
+            else:
+                from positive_set_loss import positive_set_loss
+                loss=positive_set_loss(logits,labels[batch],positive[batch],weights[batch],mask[batch],positive_mode)
             if aug is not None:
                 augmented=aug['lookup'][batch];extra=net(aug['c'][augmented],aug['x'][augmented],aug['mask'][augmented])[0]
                 loss=loss+augmentation_strength*weighted_loss(extra,aug['labels'][augmented],weights[batch],aug['mask'][augmented])

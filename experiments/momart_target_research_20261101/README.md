@@ -1,5 +1,7 @@
 # MoMaRT 单目标选择实验
 
+`benchmark_positive_set.py --root OUTPUT_ROOT --output NEW_DIRECTORY --device cuda:0`比较原canonical CE、等价匹配框uniform CE、匹配框总概率marginal损失；既有positive集合、无框null、未知语义不变。12配对拟合/计划62记录，4旧控制逐参数复现，保留三组完整门槛和当前候选保持；仅主视角，推理接口不变。详见`docs/momart_target_research_positive_set_20261103.md`，不把监督口径对齐当作独立意图真值或闭环收益。
+
 持续目标与验收：`protocol.json`、`docs/momart_target_research_goal_20261101.md`。当前不自动替换正式检测器、对象缓存或动作策略；离线选择器分数不代表策略任务成功率。
 
 检测适配入口：`train_perception_adaptation.py --root OUTPUT_ROOT --config GPU_CONFIG --output NEW_DIRECTORY --device cuda:0`。固定主视角108训练/24开发，原检测权重严格加载、冻结backbone，原图/一半随机裁剪配对训练；全部可见实例监督包含未知意图帧，后处理不变。`--smoke`仅检查两步/16开发帧。后续`benchmark_detector_interpolation.py --root OUTPUT_ROOT --study COMPLETED_DETECTOR_STUDY --config GPU_CONFIG --output NEW_DIRECTORY --device cuda:0`测试六真实状态各.1/.25/.5权重回缩，严格保持backbone和非浮点缓冲，不增加训练或输入视角；检测门槛通过也不等于选择器/策略成功。协议、失败和实际状态见`docs/momart_target_research_detector_adaptation_20261103.md`。
