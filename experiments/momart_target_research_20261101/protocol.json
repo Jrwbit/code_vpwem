@@ -43,7 +43,8 @@
     "train-only switch-window and acquisition loss emphasis",
     "fixed incumbent/weighting-family probability blends with dual-comparator calibration",
     "predicted-proposal-class confidence and top-two-gap rejection calibration",
-    "paired train108 causal finger/strictly past command histories, uniform/switch-weighted losses and incumbent blends"
+    "paired train108 causal finger/strictly past command histories, uniform/switch-weighted losses and incumbent blends",
+    "main-view train108 hardest incorrect observed-box ranking, excluding alternate positives and null rivals; paired CE controls and fixed family blends"
   ],
   "deployment": "do not replace production model based only on weak-proxy scores; retain causal inputs, missing-target masks and full-scene observations",
   "acceptance_revision": 2,
@@ -66,5 +67,6 @@
     "holdout": "confirmation6: 16 selector-unseen source-nonvalid episodes, 1265 original frames; upstream visual/policy holdout not established",
     "original_manifest_sha256": "d84825c66da2ef7800ecac75ceaf5654ff2812cb5312aa7955ca40bfec3f1984"
   },
-  "runtime_bundle": "Relocatable public-feature selector only, always labelled research_candidate_not_promoted; bundle parity does not establish reliable intent, raw perception, full task coverage or closed-loop policy success"
+  "runtime_bundle": "Relocatable public-feature selector only, always labelled research_candidate_not_promoted; bundle parity does not establish reliable intent, raw perception, full task coverage or closed-loop policy success",
+  "active_camera_scope": "Main-view RGB and observed main depth only; no side/wrist feature enrichment for current ranking, selection or review. Historical wrist trials remain archived."
 }
