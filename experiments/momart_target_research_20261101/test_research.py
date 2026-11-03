@@ -820,8 +820,9 @@ def test_border_audit_keeps_alternate_positives_and_exhaustive_denominators():
 def test_border_emphasis_leaves_labels_inputs_and_dev_weights_unchanged():
     from border_training import border_training_mask,emphasize_training
     objects=[dict(box=[40,0,60,2],class_id=0),dict(box=[40,20,60,40],class_id=0)]
-    data=dict(rows=[dict(objects=objects) for _ in range(4)],y=np.array([0,0,0,-100]),positive=np.array([[True,False],[True,True],[True,False],[True,False]]),weights=np.ones(4,np.float32),context=np.zeros((4,3)))
+    data=dict(rows=[dict(objects=objects) for _ in range(4)],y=np.array([0,0,0,-100]),positive=np.array([[True,False],[True,True],[True,False],[True,False]]),roles=np.array([0,4,3,0]),weights=np.ones(4,np.float32),context=np.zeros((4,3)))
     mask=border_training_mask(data,np.arange(4));assert mask.tolist()==[True,False,True,False]
+    assert border_training_mask(data,np.arange(4),scope='bowl').tolist()==[True,False,False,False]
     fitted=emphasize_training(data,np.array([0,1,3]),mask,4)
     np.testing.assert_array_equal(fitted['weights'],[4,1,1,1]);np.testing.assert_array_equal(data['weights'],[1,1,1,1])
     assert fitted['y'] is data['y'] and fitted['context'] is data['context']

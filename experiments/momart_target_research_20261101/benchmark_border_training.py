@@ -25,9 +25,9 @@ def main(a):
     if any((holdout/name).exists() for name in ['annotations_all.json','candidate_manifest.json']):raise ValueError('Confirmation10 already examined')
     data=load_growth_data(a.root);splits=growth_partitions(data);keys=['dev','old_dev','new_dev'];train=splits['train'];dev=splits['dev']
     if {row['episode_id'] for row in data['rows']}&{ep['episode_id'] for ep in json.loads((holdout/'manifest.json').read_text())['episodes']}:raise ValueError('Confirmation overlap')
-    review=border_training_mask(data,np.r_[train,dev],short_side_pixels=8)
+    review=border_training_mask(data,np.r_[train,dev],short_side_pixels=8,scope=a.scope)
     a.output.mkdir(parents=True,exist_ok=False)
-    write_json(a.output/'frozen_search_protocol.json',dict(method='train108 recorded border-target loss emphasis',confidence_factors=[1.,2.,4.],views=['geometry_main_only'],
+    write_json(a.output/'frozen_search_protocol.json',dict(method='train108 recorded border-target loss emphasis',scope=a.scope,confidence_factors=[1.,2.,4.],views=['geometry_main_only'],
         thresholds=dict(border_distance_pixels=1,short_side_pixels=8,image_hw=[90,120]),
         losses=['uniform','transition4'],seeds=[100,300],fit_count=12,probability_offsets=[0.,4.],tf32=False,device=a.device,physical_gpu=os.environ.get('CUDA_VISIBLE_DEVICES'),
         selection='Original dual V4 AND current retention on combined24/old8/new16; no target or evaluation denominator change',
@@ -106,4 +106,4 @@ def main(a):
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for key in ['root','output']:p.add_argument('--'+key,type=Path,required=True)
-    p.add_argument('--device',default='cpu');main(p.parse_args())
+    p.add_argument('--scope',choices=['all','bowl'],default='all');p.add_argument('--device',default='cpu');main(p.parse_args())
