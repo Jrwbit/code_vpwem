@@ -801,3 +801,15 @@ def test_far_future_confidence_changes_training_weights_only_and_requires_comple
     with pytest.raises(ValueError):far_future_mask(data,dict(records=audit['records'][:2]),np.arange(3))
     audit['records'][0]['future_motion_steps']=1
     with pytest.raises(ValueError):far_future_mask(data,audit,np.arange(3))
+
+
+def test_border_audit_keeps_alternate_positives_and_exhaustive_denominators():
+    from audit_border_visibility import border_flags,summarize
+    objects=[dict(box=[40,0,60,2],class_id=0),dict(box=[40,20,60,40],class_id=0)]
+    assert border_flags(objects,np.array([True,False]),[90,120],4)
+    assert not border_flags(objects,np.array([True,True]),[90,120],4)
+    assert not border_flags(objects,np.array([False,False]),[90,120],4)
+    d=dict(rows=[dict(objects=objects,id=str(i),episode_id='ep',step=i) for i in range(3)],positive=np.array([[True,False],[True,True],[False,False]]),roles=np.zeros(3,int),visible=np.ones(3,bool))
+    result=summarize(d,np.arange(3),np.array([0,1,8]),4)
+    assert [result['buckets'][k]['known'] for k in ['edge_sliver','other_available','no_matching_proposal']]==[1,1,1]
+    assert sum(v['correct'] for v in result['buckets'].values())==2
