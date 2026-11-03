@@ -828,3 +828,41 @@ def test_border_emphasis_leaves_labels_inputs_and_dev_weights_unchanged():
     assert fitted['y'] is data['y'] and fitted['context'] is data['context']
     assert np.array_equal(emphasize_training(data,np.arange(4),mask,1)['weights'],data['weights'])
     with pytest.raises(ValueError):emphasize_training(data,np.arange(4),mask,.5)
+
+
+def test_sensor_crop_aligns_pixels_masks_and_camera_geometry():
+    from sensor_crop import apply_crop,pixel_affine,mask_box,choose_crop,transform_geometry_context
+    from robot_geometry import box_geometry
+    crop=[12,9,96,72];mask=np.zeros((90,120),bool);mask[20:40,30:50]=True
+    transformed=apply_crop(mask,crop,True);assert mask_box(transformed)==[22,14,47,39]
+    affine=pixel_affine(crop);point=np.array([.3,.4]);np.testing.assert_allclose(point*affine[:2]+affine[2:],[(.3*120-12)/96,(.4*90-9)/72],atol=1e-7)
+    # 80% crop maps central sensor pixels exactly to central rays; all plane points remain on the same surface.
+    depth=np.ones((90,120),np.float32);ee=np.array([1.,0,0]);box=np.array([0,0,1,1])
+    identity=box_geometry(box,depth,ee,60,1,pixel_affine=np.array([1,1,0,0]))
+    np.testing.assert_array_equal(identity,box_geometry(box,depth,ee,60,1))
+    original=box_geometry(np.array([.1,.1,.9,.9]),depth,ee,60,1)
+    augmented=box_geometry(box,apply_crop(depth,crop,True),ee,60,1,pixel_affine=affine)
+    assert abs(original[0]-augmented[0])<.01 and abs(original[2]-augmented[2])<.01
+    g=np.arange(14,dtype=np.float32);new=transform_geometry_context(g,crop)
+    np.testing.assert_array_equal(new[:3],g[:3]);np.testing.assert_allclose(new[3:5],g[3:5]*affine[:2]+affine[2:]);np.testing.assert_allclose(new[12:],g[12:]*affine[:2])
+    for bad in [[-1,0,96,72],[0,0,96,71],[0,0,121,90]]:
+        with pytest.raises(ValueError):pixel_affine(bad)
+    near=np.zeros((90,120),bool);near[2:18,40:65]=True
+    chosen,targeted=choose_crop(near,np.random.default_rng(7));assert targeted
+    b=mask_box(apply_crop(near,chosen,True));assert 1<=min(b[2]-b[0],b[3]-b[1])<=8
+
+
+def test_cropped_labels_use_transformed_visible_mask_including_target_absence():
+    from sensor_crop import apply_crop,mask_box,pixel_affine
+    from proxy import target_candidate
+    mask=np.zeros((90,120),bool);mask[2:18,40:65]=True
+    visible=apply_crop(mask,[0,14,96,72],True);box=mask_box(visible)
+    truth=[dict(instance_id='bowl',class_id=0,box=box)];proposal=[dict(class_id=0,box=box)]
+    assert target_candidate(proposal,truth,dict(instance_id='bowl',class_id=0))==0
+    removed=apply_crop(mask,[0,18,96,72],True);assert mask_box(removed) is None
+    assert target_candidate(proposal,[],dict(instance_id='bowl',class_id=0))==-1
+    # The same crop must map current/past principal points by the same affine.
+    from sensor_crop import transform_geometry_context
+    g=np.zeros(14,np.float32);g[3:5]=[.5,.6];g[12:14]=[.1,-.05]
+    a=pixel_affine([0,14,96,72]);new=transform_geometry_context(g,[0,14,96,72])
+    np.testing.assert_allclose(new[3:5]-new[12:14],(g[3:5]-g[12:14])*a[:2]+a[2:],atol=1e-7)

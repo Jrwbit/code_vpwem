@@ -57,12 +57,17 @@ def project_uv(point,fov):
     return np.array([.5-point[1]/(2*depth*tangent*4/3),.5-point[2]/(2*depth*tangent)],np.float32),True
 
 
-def box_geometry(box,depth,ee,fov,depth_high):
+def box_geometry(box,depth,ee,fov,depth_high,pixel_affine=None):
     box=np.asarray(box);image=np.asarray(depth)
     if image.ndim==3 and image.shape[-1]==1:image=image[...,0]
     if image.ndim!=2:raise ValueError('Expected HxW or HxWx1 depth')
     height,width=image.shape
-    uv,forward=project_uv(ee,fov);center=(box[:2]+box[2:])/2
+    uv,forward=project_uv(ee,fov)
+    if pixel_affine is not None:
+        affine=np.asarray(pixel_affine,float)
+        if affine.shape!=(4,) or not np.isfinite(affine).all() or (affine[:2]<=0).any():raise ValueError('Expected positive finite image scale and offset')
+        uv=uv*affine[:2]+affine[2:]
+    center=(box[:2]+box[2:])/2
     gap=np.maximum(0,np.maximum(box[:2]-uv,uv-box[2:]));inside=float(forward and np.all(uv>=box[:2]) and np.all(uv<=box[2:]))
     x1,y1,x2,y2=(box*[width,height,width,height]).astype(int)
     x1=max(0,min(width-1,x1));y1=max(0,min(height-1,y1));x2=max(x1+1,min(width,x2));y2=max(y1+1,min(height,y2))
@@ -70,6 +75,7 @@ def box_geometry(box,depth,ee,fov,depth_high):
     tail=np.r_[center-uv,gap,inside,valid.mean()]
     if not valid.any():return np.r_[np.zeros(10),tail].astype(np.float32)
     d=cropped[valid]*depth_high;u=(xx[valid]+.5)/width;v=(yy[valid]+.5)/height;t=np.tan(np.deg2rad(fov)/2)
+    if pixel_affine is not None:u=(u-affine[2])/affine[0];v=(v-affine[3])/affine[1]
     points=np.stack([d,-(u-.5)*2*d*t*4/3,-(v-.5)*2*d*t],-1);delta=points-np.asarray(ee)
     distance=np.linalg.norm(delta,axis=-1);nearest=int(distance.argmin())
     return np.r_[distance[nearest],np.quantile(distance,[.1,.5]),np.mean(distance<.05),delta[nearest],np.median(delta,axis=0),tail].astype(np.float32)
