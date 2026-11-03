@@ -23,10 +23,11 @@ def summary(pred,index,data):
 
 def main(a):
     a.output.mkdir(parents=True,exist_ok=False)
-    research=a.root/'momart_target_research_20261101';history_mode=a.history is not None
-    source=research/('growth_history_v4_seed100_300' if history_mode else 'transition_emphasis_v4_seed100_300')
+    research=a.root/'momart_target_research_20261101';history_mode=a.history is not None;ranking_mode=a.ranking
+    extended_mode=history_mode or ranking_mode
+    source=research/('growth_ranking_v4_seed100_300' if ranking_mode else 'growth_history_v4_seed100_300' if history_mode else 'transition_emphasis_v4_seed100_300')
     if json.loads((source/'status.json').read_text())['stage']!='complete':raise ValueError('Source search incomplete')
-    holdout=research/('confirm7_corpus' if history_mode else 'confirm6_corpus')
+    holdout=research/('confirm7_corpus' if extended_mode else 'confirm6_corpus')
     if any((holdout/name).exists() for name in ['annotations_all.json','candidate_manifest.json']):raise ValueError('Fresh confirmation already examined')
     data=load_growth_data(a.root);splits=growth_partitions(data);keys=['dev','old_dev','new_dev']
     if history_mode:
@@ -43,14 +44,15 @@ def main(a):
     def merit(value):
         m=value['calibration']['metrics'];return value['joint_growth_goal_met'],m['recall'] if value['joint_growth_goal_met'] else m['f1'],-m['wrong_acquire']
     family_names=[s+'_'+loss for s in ['gripper','actions','both'] for loss in ['uniform','transition4']] if history_mode else ['uniform','transition2','transition4','acquire2','combined2']
+    if ranking_mode:family_names=[f'ranking{strength}_{loss}' for strength in [.25,1.] for loss in ['uniform','transition4']]
     for family in family_names:
-        names=[name for name in original if ('history_'+family+'_seed' in name if history_mode else '_'+family+'_bias' in name)]
-        families[family]=max(names,key=lambda name:original[name]['raw']['dev']['f1'] if history_mode else merit(original[name]))
-    write_json(a.output/'frozen_search_protocol.json',dict(method='incumbent + history-family probability blends' if history_mode else 'incumbent + weighting-family probability blends',families=families,
+        names=[name for name in original if (family+'_seed' in name if extended_mode else '_'+family+'_bias' in name)]
+        families[family]=max(names,key=lambda name:original[name]['raw']['dev']['f1'] if extended_mode else merit(original[name]))
+    write_json(a.output/'frozen_search_protocol.json',dict(method='incumbent + ranking-family probability blends' if ranking_mode else 'incumbent + history-family probability blends' if history_mode else 'incumbent + weighting-family probability blends',families=families,
         fractions=[.25,.5,.75],thresholds=[0.,.25,.4,.5,.6,.7,.8,.85,.9,.95,.98],margins=[0.,.1,.2],fit_count=0,
         selection='Both original pointer and fixed calibrated incumbent V4 on combined24 and old8/new16 separately',
         holdout=holdout.name+', untouched selector holdout only',holdout_manifest_sha256=hashlib.sha256((holdout/'manifest.json').read_bytes()).hexdigest(),
-        family_selection='maximum raw development F1' if history_mode else 'registered source development merit',
+        family_selection='maximum raw development F1' if extended_mode else 'registered source development merit',
         manifest_sha256=hashlib.sha256((research/'growth_corpus/manifest.json').read_bytes()).hexdigest(),
         control_calibration=old['result']['calibration'],source_registry_sha256=hashlib.sha256((source/'registry.json').read_bytes()).hexdigest()))
     write_json(a.output/'data_audit.json',json.loads((source/'data_audit.json').read_text()))
@@ -73,8 +75,8 @@ def main(a):
         np.savez_compressed(a.output/(name+'_probabilities.npz'),probability=prob);write_json(a.output/'registry.json',registry)
         write_json(a.output/'status.json',dict(stage='calibrating',completed=len(registry),latest=name));print(name,chosen['joint_goal_met'],chosen['metrics']['correct'],chosen['metrics']['wrong_acquire'],flush=True)
     record('incumbent_frozen_configuration',old_probability,old_component,old['result']['calibration'])
-    control_name='blend_frozen_configuration' if history_mode else 'growth_frozen_configuration'
-    control_directory='frozen_for_confirm6_incumbent_blend' if history_mode else 'frozen_for_confirm5_growth108'
+    control_name='blend_frozen_configuration' if extended_mode else 'growth_frozen_configuration'
+    control_directory='frozen_for_confirm6_incumbent_blend' if extended_mode else 'frozen_for_confirm5_growth108'
     growth=json.loads((research/control_directory/'selected.json').read_text())
     record(control_name,predict_component(growth['result']['component'],data,a.root),growth['result']['component'],growth['result']['calibration'])
     for family,name in families.items():
@@ -88,4 +90,4 @@ def main(a):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--history',type=Path);main(p.parse_args())
+    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);modes=p.add_mutually_exclusive_group();modes.add_argument('--history',type=Path);modes.add_argument('--ranking',action='store_true');main(p.parse_args())
