@@ -211,20 +211,23 @@
         0.5
       ],
       "planned_recipes": 18,
-      "status": "running",
+      "status": "complete",
       "output": "detector_weight_interpolation_v1",
       "thresholds_changed": false,
-      "progress_snapshot_completed": 11
+      "progress_snapshot_completed": 11,
+      "completed_recipes": 18,
+      "new_eligible": false,
+      "winner": "original_frozen_detector"
     }
   },
   "positive_set_study": {
     "planned_fits": 12,
     "planned_records": 62,
     "progress_snapshot": {
-      "completed_fits": 3,
-      "completed_records": 14,
-      "canonical_exact_controls": 1,
-      "status": "running"
+      "completed_fits": 12,
+      "completed_records": 62,
+      "canonical_exact_controls": 4,
+      "status": "complete"
     },
     "train_multiple_positive": 111,
     "dev_multiple_positive": 18,
@@ -238,6 +241,43 @@
     "first_marginal": "1145correct but acquire5/carry1/switch15/chatter22 versus current1134/2/0/16/10; failed",
     "holdout_opened": false,
     "promotion": false,
-    "limitation": "Weak equivalent target boxes may also match other instances; no claim of corrected intention or physical instance ground truth"
+    "limitation": "Weak equivalent target boxes may also match other instances; no claim of corrected intention or physical instance ground truth",
+    "cumulative_records": 1989,
+    "new_eligible": false,
+    "result": "uniform blend1150 vs1134 correct but chatter10->16;16gains0losses;ambiguous correct13->15; all new failed",
+    "source_replay": "5 configurations on10592 queries:0 raw/accepted slot differences;max probability5.07e-7"
+  },
+  "error_impact_video_audit": {
+    "cohorts": [
+      "confirm6",
+      "confirm7",
+      "confirm8",
+      "confirm9"
+    ],
+    "episodes": 64,
+    "known_queries": 3510,
+    "acquire_queries": 700,
+    "wrong_acquire": 39,
+    "wrong_acquire_to_rack": 20,
+    "wrong_acquire_events": 20,
+    "wrong_acquire_episodes": 17,
+    "subject_changes": 28,
+    "first_query_not_correct": 9,
+    "stale_class": 4,
+    "rejects": 5,
+    "recovered_within16steps": 6,
+    "recovered_at24steps": 1,
+    "censored": 2,
+    "episodes_with_either_issue": 20,
+    "video_clips": 30,
+    "video_seconds": 129.5,
+    "video_sha256": "06b6080c784e713484b0c4172fed4d649b66a681f6f9d4fa134923d9ed0b1020",
+    "policy_rollout": false,
+    "weak_labels_unchanged": true,
+    "stable_class_jumps": 47,
+    "stable_both_selected_pairs": 2985,
+    "stable_class_jump_episodes": 27,
+    "video_scope": "All acquisition wrong-class runs and required-switch first-query failures only, not every possible selector error",
+    "tests": 77
   }
 }

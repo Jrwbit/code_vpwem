@@ -998,3 +998,31 @@ def test_bowl_class_auxiliary_reduces_other_class_mass_without_changing_nonbowl_
     assert empty.item()==0
     bad=classes.clone();bad[0]=3
     with pytest.raises(ValueError):bowl_class_loss(logits,labels,roles,bad,weights,valid)
+
+
+def test_error_impact_counts_runs_and_censors_recovery_at_unknown_labels():
+    from error_impact import analyze_impact
+    steps=[0,8,16,24,32,40,48,56];targets=['rack','bowl','bowl',None,'bowl','rack','rack','rack']
+    rows=[dict(episode_id='ep',step=step,label=dict(target=dict(instance_id=t,class_id=3 if t=='rack' else 0)) if t else None,
+        objects=[dict(class_id=0),dict(class_id=3)]) for step,t in zip(steps,targets)]
+    pred=np.array([1,1,1,1,1,0,8,1]);positive=np.zeros((8,8),bool)
+    for i,t in enumerate(targets):
+        if t:positive[i,1 if t=='rack' else 0]=True
+    data=dict(rows=rows,roles=np.array([2,0,0,-100,0,2,2,2]),positive=positive)
+    result=analyze_impact(data,pred,np.array([0,1,2,4,5,6,7]));s=result['summary']
+    assert s['wrong_acquire_queries']==3 and s['wrong_acquire_events']==2
+    assert s['wrong_acquire_to_rack']==3 and s['max_acquire_event_queries']==2
+    assert s['max_acquire_observed_step_span']==8 and s['single_query_acquire_events']==1
+    assert s['subject_changes']==2 and s['failed_at_change']==2 and s['stale_previous_class']==2
+    assert s['failed_change_no_correct_in_observed_followup']==1
+    assert result['subject_changes'][1]['recovery_steps']==16
+
+
+def test_error_impact_separates_unwanted_class_jumps_from_required_subject_changes():
+    from error_impact import analyze_impact
+    rows=[dict(episode_id='ep',step=step,label=dict(target=dict(instance_id='bowl',class_id=0)),objects=[dict(class_id=0),dict(class_id=3)]) for step in [0,8,16]]
+    positive=np.zeros((3,8),bool);positive[:,0]=True
+    data=dict(rows=rows,positive=positive,roles=np.zeros(3,int))
+    s=analyze_impact(data,np.array([0,1,0]),np.arange(3))['summary']
+    assert s['subject_changes']==0 and s['failed_at_change']==0
+    assert s['stable_class_jumps']==2 and s['stable_both_selected_pairs']==2 and s['stable_class_jump_episodes']==1
