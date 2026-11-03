@@ -880,3 +880,12 @@ def test_augmentation_loss_uses_original_normalization_and_exact_training_partit
     invalid=aug['valid'].copy();invalid[1,1]=False
     with pytest.raises(ValueError):prepare_augmentation(data,dict(aug,valid=invalid),train,norm,'cpu')
     with pytest.raises(ValueError):prepare_augmentation(dict(y=np.array([-100,0,0,0])),aug,train,norm,'cpu')
+
+
+def test_crop_stage_audit_cli_imports_without_prior_data_loader_imports():
+    import subprocess,sys
+    from pathlib import Path
+    script=Path(__file__).with_name('audit_crop_detection.py')
+    completed=subprocess.run([sys.executable,str(script),'--help'],capture_output=True,text=True)
+    assert completed.returncode==0,completed.stderr
+    assert '--archive' in completed.stdout

@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from omegaconf import OmegaConf
 from sensor_crop import apply_crop
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'momart_target_selector_20261101'))
 from proxy import target_candidate
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from momart_object_memory.mask_detector import FrozenMaskDetector,select_boxes
