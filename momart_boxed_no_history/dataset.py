@@ -84,6 +84,9 @@ class BoxedNoHistoryDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         sample = self.sampler.sample_sequence(index)
+        return self._prepare_sample(sample, index)
+
+    def _prepare_sample(self, sample, index):
         from .painting import draw_bbox
         buffer_start, buffer_end, _, _ = self.sampler.indices[index]
         frame_indices = np.minimum(
@@ -100,6 +103,11 @@ class BoxedNoHistoryDataset(torch.utils.data.Dataset):
             "obs": observations,
             "actions": sample["action"].astype(np.float32),
         }
+
+    def __getitems__(self, indices):
+        from momart_no_history_baseline.batch_read import read_sequence_batch
+        return [self._prepare_sample(sample, index)
+                for sample,index in zip(read_sequence_batch(self, indices),indices)]
 
     def get_dataset_sampler(self):
         return SortedByLengthSampler(self)

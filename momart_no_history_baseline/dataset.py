@@ -86,6 +86,9 @@ class ZarrNoHistorySequenceDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         sample = self.sampler.sample_sequence(index)
+        return self._prepare_sample(sample)
+
+    def _prepare_sample(self, sample):
         observations = ObsUtils.process_obs_dict({
             key: sample[key][:self.obs_steps] for key in self.obs_keys
         })
@@ -93,6 +96,10 @@ class ZarrNoHistorySequenceDataset(torch.utils.data.Dataset):
             "obs": observations,
             "actions": sample["action"].astype(np.float32),
         }
+
+    def __getitems__(self, indices):
+        from .batch_read import read_sequence_batch
+        return [self._prepare_sample(sample) for sample in read_sequence_batch(self, indices)]
 
     def get_dataset_sampler(self):
         return SortedByLengthSampler(self)

@@ -50,7 +50,9 @@ class TrainingArray:
             # HDF5 original-pixel fallback and in-memory arrays still avoid
             # reading the padding frame repeatedly.
             unique, inverse = np.unique(physical, return_inverse=True)
-            frames = np.concatenate([self.array[int(i):int(i)+1] for i in unique])
+            cuts=np.r_[0,np.flatnonzero(np.diff(unique)!=1)+1,len(unique)]
+            frames=np.concatenate([self.array[int(unique[a]):int(unique[b-1])+1]
+                                   for a,b in zip(cuts[:-1],cuts[1:])])
             return frames[inverse]
         chunk_length = int(chunks[0])
         chunk_ids = physical // chunk_length

@@ -1,0 +1,4 @@
+# Merge into BOTH final policy experiment configs after their scientific settings.
+# This is a loader override, not a runnable single-target experiment configuration.
+# Keep batch size, training steps, optimizer, augmentation and sample order unchanged.
+num_workers: 4

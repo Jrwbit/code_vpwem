@@ -38,6 +38,9 @@ class ObjectDataset:
 
     def __getitem__(self, index):
         sample = self.base[index]
+        return self._attach_objects(sample, index)
+
+    def _attach_objects(self, sample, index):
         start, end, _, _ = self.base.sampler.indices[index]
         frames = np.minimum(np.arange(start, start+self.base.obs_steps), end-1)
         anchor = int(frames[-1])
@@ -45,3 +48,7 @@ class ObjectDataset:
         snapshot = select_mode({key: self.root[key][anchor] for key in OBJECT_KEYS}, self.mode)
         sample['objects'] = snapshot
         return sample
+
+    def __getitems__(self, indices):
+        samples=self.base.__getitems__(indices)
+        return [self._attach_objects(sample,index) for sample,index in zip(samples,indices)]
