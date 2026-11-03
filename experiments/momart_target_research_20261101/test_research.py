@@ -530,3 +530,20 @@ def test_review_sampling_includes_every_change_and_blinds_labels_with_matched_co
     assert all(x['status']=='pending' and x['target_class'] is None for x in entry['annotations'])
     assert not {'label','proxy_class','kind','cohort','predicted_class'}&set(entry)
     assert select_cases({'gap':([rows[0],dict(rows[10],step=40)],[0,1])})==[]
+
+
+def test_hard_negative_ranking_masks_unknown_unavailable_and_other_correct_boxes():
+    from models import hard_negative_ranking_loss
+    logits=torch.tensor([[1.,9.,2.,99.,3.],[1.,2.,3.,4.,5.],[1.,2.,3.,4.,5.]],requires_grad=True)
+    valid=torch.tensor([[True,True,True,False]]*3)
+    positive=torch.tensor([[True,True,False,False],[False]*4,[False]*4])
+    labels=torch.tensor([0,-100,4]);weights=torch.tensor([2.,100.,100.])
+    loss=hard_negative_ranking_loss(logits,labels,positive,weights,valid)
+    assert torch.allclose(loss,torch.nn.functional.softplus(torch.tensor(2.)))
+    loss.backward()
+    assert logits.grad[0,0]<0 and logits.grad[0,2]>0
+    assert torch.count_nonzero(logits.grad)==2
+    empty=hard_negative_ranking_loss(logits,torch.tensor([-100,-100,4]),positive,weights,valid)
+    assert torch.isfinite(empty) and empty==0
+    all_correct=hard_negative_ranking_loss(logits[:1],labels[:1],valid[:1],weights[:1],valid[:1])
+    assert torch.isfinite(all_correct) and all_correct==0

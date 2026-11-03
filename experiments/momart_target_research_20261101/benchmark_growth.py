@@ -13,17 +13,18 @@ from confirm import predict_component,apply_calibration,evaluation_gate
 from data import feature_view,metrics
 from expanded import calibrate_v4,baseline_for
 from growth_data import load_growth_data,growth_partitions
-from models import Pointer,weighted_loss
+from models import Pointer,weighted_loss,hard_negative_ranking_loss
 from refine import role_breakdown
 from sequence_metrics import sequence_metrics
 
 
-def train_model(data,view,train,dev,seed,device):
+def train_model(data,view,train,dev,seed,device,ranking_strength=0.):
     torch.manual_seed(seed);np.random.seed(seed);raw,context=view;valid=data['valid']
     cm=raw[train][valid[train]].mean(0);cs=raw[train][valid[train]].std(0).clip(.05)
     xm=context[train].mean(0);xs=context[train].std(0).clip(.05)
     c=torch.tensor((raw-cm)/cs,device=device);x=torch.tensor((context-xm)/xs,device=device)
     mask=torch.tensor(valid,device=device);labels=torch.tensor(data['y'],device=device);weights=torch.tensor(data['weights'],device=device)
+    positive=torch.tensor(data['positive'],device=device) if ranking_strength else None
     net=Pointer(c.shape[-1],x.shape[-1],width=64,kind='mlp').to(device)
     opt=torch.optim.AdamW(net.parameters(),lr=.001,weight_decay=.001)
     best=-1.;best_epoch=0;state=None;history=[];started=time.monotonic()
@@ -31,7 +32,9 @@ def train_model(data,view,train,dev,seed,device):
         net.train()
         for batch in np.array_split(np.random.permutation(train),max(1,(len(train)+31)//32)):
             opt.zero_grad();logits,_=net(c[batch],x[batch],mask[batch])
-            loss=weighted_loss(logits,labels[batch],weights[batch],mask[batch]);loss.backward();opt.step()
+            loss=weighted_loss(logits,labels[batch],weights[batch],mask[batch])
+            if ranking_strength:loss=loss+ranking_strength*hard_negative_ranking_loss(logits,labels[batch],positive[batch],weights[batch],mask[batch])
+            loss.backward();opt.step()
         net.eval()
         with torch.inference_mode():prob=net(c,x,mask)[0].softmax(-1).cpu().numpy()
         value=metrics(prob.argmax(-1),dev,data)

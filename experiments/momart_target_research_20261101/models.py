@@ -59,3 +59,23 @@ def weighted_loss(logits,labels,weights,valid,smoothing=0.):
         nll=(1-smoothing)*nll+smoothing*uniform
     effective=torch.where(known,weights,torch.zeros_like(weights))
     return (nll*effective).sum()/effective.sum().clamp_min(1e-8)
+
+
+def hard_negative_ranking_loss(logits,labels,positive,weights,valid,margin=1.):
+    """Rank the canonical positive above incorrect observed boxes, never null.
+
+    Other boxes matching the same target are not negative examples. Unlabelled,
+    unavailable and no-rival rows make no contribution; no inference labels needed.
+    """
+    eligible=(labels>=0)&(labels<valid.shape[-1])
+    safe=labels.clamp(0,valid.shape[-1]-1)
+    rivals=valid&~positive
+    eligible=eligible&rivals.any(-1)&positive.gather(-1,safe[:,None]).squeeze(-1)
+    # Finite placeholders avoid inf*0 for rows without eligible rivals.
+    negative=logits[:,:valid.shape[-1]].masked_fill(~rivals,float('-inf')).max(-1).values
+    negative=torch.where(eligible,negative,torch.zeros_like(negative))
+    target=logits.gather(-1,safe[:,None]).squeeze(-1)
+    target=torch.where(eligible,target,torch.zeros_like(target))
+    loss=torch.nn.functional.softplus(margin+negative-target)
+    effective=torch.where(eligible,weights,torch.zeros_like(weights))
+    return (loss*effective).sum()/effective.sum().clamp_min(1e-8)
