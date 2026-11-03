@@ -130,3 +130,5 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 固定时钟研究可加 `--current-skip`，将未经GRU压缩的当前公开context直接拼到pointer输入；reset控制保持同参数量。该选项不改旧检查点行为，协议及切换审计见 `docs/momart_target_research_current_skip_20261103.md`。`verify_grid_replay.py`支持两个架构，报告真实保存状态的GPU归档/CPU批量/逐帧差异。
 
 时序候选的新轨迹确认：冻结器自动绑定训练主视角历史的时钟、任务顺序、编码器/URDF SHA和TF32设置，并保存处理前manifest副本。`MOMART_ASSIGNED_GPU=1 prepare_recurrent_confirmation.sh PROJECT RESEARCH PYTHON confirm8 FROZEN_SELECTION TRAIN_MAIN_HISTORY.npz`在确认未处理及模型SHA不变后，顺序完成主视角准备、完整公开时钟导出与冻结确认。`confirm.py --main-history ...`在读标签前检查新历史与冻结传感器协议及当前确认manifest一致，禁止静默复用训练轨迹历史。历史导出器的`--corpus ... --reference-history ...`只读manifest/RGB/机器人自身状态，不读取phase或GT对象标签。
+
+`audit_contact_priority.py --root OUTPUT_ROOT --output NEW_AUDIT.json --include-confirm8 --gpu 1`在全部已知训练/开发抓碗查询及已查看第八组回归上审计当前接触与过去8步对象运动，保留共享碰撞link实例歧义。`inspect_contact_geometry.py --source HDF5 --output NEW.json --gpu 1`检查场景碰撞几何可用性，不能据此断言视觉把手表面完全覆盖。`benchmark_far_future.py --root OUTPUT_ROOT --audit NEW_AUDIT.json --output NEW_SCREEN --device cuda:0`仅改变远距未来运动训练标签的损失权重，原标签、推理和开发分母不变。完整协议见docs/momart_target_research_contact_priority_20261103.md。

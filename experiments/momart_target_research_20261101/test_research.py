@@ -787,3 +787,17 @@ def test_contact_audit_plan_excludes_unknown_nonacquire_and_other_partitions():
     data=dict(rows=rows,y=np.array([0,0,0,-100,0]),roles=np.array([0,2,0,0,0]))
     plan=audit_plan(data,dict(train=[0,1,3],dev=[2]));assert [r['id'] for r in plan]==['0','2']
     assert plan[0]['future_motion_steps']==32 and plan[1]['partition']=='dev'
+
+
+def test_far_future_confidence_changes_training_weights_only_and_requires_complete_audit():
+    from supervision_timing import far_future_mask
+    from supervision_confidence import downweight_training
+    rows=[dict(id=str(i),source='/tmp/source',demo='demo',step=i*8,label=dict(target=dict(instance_id='bowl',class_id=0,onset=40))) for i in range(3)]
+    data=dict(rows=rows,y=np.zeros(3,np.int64),roles=np.zeros(3,np.int64),weights=np.ones(3,np.float32))
+    audit=dict(records=[dict(rows[i],target='bowl',future_motion_steps=40-i*8,facts=dict(target_far=i!=1)) for i in range(3)])
+    mask=far_future_mask(data,audit,np.arange(3));assert mask.tolist()==[True,False,True]
+    actual=downweight_training(data,np.array([0,1]),mask,.5)
+    np.testing.assert_array_equal(actual['weights'],[.5,1.,1.]);np.testing.assert_array_equal(data['weights'],np.ones(3));assert actual['y'] is data['y']
+    with pytest.raises(ValueError):far_future_mask(data,dict(records=audit['records'][:2]),np.arange(3))
+    audit['records'][0]['future_motion_steps']=1
+    with pytest.raises(ValueError):far_future_mask(data,audit,np.arange(3))
