@@ -118,3 +118,5 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 `verify_checkpoint_replay.py --root OUTPUT_ROOT --study COMPLETE_REPLAY_DIRECTORY --output NEW_REPORT` 在全部既有公共特征帧上重新加载第13/37轮真实权重和归一化，检查偏置0/+4的概率（1e-5容差）、原始槽和接受槽与GPU归档的一致性；只验证快照序列化与公共特征推理，不是原始感知或闭环收益。
 
 `benchmark_epoch_selection.py --root OUTPUT_ROOT --output NEW_DIRECTORY --device cuda` 保存原时序2/切换4倍/seed300训练停止轨迹内所有实际轮的权重及概率，逐轮偏置0/+4完整校准。除旧指针/原冻结控制V4外，combined24/old8/new16均要求相对当前冻结融合的正确数、抓碗/持碗、稳定类别跳动率、切换正确/滞留和角色召回下限保持。合格先于F1排序；无合格快照时以最高F1仅作失败诊断/固定融合候选，明确记录fallback。再与原/当前冻结配置按25/50/75%融合，不放宽门槛。该轨迹67轮时为134快照配置+2控制+6融合=142记录、1再拟合。`verify_checkpoint_replay.py ... --epochs 13 37 SELECTED_EPOCH` 可对指定实际轮作公共特征序列化重放；默认13/37保持旧用法。新保持门槛不改变旧历史结果，未来确认也须同时保留该比较。
+
+带`current_retention_required`的选中配置先用`freeze_growth_confirmation.py ... --retention CURRENT_SELECTED_JSON`冻结：校验开发三个分组、完整组件和运行校准配置，保存当前比较器与候选/原控制/当前比较器的权重SHA。之后`confirm.py`在读取确认标签前验证这些文件并冻结第四个`retention`比较器；总体及每个来源分区额外执行`current_retention_gate`。缺少冻结比较器时不能运行该确认协议。`verify_checkpoint_replay.py ... --include-selection`同时重放真实胜出融合；`bootstrap_confirmation.py --reference retention`比较当前冻结融合。采样排除集现在继承所有上游manifest的excluded_episodes，避免旧审阅轨迹经间接引用重新进入留出。

@@ -73,5 +73,17 @@
   },
   "runtime_bundle": "Relocatable public-feature selector only, always labelled research_candidate_not_promoted; bundle parity does not establish reliable intent, raw perception, full task coverage or closed-loop policy success",
   "active_camera_scope": "Main-view RGB and observed main depth only; no side/wrist feature enrichment for current ranking, selection or review. Historical wrist trials remain archived.",
-  "full_gate_epoch_retention": "Additional current frozen blend accepted-correct, acquire/carry, stable-class rate, correct/stale changes and role-floor retention on combined24/old8/new16; does not rewrite historical V4 results. Same extra comparison required before any new confirmation claim."
+  "full_gate_epoch_retention": "Additional current frozen blend accepted-correct, acquire/carry, stable-class rate, correct/stale changes and role-floor retention on combined24/old8/new16; does not rewrite historical V4 results. Same extra comparison required before any new confirmation claim.",
+  "current_epoch_candidate_confirmation": {
+    "holdout": "confirm7",
+    "selection": "full_gate_epoch_selection_v4; frozen_for_confirm7_epoch_selection before annotations/proposals",
+    "candidate": "75% frozen transition4_new0.75 +25% actual temporal2/transition4/seed300 epoch11 offset0; threshold=.5 margin=.1",
+    "comparators": [
+      "original pointer V4",
+      "original frozen_for_confirm4 V4",
+      "frozen_for_confirm6_incumbent_blend current retention"
+    ],
+    "current_retention": "Same registered additional retention overall and every source stratum; exact comparator and candidate/control/retention weight hashes frozen before preprocessing",
+    "next_reserved": "confirm8:16 episodes/1380 original main frames; SHA256 d380b7ea224c788b805e39454f6f4db8826f7eab1414d2b5a5f2655aebbbb1f4; unprocessed"
+  }
 }
