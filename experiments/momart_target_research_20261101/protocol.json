@@ -305,5 +305,36 @@
     "logged_in_feishu_ui_verified": false,
     "user_device_black_screen_root_cause": "not established; old cloud-transcoded sampled frames also have visible content",
     "no_policy_rollout": true
+  },
+  "training_readiness": {
+    "user_accepts_transient_box_errors": true,
+    "training_allowed_before_old_promotion_gates": true,
+    "production_promotion_unchanged": true,
+    "stream_replay": {
+      "queries": 10592,
+      "episodes": 146,
+      "accepted_slot_differences": 0,
+      "max_probability_difference": 2.5331974029541016e-07
+    },
+    "relocated_bundle": {
+      "queries": 10592,
+      "slot_differences": 0,
+      "max_probability_difference": 0.0,
+      "manifest_sha256": "57b69f3279fcbf0b97ef34a6177c471930b91a15a549b5a00190cda0b404b029"
+    },
+    "raw_video_replay": {
+      "queries": 218,
+      "episodes": 2,
+      "slot_differences": 0,
+      "candidate_valid_differences": 2,
+      "max_probability_difference": 0.02550932765007019,
+      "max_box_difference": 0.0003052055835723877,
+      "median_ms": 40.13855871744454,
+      "p95_ms": 57.34062555711716,
+      "first_ms": 648.5820533707738
+    },
+    "action_policy_integrated": false,
+    "closed_loop_success_verified": false,
+    "next_priority": "Frozen one-box conditioning adapter and action-policy training/closed-loop comparison, not prerequisite zero selector errors"
   }
 }
