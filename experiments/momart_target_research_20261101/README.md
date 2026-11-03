@@ -114,3 +114,5 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 `diagnose_checkpoint_selection.py --study COMPLETE_STUDY_DIRECTORY --output NEW_REPORT` 事后检查逐轮原始开发日志：同一模型F1胜出轮以外，是否有正确数不更少、抓碗错类≤2、持碗错类0的训练轮。未保存其他轮权重，不能据此宣称重建了替代模型、通过分组/切换门槛或获得新留出成绩。该诊断用于决定后续是否实测与验收目标一致的检查点选择。
 
 `benchmark_checkpoint_replay.py --root OUTPUT_ROOT --output NEW_DIRECTORY --device cuda` 重跑已查看日志中的时序强度2/切换4倍/seed300，保留原F1停止规则，仅增加第13/37轮真实权重/概率快照回调。保存参数、归一化、逐轮原始开发指标及最佳轮复现审计，分别评估两个快照的偏置0/+4，并将第13轮偏置4与原冻结/当前冻结融合各作25/50/75%固定融合；两个完整配置控制合计12记录、1拟合。该轮次由旧开发诊断选出，属于探索复核，不是通用选轮规则或新留出成绩。推理仍用原主视角因果特征；第七组保持封存。
+
+`verify_checkpoint_replay.py --root OUTPUT_ROOT --study COMPLETE_REPLAY_DIRECTORY --output NEW_REPORT` 在全部既有公共特征帧上重新加载第13/37轮真实权重和归一化，检查偏置0/+4的概率（1e-5容差）、原始槽和接受槽与GPU归档的一致性；只验证快照序列化与公共特征推理，不是原始感知或闭环收益。
