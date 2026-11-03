@@ -56,9 +56,20 @@ def main(a):
     (a.output/'impact.json').write_text(json.dumps(dict(groups=audits,confirm6_to9_totals=totals,inputs=inputs,selection_sha256=expected_selection),indent=2))
     print('COUNTS',json.dumps({k:v['summary'] for k,v in audits.items()}),flush=True)
     if a.audit_only:return
+    if a.full_episode_ids:
+        requested=set(a.full_episode_ids);selected=[]
+        for name,(data,pred,prob,index) in groups.items():
+            for episode in sorted(requested):
+                matches=[i for i,row in enumerate(data['rows']) if row['episode_id']==episode]
+                if not matches:continue
+                selected.append(dict(group=name,kind='complete_episode',center=matches[0],last=matches[-1],episode_id=episode,
+                    details=dict(full_recorded_episode=True)))
+        if {c['episode_id'] for c in selected}!=requested or len(selected)!=len(requested):raise ValueError('Requested full episodes missing or duplicated')
+        clips=selected
     fontpath=Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf');font=ImageFont.truetype(str(fontpath),21);small=ImageFont.truetype(str(fontpath),18)
     ffmpeg=imageio_ffmpeg.get_ffmpeg_exe();width,height=1280,720
-    def writer(path):return imageio_ffmpeg.write_frames(str(path),(width,height),fps=a.fps,codec='libx264',pix_fmt_in='rgb24',pix_fmt_out='yuv420p',quality=7,ffmpeg_log_level='error',output_params=['-movflags','+faststart'])
+    def writer(path):return imageio_ffmpeg.write_frames(str(path),(width,height),fps=a.fps,codec='libx264',pix_fmt_in='rgb24',pix_fmt_out='yuv420p',quality=7,ffmpeg_log_level='error',
+        output_params=['-profile:v','baseline','-level:v','3.1','-bf','0','-g',str(a.fps*2),'-crf','26','-tag:v','avc1','-movflags','+faststart'])
     reel=writer(a.output/'all_error_events.mp4');reel.send(None);manifest=[];files={};references={}
     try:
         for n,clip in enumerate(clips,1):
@@ -75,7 +86,8 @@ def main(a):
             source=row['source']
             if source not in files:files[source]=h5py.File(source,'r')
             obs=files[source]['data'][row['demo']]['obs'];length=len(obs['rgb'])
-            start=max(0,row['step']-a.context_steps);end=min(length-1,data['rows'][clip['last']]['step']+a.context_steps)
+            start=0 if a.full_episode_ids else max(0,row['step']-a.context_steps)
+            end=length-1 if a.full_episode_ids else min(length-1,data['rows'][clip['last']]['step']+a.context_steps)
             ids=sorted([i for i,x in enumerate(data['rows']) if x['episode_id']==episode and start<=x['step']<=end],key=lambda i:data['rows'][i]['step'])
             bystep={data['rows'][i]['step']:i for i in ids};last_query=None;checks=[]
             path=a.output/f'{n:02d}_{name}_{clip["kind"]}.mp4';stream=writer(path);stream.send(None)
@@ -83,7 +95,8 @@ def main(a):
                 for step in range(start,end+1):
                     rgb=np.asarray(obs['rgb'][step]);canvas=Image.new('RGB',(width,height),'#10151e');draw=ImageDraw.Draw(canvas)
                     draw.text((20,10),f'{n:02d}/{len(clips)} {name} | {clip["kind"]} | {row["task"]}',font=font,fill='white')
-                    draw.text((20,42),f'{row["demo"]} | source step {step} | event step {row["step"]}',font=font,fill='white')
+                    detail=f'FULL EPISODE step {step}/{length-1}' if a.full_episode_ids else f'source step {step} | event step {row["step"]}'
+                    draw.text((20,42),f'{row["demo"]} | '+detail,font=font,fill='white')
                     draw.text((20,80),'MAIN CAMERA: continuous recorded replay',font=small,fill='white')
                     canvas.paste(Image.fromarray(rgb).resize((600,450),Image.Resampling.NEAREST),(20,110))
                     if step in bystep:
@@ -112,13 +125,15 @@ def main(a):
                     draw.text((20,682),f'Offline recorded demonstration, NOT policy rollout | display {a.fps} source steps/s | main camera only',font=small,fill='#b7c7e0')
                     frame=np.asarray(canvas);stream.send(frame);reel.send(frame)
             finally:stream.close()
-            manifest.append(dict(number=n,file=path.name,sha256=sha(path),source=source,demo=row['demo'],start_step=start,end_step=end,event=clip,query_rgb_checks=checks))
+            manifest.append(dict(number=n,file=path.name,sha256=sha(path),source=source,demo=row['demo'],start_step=start,end_step=end,
+                source_frames=length,rendered_frames=end-start+1,complete_recorded_episode=bool(start==0 and end==length-1),event=clip,query_rgb_checks=checks))
             print('CLIP',n,len(clips),path.name,flush=True)
     finally:
         reel.close()
         for handle in files.values():handle.close()
     (a.output/'video_manifest.json').write_text(json.dumps(dict(clips=manifest,reel='all_error_events.mp4',reel_sha256=sha(a.output/'all_error_events.mp4'),
-        source_steps_per_display_second=a.fps,real_control_frequency_claimed=False,views=['main'],no_new_model_inference=True,all_error_events_included=True,
+        source_steps_per_display_second=a.fps,real_control_frequency_claimed=False,views=['main'],no_new_model_inference=True,
+        full_recorded_episodes=bool(a.full_episode_ids),all_error_events_included=not bool(a.full_episode_ids),
         note='Recorded source demonstrations and fixed archived selector outputs; errors are weak-proxy-defined, not task failures. Right exact-query panel is held between evaluated observations.'),indent=2))
     print('COMPLETE',len(manifest),flush=True)
 
@@ -128,4 +143,5 @@ if __name__=='__main__':
     for name in ['root','output']:p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--context-steps',type=int,default=40);p.add_argument('--fps',type=int,default=20)
     p.add_argument('--audit-only',action='store_true',help='Write exact frame/event/recovery and stable-jump counts without rendering')
+    p.add_argument('--full-episode-ids',nargs='+',help='Render each requested recorded episode from first RGB through last RGB without trimming')
     main(p.parse_args())

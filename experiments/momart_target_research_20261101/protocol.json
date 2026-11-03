@@ -279,5 +279,31 @@
     "stable_class_jump_episodes": 27,
     "video_scope": "All acquisition wrong-class runs and required-switch first-query failures only, not every possible selector error",
     "tests": 77
+  },
+  "complete_episode_video_fix": {
+    "episodes": [
+      {
+        "episode_id": "table_setup_from_dishwasher_expert/demo_109",
+        "start": 0,
+        "end": 388,
+        "source_frames": 389,
+        "encoded_frames": 389,
+        "sha256": "49dd7f556052ea235b25bd60560ad265937212ba237f2d59e3a4f1fd22b0a63b"
+      },
+      {
+        "episode_id": "unload_dishwasher_to_dresser_suboptimal/demo_42",
+        "start": 0,
+        "end": 1347,
+        "source_frames": 1348,
+        "encoded_frames": 1348,
+        "sha256": "0174c630b8f2e78857f804a7134c05ee84368d7c557420908426dd6d53c213ab"
+      }
+    ],
+    "native_document_video_previews": 2,
+    "complete_timeline_gifs": 2,
+    "cloud_transcodes_browser_playback_verified": true,
+    "logged_in_feishu_ui_verified": false,
+    "user_device_black_screen_root_cause": "not established; old cloud-transcoded sampled frames also have visible content",
+    "no_policy_rollout": true
   }
 }
