@@ -46,6 +46,9 @@ def predict_parent(component,data,root):
         for (i,slot),score in zip(positions,scores):prob[i,slot]=score
         empty=prob.sum(-1)==0;prob[empty,8]=1
         return prob/prob.sum(-1,keepdims=True)
+    if spec['kind']=='grid_gru':
+        from recurrent_selection import predict_grid_checkpoint
+        return predict_grid_checkpoint(ckpt,data)
     n=ckpt['normalizer'];c=torch.tensor((raw-n['cm'])/n['cs']);x=torch.tensor((context-n['xm'])/n['xs'])
     if spec['kind']=='plan_query':
         from plan_model import ActionPlanPointer

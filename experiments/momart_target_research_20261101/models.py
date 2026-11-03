@@ -36,18 +36,28 @@ class Pointer(nn.Module):
 
 
 class RecurrentPointer(nn.Module):
-    def __init__(self,candidate_dim,context_dim,width=64):
-        super().__init__();self.project=nn.Sequential(nn.Linear(context_dim+1,width),nn.Mish())
+    def __init__(self,candidate_dim,context_dim,width=64,reset_each_frame=False):
+        super().__init__();self.reset_each_frame=reset_each_frame;self.project=nn.Sequential(nn.Linear(context_dim+1,width),nn.Mish())
         self.gru=nn.GRU(width,width,batch_first=True)
         self.pointer=Pointer(candidate_dim,width,width=width)
 
     def forward(self,candidates,context,valid,gaps):
         # Inputs [episodes,time,...]; unidirectional recurrence never sees a future observation.
-        hidden,_=self.gru(self.project(torch.cat([context,gaps[:,:,None]],-1)))
+        projected=self.project(torch.cat([context,gaps[:,:,None]],-1))
+        if self.reset_each_frame:
+            hidden,_=self.gru(projected.reshape(-1,1,self.gru.input_size));hidden=hidden.reshape(*projected.shape)
+        else:hidden,_=self.gru(projected)
         batch,length=hidden.shape[:2]
         logits,_=self.pointer(candidates.reshape(batch*length,*candidates.shape[2:]),
             hidden.reshape(batch*length,-1),valid.reshape(batch*length,-1))
         return logits.reshape(batch,length,-1)
+
+    def step(self,candidates,context,valid,gap,hidden=None):
+        projected=self.project(torch.cat([context,gap[:,None]],-1))[:,None]
+        state=None if self.reset_each_frame else hidden
+        output,next_state=self.gru(projected,state)
+        logits,_=self.pointer(candidates,output[:,0],valid)
+        return logits,None if self.reset_each_frame else next_state
 
 
 def weighted_loss(logits,labels,weights,valid,smoothing=0.):

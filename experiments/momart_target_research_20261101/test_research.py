@@ -663,3 +663,87 @@ def test_raw_confirmation_sampling_does_not_inherit_processing_claims(tmp_path):
     assert not {'alignment_filter','annotation_version','source_manifest_sha256','selection_restriction'}&actual.keys()
     assert 'task/earlier' in actual['excluded_episodes'] and len(actual['sampling_exclusion_manifest_sha256'])==1
     assert not (out/'annotations_all.json').exists()
+
+
+def test_fixed_clock_observations_do_not_depend_on_labels_or_query_schedule():
+    from main_history import observation_schedule
+    rows=[dict(episode_id='a',source='/tmp/a.hdf5',demo='a',task='task',step=t,label=None) for t in [0,5,16]]
+    old=observation_schedule(rows,{'a':25})
+    assert [r['step'] for r in old if r['is_grid']]==[0,8,16,24]
+    assert [r['step'] for r in old if not r['is_grid']]==[5]
+    rows[1]['label']={'target':'different supervised subject'}
+    assert observation_schedule(rows,{'a':25})==old
+    removed=observation_schedule([rows[0],rows[2]],{'a':25})
+    assert [r for r in old if r['is_grid']]==removed
+
+
+def test_recurrent_forward_is_causal_and_matches_incremental_state_with_reset_control():
+    from models import RecurrentPointer
+    torch.manual_seed(193);c=torch.randn(2,5,8,3);x=torch.randn(2,5,4);mask=torch.ones(2,5,8,dtype=torch.bool);gap=torch.full((2,5),.69)
+    for reset in [False,True]:
+        net=RecurrentPointer(3,4,16,reset_each_frame=reset).eval()
+        with torch.inference_mode():
+            expected=net(c,x,mask,gap);hidden=None;steps=[]
+            for t in range(5):
+                logits,hidden=net.step(c[:,t],x[:,t],mask[:,t],gap[:,t],hidden);steps.append(logits)
+            torch.testing.assert_close(torch.stack(steps,1),expected,atol=1e-6,rtol=1e-6)
+            changed=x.clone();changed[:,3:]+=10
+            torch.testing.assert_close(net(c,changed,mask,gap)[:,:3],expected[:,:3],atol=1e-6,rtol=1e-6)
+            if reset:assert hidden is None
+    torch.manual_seed(81);a=RecurrentPointer(3,4,16,False)
+    torch.manual_seed(81);b=RecurrentPointer(3,4,16,True)
+    assert all(torch.equal(a.state_dict()[k],b.state_dict()[k]) for k in a.state_dict())
+
+
+def test_recurrent_fit_retains_unknown_observations_and_real_checkpoint_policies():
+    from recurrent_selection import fit_recurrent
+    from data import metrics
+    rng=np.random.default_rng(311);n=8
+    raw=rng.normal(size=(n,8,3)).astype(np.float32);context=rng.normal(size=(n,4)).astype(np.float32)
+    rows=[dict(episode_id='train' if i<4 else 'dev',step=[0,8,24,32][i%4],objects=[dict(class_id=0),dict(class_id=3)],label=dict(target=dict(class_id=0))) for i in range(n)]
+    rows[1]['label']=None;y=np.zeros(n,np.int64);y[1]=-100
+    positive=np.zeros((n,8),bool);positive[:,0]=True;valid=np.zeros((n,8),bool);valid[:,:2]=True
+    data=dict(rows=rows,y=y,positive=positive,valid=valid,roles=np.zeros(n,np.int64),visible=np.ones(n,bool),weights=(y>=0).astype(np.float32))
+    splits=dict(train=np.array([0,2,3]),dev=np.arange(4,8))
+    def assess(p):
+        m=metrics(p.argmax(-1),splits['dev'],data)
+        return dict(joint_goal_met=False,metrics=m,sequence=dict(stable_class_switch_rate=0.,correct_box_at_change=0))
+    history_rows=[dict(episode_id=ep,step=t,is_grid=True) for ep in ['train','dev'] for t in [0,8,16,24,32]]
+    history_context=rng.normal(size=(10,4)).astype(np.float32);history_context[[0,1,3,4,5,6,8,9]]=context
+    history=dict(rows=history_rows,context=history_context)
+    probability,states,info=fit_recurrent(data,(raw,context),splits,9,'cpu','gru',assess,history)
+    assert info['unknown_training_queries']==1 and info['background_training_observations']==1 and info['train_episodes']==1
+    assert set(states)=={'raw_f1','fixed_gate'} and set(probability)==set(states)
+    for p in probability.values():assert p.shape==(n,9) and np.isfinite(p).all() and np.allclose(p.sum(-1),1)
+    from checkpoint_selection import checkpoint_merit
+    value=dict(joint_growth_goal_met=False,calibration=dict(metrics=dict(recall=0.,f1=0.,wrong_acquire=0,wrong_carry=0,precision=None),sequence=dict(stable_class_switch_rate=None,correct_box_at_change=0)))
+    assert checkpoint_merit(value)[-1]==0.
+
+
+def test_fixed_clock_query_logits_match_streaming_and_ignore_temporary_queries():
+    from recurrent_selection import grid_batch,query_logits
+    from models import RecurrentPointer
+    torch.manual_seed(189)
+    history_rows=[dict(episode_id=ep,step=t,is_grid=True) for ep,t in [('a',0),('a',8),('a',16),('b',0),('b',8)]]
+    h=torch.randn(5,4);rows=[dict(episode_id=ep,step=t) for ep,t in [('a',0),('a',5),('a',8),('a',16),('b',8)]]
+    c=torch.randn(5,8,3);x=torch.randn(5,4);x[[0,2,3,4]]=h[[0,1,2,4]];mask=torch.ones(5,8,dtype=torch.bool)
+    for reset in [False,True]:
+        net=RecurrentPointer(3,4,16,reset).eval();batch=grid_batch(rows,c,x,mask,h,history_rows)
+        with torch.inference_mode():
+            expected=query_logits(net,batch);stream=[]
+            for q,row in enumerate(rows):
+                state=None;actual=None
+                for j,frame in enumerate(history_rows):
+                    if frame['episode_id']!=row['episode_id'] or frame['step']>row['step']//8*8:continue
+                    gap=torch.tensor([0. if frame['step']==0 else np.log(2)],dtype=torch.float32)
+                    actual,state=net.step(c[q:q+1],h[j:j+1],mask[q:q+1],gap,state)
+                if row['step']%8:
+                    gap=torch.tensor([np.log1p((row['step']%8)/8)],dtype=torch.float32)
+                    actual,_=net.step(c[q:q+1],x[q:q+1],mask[q:q+1],gap,state)
+                stream.append(actual[0])
+            torch.testing.assert_close(torch.stack(stream),expected,atol=1e-6,rtol=1e-6)
+            extra=grid_batch(rows+[dict(episode_id='a',step=3)],torch.cat([c,c[:1]]),torch.cat([x,x[:1]+10]),torch.cat([mask,mask[:1]]),h,history_rows)
+            torch.testing.assert_close(query_logits(net,extra)[:5],expected,atol=1e-6,rtol=1e-6)
+            future=h.clone();future[2]+=10
+            other=grid_batch(rows,c,x,mask,future,history_rows)
+            torch.testing.assert_close(query_logits(net,other)[[0,1,2,4]],expected[[0,1,2,4]],atol=1e-6,rtol=1e-6)

@@ -20,4 +20,4 @@ def current_retention_gate(primary,current):
 def checkpoint_merit(value):
     eligible=value['joint_growth_goal_met'];c=value['calibration'];m=c['metrics'];s=c['sequence']
     return (eligible,m['recall'] if eligible else m['f1'],-m['wrong_acquire'],-m['wrong_carry'],
-        -(s['stable_class_switch_rate'] or 0),s['correct_box_at_change'],m['precision'])
+        -(s['stable_class_switch_rate'] or 0),s['correct_box_at_change'],(m['precision'] or 0.))
