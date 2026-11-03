@@ -8,6 +8,23 @@ from pathlib import Path
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def validate_retention_reference(value,registered,retention):
+    groups=value.get('current_retention',{})
+    if not {'dev','old_dev','new_dev'}<=groups.keys() or not all(v['joint_goal_met'] for v in groups.values()):
+        raise ValueError('Current-candidate retention did not pass all registered development groups')
+    keys=['threshold','margin','class_thresholds','class_margins']
+    cal=lambda x:{k:x[k] for k in keys if k in x}
+    if registered['component']!=retention['result']['component'] or cal(registered['calibration'])!=cal(retention['result']['calibration']):
+        raise ValueError('Retention comparator differs from the complete development configuration')
+
+
+def component_weights(component):
+    if component['kind']=='parent':return [Path(component['screen'])/(component['name']+'.pt')]
+    if component['kind']=='availability':return component_weights(component['parent'])
+    if component['kind']=='blend':return [p for member in component['members'] for p in component_weights(member)]
+    raise ValueError('Unsupported weight freeze component: '+component['kind'])
+
+
 def main(a):
     if a.output.exists():raise FileExistsError(a.output)
     selected=json.loads(a.selection.read_text());control=json.loads(a.control.read_text());audit=json.loads(a.training_audit.read_text())
@@ -25,6 +42,14 @@ def main(a):
         control_selection_sha256=digest(a.control),control_name=control['name'],control_calibration=control['result']['calibration'],
         control_policy='Original frozen_for_confirm4 selection, not the growth-dev recalibrated control',
         purpose='Prospective selector confirmation; source-nonvalid episodes may have been seen by upstream frozen visual/action models')
+    if selected.get('current_retention_required'):
+        if a.retention is None:raise ValueError('Registered current retention requires the exact comparator selection')
+        retention=json.loads(a.retention.read_text());registry=json.loads((a.selection.parent/'registry.json').read_text())
+        validate_retention_reference(value,registry['blend_frozen_configuration'],retention)
+        payload['retention_reference']=dict(name=retention['name'],component=retention['result']['component'],calibration=retention['result']['calibration'])
+        payload['retention_selection_sha256']=digest(a.retention)
+        paths=set(component_weights(value['component'])+component_weights(control['result']['component'])+component_weights(retention['result']['component']))
+        payload['frozen_weight_sha256']={str(path):digest(path) for path in sorted(paths)}
     a.output.mkdir(parents=True);(a.output/'selected.json').write_text(json.dumps(payload,indent=2))
     print(json.dumps(dict(winner=payload['name'],reserved_episodes=len(reserved),source_partitions=sorted({ep['source_partition'] for ep in corpus['episodes']}),output=str(a.output))))
 
@@ -32,4 +57,4 @@ def main(a):
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for key in ['selection','control','training-audit','holdout','output']:p.add_argument('--'+key,type=Path,required=True)
-    main(p.parse_args())
+    p.add_argument('--retention',type=Path);main(p.parse_args())

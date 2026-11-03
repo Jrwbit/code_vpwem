@@ -127,6 +127,14 @@ def main(a):
         frozen['control']=dict(name=control['name'],component=control['result']['component'],calibration=control['result']['calibration'])
     if frozen['incumbent_gate_required'] and 'control' not in frozen:
         raise ValueError('Registered incumbent-relative confirmation requires the frozen control')
+    frozen['current_retention_required']=selected.get('current_retention_required',False)
+    if frozen['current_retention_required']:
+        if 'retention_reference' not in selected:raise ValueError('Current retention must be frozen before confirmation preprocessing')
+        for path,expected in selected['frozen_weight_sha256'].items():
+            if hashlib.sha256(Path(path).read_bytes()).hexdigest()!=expected:raise ValueError('Frozen model weights changed: '+path)
+        if hashlib.sha256((a.control_selection/'selected.json').read_bytes()).hexdigest()!=selected['control_selection_sha256']:
+            raise ValueError('Original control selection differs from frozen comparison')
+        frozen['retention']=selected['retention_reference'];frozen['retention_selection_sha256']=selected['retention_selection_sha256']
     write_json(a.output/'frozen_evaluation_manifest.json',frozen)
     extra=research/('extra_'+a.prefix+'.npz') if a.public_views=='rich' else None
     data=attach_geometry(load_group(research/(a.prefix+'_corpus'),research/(a.prefix+'_features.npz'),research/(a.prefix+'_phases.json'),'confirm',extra),research/('geometry_'+a.prefix+'.npz'))
@@ -136,7 +144,7 @@ def main(a):
     index=np.flatnonzero(data['y']>=0);results={}
     corpus_meta=json.loads((research/(a.prefix+'_corpus')/'manifest.json').read_text())
     partitions_by_episode={ep['episode_id']:ep.get('source_partition','valid') for ep in corpus_meta['episodes']}
-    for key in (['baseline','primary','control'] if 'control' in frozen else ['baseline','primary']):
+    for key in ['baseline','primary']+(['control'] if 'control' in frozen else [])+(['retention'] if 'retention' in frozen else []):
         item=frozen[key];prob=predict_component(item['component'],data,a.root)
         assert np.isfinite(prob).all() and np.allclose(prob.sum(-1),1,atol=1e-5)
         pred=apply_calibration(prob,item['calibration'],data['candidates'][:,:,133:].argmax(-1));raw=prob.argmax(-1)
@@ -158,9 +166,16 @@ def main(a):
         for partition in results['primary']['source_partitions']:
             incumbent_gates[partition]=incumbent_evaluation_gate(results['primary']['source_partitions'][partition],results['control']['source_partitions'][partition],revision)
         success=bool(success and all(value['joint_goal_met'] for value in incumbent_gates.values()))
+    retention_gates={}
+    if frozen['current_retention_required']:
+        from checkpoint_selection import current_retention_gate
+        retention_gates['overall']=current_retention_gate(results['primary'],results['retention'])
+        for partition in results['primary']['source_partitions']:
+            retention_gates[partition]=current_retention_gate(results['primary']['source_partitions'][partition],results['retention']['source_partitions'][partition])
+        success=bool(success and all(value['joint_goal_met'] for value in retention_gates.values()))
     payload=dict(results=results,source_partition_gates=source_gates,overall_gate=gate,priority_gate=gate['priority_gate'],acceptance_revision=revision,role_recall_retained=gate['role_recall_retained'],role_recall_floors=gate['role_recall_floors'],confirmation_joint_goal_met=success if a.purpose=='confirmation' else None,regression_joint_goal_met=success if a.purpose=='regression' else None,evaluation_purpose=a.purpose,total_frames=len(data['rows']),labelled_frames=len(index),
         caveat='Geometry/motion proxy labels, not human intention or closed-loop policy success. All methods share the same frozen proposal arrays; extraction device/batch are in corpus metadata. Source-valid subset also required for V4; source-nonvalid unseen episodes do not establish full visual/policy holdout.')
-    payload['incumbent_gates']=incumbent_gates
+    payload['incumbent_gates']=incumbent_gates;payload['current_retention_gates']=retention_gates
     write_json(a.output/'results.json',payload)
     print(json.dumps(payload,indent=2))
 

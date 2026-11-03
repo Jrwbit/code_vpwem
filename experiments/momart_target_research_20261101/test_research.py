@@ -616,3 +616,19 @@ def test_current_checkpoint_retention_rejects_priority_and_temporal_regressions(
     assert checkpoint_merit(point(True,.91,.9,2,.01))>checkpoint_merit(good)
     assert checkpoint_merit(point(True,.9,.9,1,.01))>checkpoint_merit(good)
     assert checkpoint_merit(point(True,.9,.9,2,.005))>checkpoint_merit(good)
+
+
+def test_retention_freeze_binds_complete_comparator_and_all_dev_groups():
+    import pytest
+    from freeze_growth_confirmation import validate_retention_reference,component_weights
+    import copy
+    value=dict(current_retention={k:dict(joint_goal_met=True) for k in ['dev','old_dev','new_dev']})
+    parent=dict(kind='parent',screen='/tmp/models',name='selector')
+    registered=dict(component=dict(kind='availability',parent=parent),calibration=dict(threshold=.6,margin=0.,metrics={'correct':10}))
+    retention=dict(result=dict(component=registered['component'],calibration=dict(threshold=.6,margin=0.,metrics={'correct':11})))
+    validate_retention_reference(value,registered,retention)
+    changed=copy.deepcopy(retention);changed['result']['calibration']['threshold']=.5
+    with pytest.raises(ValueError,match='differs'):validate_retention_reference(value,registered,changed)
+    bad=copy.deepcopy(value);del bad['current_retention']['old_dev']
+    with pytest.raises(ValueError,match='all registered'):validate_retention_reference(bad,registered,retention)
+    assert [str(p) for p in component_weights(dict(kind='blend',members=[registered['component']]))]==['/tmp/models/selector.pt']
