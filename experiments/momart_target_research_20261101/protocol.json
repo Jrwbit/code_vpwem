@@ -336,5 +336,28 @@
     "action_policy_integrated": false,
     "closed_loop_success_verified": false,
     "next_priority": "Frozen one-box conditioning adapter and action-policy training/closed-loop comparison, not prerequisite zero selector errors"
+  },
+  "policy_training_acceleration": {
+    "batch_size": 64,
+    "main_view_only": true,
+    "physical_gpu": 1,
+    "benchmark": "shared main-view action-policy skeleton; not final single-target adapter",
+    "warmup": 4,
+    "timed_steps": 16,
+    "reference_seconds": 0.6599472222733311,
+    "optimized_seconds": 0.14272690934012644,
+    "speedup": 4.6238458138306555,
+    "workers": 4,
+    "all_input_bytes_equal": true,
+    "max_loss_difference": 0.0,
+    "tests": 41,
+    "one_box_adapter_included": false,
+    "full_target_cache_prepared": false,
+    "formal_training_started": false,
+    "science_settings_unchanged": true,
+    "source_commits": [
+      "6d2e29a",
+      "0e866f3"
+    ]
   }
 }
