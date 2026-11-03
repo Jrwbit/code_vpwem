@@ -889,3 +889,37 @@ def test_crop_stage_audit_cli_imports_without_prior_data_loader_imports():
     completed=subprocess.run([sys.executable,str(script),'--help'],capture_output=True,text=True)
     assert completed.returncode==0,completed.stderr
     assert '--archive' in completed.stdout
+
+
+def test_detector_crop_targets_keep_all_visible_instances_without_intent_labels():
+    from perception_data import detector_target
+    masks=np.zeros((2,90,120),bool);masks[0,2:18,40:65]=True;masks[1,30:60,50:100]=True
+    objects=[dict(class_id=0),dict(class_id=3)]
+    original=detector_target(objects,masks);assert original['labels'].tolist()==[1,4]
+    cropped=detector_target(objects,masks,[0,18,96,72]);assert cropped['labels'].tolist()==[4] and cropped['masks'].shape==(1,90,120)
+    empty=detector_target([],np.empty((0,90,120),bool));assert empty['boxes'].shape==(0,4) and empty['masks'].shape==(0,90,120)
+    assert (cropped['boxes'][:,2:]>cropped['boxes'][:,:2]).all()
+
+
+def test_detector_metrics_match_each_instance_once_and_count_false_classes():
+    from detector_metrics import instance_counts,aggregate_counts
+    truth=[dict(class_id=0,box=[0,0,5,5]),dict(class_id=3,box=[10,10,20,20])]
+    detections=[dict(class_id=0,box=[0,0,5,5],score=.9),dict(class_id=0,box=[0,0,5,5],score=.8),dict(class_id=5,box=[10,10,20,20],score=.7)]
+    counts=instance_counts(detections,truth);assert counts['0']==dict(tp=1,fp=1,fn=0) and counts['3']['fn']==1 and counts['5']['fp']==1
+    repeated_truth=[truth[0],truth[0]]
+    one_to_one,matched=instance_counts(detections[:1],repeated_truth,return_matches=True);assert len(matched)==1 and one_to_one['0']['fn']==1
+    summary=aggregate_counts([counts]);assert summary['micro']['tp']==1 and summary['micro']['fp']==2 and summary['micro']['fn']==1
+
+
+def test_detector_gate_requires_real_gain_without_extra_false_boxes_or_lost_classes():
+    import copy
+    from train_perception_adaptation import detector_gate
+    baseline=dict(bounded8=dict(micro=dict(fp=0),classes={str(c):dict(tp=30,fn=0,fp=0,recall=1.) for c in range(6)}),
+        weak_targets=dict(available=100,acquire_available=20),edge_small=dict(matched=10))
+    candidate=copy.deepcopy(baseline);candidate['edge_small']['matched']=11
+    assert detector_gate(candidate,baseline)['eligible']
+    for section,key,value in [('weak_targets','available',99),('weak_targets','acquire_available',19),('edge_small','matched',10)]:
+        changed=copy.deepcopy(candidate);changed[section][key]=value;assert not detector_gate(changed,baseline)['eligible']
+    changed=copy.deepcopy(candidate);changed['bounded8']['micro']['fp']=1;assert not detector_gate(changed,baseline)['eligible']
+    changed=copy.deepcopy(candidate);changed['bounded8']['classes']['0']['fp']=1;assert not detector_gate(changed,baseline)['eligible']
+    changed=copy.deepcopy(candidate);changed['bounded8']['classes']['3']['recall']=.9;assert not detector_gate(changed,baseline)['eligible']
