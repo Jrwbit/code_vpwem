@@ -28,7 +28,7 @@ def summarize(data,index,pred,limit):
     for i in index:
         row=data['rows'][i];positive=data['positive'][i];flag=border_flags(row['objects'],positive,[90,120],limit)
         bucket='edge_sliver' if flag else 'other_available' if positive.any() else 'no_matching_proposal'
-        selected=pred[i]<8;correct=bool(selected and positive[pred[i]])
+        selected=bool(pred[i]<8);correct=bool(selected and positive[pred[i]])
         wrong=bool(selected and data['roles'][i]==0 and row['objects'][pred[i]]['class_id']!=0)
         b=buckets[bucket];b['known']+=1;b['visible']+=int(data['visible'][i]);b['available']+=int(positive.any());b['correct']+=correct;b['selected']+=selected;b['acquire_wrong']+=wrong
         if flag:examples.append(dict(id=row['id'],episode=row['episode_id'],step=row['step'],correct=correct,slot=int(pred[i])))

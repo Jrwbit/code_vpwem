@@ -813,3 +813,5 @@ def test_border_audit_keeps_alternate_positives_and_exhaustive_denominators():
     result=summarize(d,np.arange(3),np.array([0,1,8]),4)
     assert [result['buckets'][k]['known'] for k in ['edge_sliver','other_available','no_matching_proposal']]==[1,1,1]
     assert sum(v['correct'] for v in result['buckets'].values())==2
+    import json
+    json.dumps(result)
