@@ -359,5 +359,20 @@
       "6d2e29a",
       "0e866f3"
     ]
+  },
+  "policy_replacement_contract": {
+    "policy_observations": "preserve every original modality including wrist RGB/depth; user explicitly confirmed",
+    "selector_camera": "main only",
+    "modes": [
+      "box",
+      "box_coordinates_roi"
+    ],
+    "historical_roi_position_structure_preserved": true,
+    "old_policy_sources": 10,
+    "frozen_selector_supported_sources": 4,
+    "full_target_cache_prepared": false,
+    "live_environment_bridge_complete": false,
+    "formal_training_started": false,
+    "main_only_speed_is_not_final_multimodal_speed": true
   }
 }
