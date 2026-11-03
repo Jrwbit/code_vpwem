@@ -764,3 +764,26 @@ def test_confirmation_history_binds_encoder_clock_tasks_and_manifest():
     frozen=public_history_contract(meta);validate_history_contract(meta,frozen,'cohort')
     for key,value in [('feature_checkpoint_sha256','other'),('tasks',['b','a']),('grid_stride',4),('tf32',True),('corpus_manifest_sha256','other')]:
         with pytest.raises(ValueError):validate_history_contract(dict(meta,**{key:value}),frozen,'cohort')
+
+
+def test_contact_priority_keeps_shared_collision_identity_ambiguity():
+    from types import SimpleNamespace
+    from audit_contact_priority import collision_groups,contact_facts
+    cabinet=SimpleNamespace(pybullet_uuid=9,link_ids=[4,4,4]);bowl=SimpleNamespace(pybullet_uuid=31)
+    parts=[dict(inst=cabinet,indices=[i],identity=name,cls=cls) for i,name,cls in [(0,'drawer',4),(1,'left_handle',5),(2,'right_handle',5)]]
+    parts.append(dict(inst=bowl,indices=None,identity='bowl',cls=0))
+    groups=collision_groups(parts);assert len(groups)==2
+    shared=next(g for g in groups if g['body']==9);assert shared['resolved_instance'] is None and shared['identities']==['drawer','left_handle','right_handle']
+    values=[dict(g,min_hand_distance_m=.001 if g['body']==9 else .15,translation_m=.01,rotation_rad=0.) for g in groups]
+    facts=contact_facts(values,'bowl');assert facts['competing_contact'] and facts['competing_moving_contact'] and not facts['target_touching']
+    assert facts['contact_groups'][0]['resolved_instance'] is None
+    values[1]['min_hand_distance_m']=.001
+    assert not contact_facts(values,'bowl')['competing_contact']
+
+
+def test_contact_audit_plan_excludes_unknown_nonacquire_and_other_partitions():
+    from audit_contact_priority import audit_plan
+    rows=[dict(id=str(i),source='/tmp/source',demo='demo',episode_id='ep',step=i*8,label=dict(target=dict(instance_id='bowl',class_id=0,onset=32),reason='proxy')) for i in range(5)]
+    data=dict(rows=rows,y=np.array([0,0,0,-100,0]),roles=np.array([0,2,0,0,0]))
+    plan=audit_plan(data,dict(train=[0,1,3],dev=[2]));assert [r['id'] for r in plan]==['0','2']
+    assert plan[0]['future_motion_steps']==32 and plan[1]['partition']=='dev'
