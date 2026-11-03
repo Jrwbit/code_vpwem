@@ -43,6 +43,7 @@ def query_logits(net,batch):
         inp=net.project(torch.cat([batch['x'][off],batch['query_remainder'][off,None]],-1))[:,None]
         before=None if net.reset_each_frame else hidden[off][None]
         temporary,_=net.gru(inp,before);hidden=hidden.clone();hidden[off]=temporary[:,0]
+    if net.skip_current:hidden=torch.cat([hidden,batch['x']],-1)
     return net.pointer(batch['c'],hidden,batch['mask'])[0]
 
 
@@ -60,11 +61,11 @@ def predict_grid_checkpoint(checkpoint,data):
     if history is None:history=load_history(checkpoint['spec']['main_history_path'])
     raw,_=feature_view(data,geometry=True);context=query_context(data,history);norm=checkpoint['normalizer']
     c=torch.tensor((raw-norm['cm'])/norm['cs']);x=torch.tensor((context-norm['xm'])/norm['xs']);mask=torch.tensor(data['valid'])
-    net=RecurrentPointer(c.shape[-1],x.shape[-1],checkpoint['spec']['width'],checkpoint['spec']['reset_each_frame']).eval();net.load_state_dict(checkpoint['state'])
+    net=RecurrentPointer(c.shape[-1],x.shape[-1],checkpoint['spec']['width'],checkpoint['spec']['reset_each_frame'],checkpoint['spec'].get('skip_current',False)).eval();net.load_state_dict(checkpoint['state'])
     return sequence_probability(net,make_batch(data,history,c,x,mask,norm))
 
 
-def fit_recurrent(data,view,splits,seed,device,mode,assess_fixed,history):
+def fit_recurrent(data,view,splits,seed,device,mode,assess_fixed,history,skip_current=False):
     torch.manual_seed(seed);np.random.seed(seed);torch.set_num_threads(2)
     raw,context=view;train=splits['train'];valid=data['valid'];started=time.monotonic()
     norm=dict(cm=raw[train][valid[train]].mean(0),cs=raw[train][valid[train]].std(0).clip(.05),xm=context[train].mean(0),xs=context[train].std(0).clip(.05))
@@ -72,7 +73,7 @@ def fit_recurrent(data,view,splits,seed,device,mode,assess_fixed,history):
     all_seq=make_batch(data,history,c,x,mask,norm)
     train_ids={data['rows'][i]['episode_id'] for i in train};used=np.array([i for i,ep in enumerate(all_seq['episode_ids']) if ep in train_ids])
     labels=torch.as_tensor(data['y'],device=device);weights=torch.as_tensor(data['weights'],device=device)
-    net=RecurrentPointer(c.shape[-1],x.shape[-1],64,reset_each_frame=mode=='reset').to(device)
+    net=RecurrentPointer(c.shape[-1],x.shape[-1],64,reset_each_frame=mode=='reset',skip_current=skip_current).to(device)
     initial=hashlib.sha256(b''.join(v.detach().cpu().numpy().tobytes() for k,v in sorted(net.state_dict().items()))).hexdigest()
     opt=torch.optim.AdamW(net.parameters(),lr=.001,weight_decay=.001)
     best_f1=-1.;best_epoch=0;best_fixed=None;states={};log=[]

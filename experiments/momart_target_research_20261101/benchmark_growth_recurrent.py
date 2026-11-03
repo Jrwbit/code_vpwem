@@ -33,7 +33,8 @@ def main(a):
     history=load_history(a.main_history)
     assert not {r['episode_id'] for r in history['rows']}&{e['episode_id'] for e in json.loads((holdout/'manifest.json').read_text())['episodes']}
     a.output.mkdir(parents=True,exist_ok=False)
-    write_json(a.output/'frozen_search_protocol.json',dict(method='paired reset/stateful GRU on train108 main-view features',fit_count=8,modes=['reset','gru'],
+    write_json(a.output/'frozen_search_protocol.json',dict(method='paired reset/stateful GRU on train108 main-view features',fit_count=8,modes=['reset','gru'],skip_current=a.current_skip,
+        architecture='Concatenate uncompressed current public context to recurrent hidden before pointer' if a.current_skip else 'recurrent hidden only',
         seeds=[100,300],losses=['uniform','transition4'],width=64,episode_minibatch=8,max_epochs=150,raw_f1_patience=30,
         checkpoint_policies=['maximum raw dev F1','complete fixed operating point gate merit'],
         fixed_operating_point='offset4, threshold .6, margin0 (current frozen comparator operating point)',
@@ -80,11 +81,11 @@ def main(a):
         for seed in [100,300]:
             for mode in ['reset','gru']:
                 base=f'geometry_recurrent_{mode}_{loss}_seed{seed}'
-                predictions,states,info=fit_recurrent(fit_data,(feature_view(data,geometry=True)[0],query_context(data,history)),splits,seed,a.device,mode,assess_fixed,history)
+                predictions,states,info=fit_recurrent(fit_data,(feature_view(data,geometry=True)[0],query_context(data,history)),splits,seed,a.device,mode,assess_fixed,history,skip_current=a.current_skip)
                 initializations[base]=info['initial_parameter_sha256'];write_json(a.output/'paired_initializations.json',initializations)
                 write_json(a.output/(base+'_training.json'),dict(info,emphasis=emphasis))
                 for policy,checkpoint in states.items():
-                    name=base+'_'+policy;checkpoint['spec']=dict(name=name,view='geometry',kind='grid_gru',width=64,reset_each_frame=mode=='reset',main_history_path=str(a.main_history),
+                    name=base+'_'+policy;checkpoint['spec']=dict(name=name,view='geometry',kind='grid_gru',width=64,reset_each_frame=mode=='reset',skip_current=a.current_skip,main_history_path=str(a.main_history),
                         gap_transform='log1p(delta_steps/8)',checkpoint_policy=policy,training_population='enlarged108',weighted=True,loss_emphasis=loss)
                     torch.save(checkpoint,a.output/(name+'.pt'));parent=dict(kind='parent',name=name,screen=str(a.output))
                     for offset in [0.,4.]:
@@ -107,4 +108,4 @@ def main(a):
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for key in ['root','output']:p.add_argument('--'+key,type=Path,required=True)
-    p.add_argument('--main-history',type=Path,required=True);p.add_argument('--device',default='cpu');p.add_argument('--holdout-prefix',default='confirm8');main(p.parse_args())
+    p.add_argument('--current-skip',action='store_true');p.add_argument('--main-history',type=Path,required=True);p.add_argument('--device',default='cpu');p.add_argument('--holdout-prefix',default='confirm8');main(p.parse_args())

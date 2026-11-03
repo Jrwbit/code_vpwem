@@ -126,3 +126,5 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 第七组已经查看，后续只能作为回归，不能再冒充新留出。`benchmark_epoch_selection.py ... --holdout-prefix confirm8`显式绑定下一个未处理保留集；默认confirm7保留历史协议检查。原始确认采样仅继承image_hw/classes，排除集合传递继承，并独立记录采样输入manifest SHA，不复制旧alignment_filter/annotation_version等处理状态。`correct_raw_confirmation_metadata.py --corpus RAW_RESERVE --expected-sha256 ORIGINAL_SHA`仅对仍未标注/无候选的保留集备份原manifest后移除四个旧处理声明，保留全部成员、原帧和图像哈希；confirm8本次更正前后SHA与cohort指纹已记录于protocol.json及metadata_correction.json，没有重采样。
 
 固定时钟主视角对照：`main_history.py --root OUTPUT_ROOT --config GPU_CONFIG --urdf FETCH_URDF --output NEW_HISTORY.npz --device cuda:0`，随后 `benchmark_growth_recurrent.py --root OUTPUT_ROOT --main-history NEW_HISTORY.npz --output NEW_DIRECTORY --device cuda:0 --holdout-prefix confirm8`。协议见 `docs/momart_target_research_fixed_clock_recurrent_20261103.md`。
+
+固定时钟研究可加 `--current-skip`，将未经GRU压缩的当前公开context直接拼到pointer输入；reset控制保持同参数量。该选项不改旧检查点行为，协议及切换审计见 `docs/momart_target_research_current_skip_20261103.md`。`verify_grid_replay.py`支持两个架构，报告真实保存状态的GPU归档/CPU批量/逐帧差异。

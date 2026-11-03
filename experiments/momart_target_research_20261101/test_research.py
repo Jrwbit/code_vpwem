@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import torch
 from subject_labels import subject_label
 from export_extra import depth_summary
@@ -677,11 +678,12 @@ def test_fixed_clock_observations_do_not_depend_on_labels_or_query_schedule():
     assert [r for r in old if r['is_grid']]==removed
 
 
-def test_recurrent_forward_is_causal_and_matches_incremental_state_with_reset_control():
+@pytest.mark.parametrize("skip_current",[False,True])
+def test_recurrent_forward_is_causal_and_matches_incremental_state_with_reset_control(skip_current):
     from models import RecurrentPointer
     torch.manual_seed(193);c=torch.randn(2,5,8,3);x=torch.randn(2,5,4);mask=torch.ones(2,5,8,dtype=torch.bool);gap=torch.full((2,5),.69)
     for reset in [False,True]:
-        net=RecurrentPointer(3,4,16,reset_each_frame=reset).eval()
+        net=RecurrentPointer(3,4,16,reset_each_frame=reset,skip_current=skip_current).eval()
         with torch.inference_mode():
             expected=net(c,x,mask,gap);hidden=None;steps=[]
             for t in range(5):
@@ -690,12 +692,13 @@ def test_recurrent_forward_is_causal_and_matches_incremental_state_with_reset_co
             changed=x.clone();changed[:,3:]+=10
             torch.testing.assert_close(net(c,changed,mask,gap)[:,:3],expected[:,:3],atol=1e-6,rtol=1e-6)
             if reset:assert hidden is None
-    torch.manual_seed(81);a=RecurrentPointer(3,4,16,False)
-    torch.manual_seed(81);b=RecurrentPointer(3,4,16,True)
+    torch.manual_seed(81);a=RecurrentPointer(3,4,16,False,skip_current)
+    torch.manual_seed(81);b=RecurrentPointer(3,4,16,True,skip_current)
     assert all(torch.equal(a.state_dict()[k],b.state_dict()[k]) for k in a.state_dict())
 
 
-def test_recurrent_fit_retains_unknown_observations_and_real_checkpoint_policies():
+@pytest.mark.parametrize("skip_current",[False,True])
+def test_recurrent_fit_retains_unknown_observations_and_real_checkpoint_policies(skip_current):
     from recurrent_selection import fit_recurrent
     from data import metrics
     rng=np.random.default_rng(311);n=8
@@ -711,7 +714,7 @@ def test_recurrent_fit_retains_unknown_observations_and_real_checkpoint_policies
     history_rows=[dict(episode_id=ep,step=t,is_grid=True) for ep in ['train','dev'] for t in [0,8,16,24,32]]
     history_context=rng.normal(size=(10,4)).astype(np.float32);history_context[[0,1,3,4,5,6,8,9]]=context
     history=dict(rows=history_rows,context=history_context)
-    probability,states,info=fit_recurrent(data,(raw,context),splits,9,'cpu','gru',assess,history)
+    probability,states,info=fit_recurrent(data,(raw,context),splits,9,'cpu','gru',assess,history,skip_current=skip_current)
     assert info['unknown_training_queries']==1 and info['background_training_observations']==1 and info['train_episodes']==1
     assert set(states)=={'raw_f1','fixed_gate'} and set(probability)==set(states)
     for p in probability.values():assert p.shape==(n,9) and np.isfinite(p).all() and np.allclose(p.sum(-1),1)
@@ -720,7 +723,8 @@ def test_recurrent_fit_retains_unknown_observations_and_real_checkpoint_policies
     assert checkpoint_merit(value)[-1]==0.
 
 
-def test_fixed_clock_query_logits_match_streaming_and_ignore_temporary_queries():
+@pytest.mark.parametrize("skip_current",[False,True])
+def test_fixed_clock_query_logits_match_streaming_and_ignore_temporary_queries(skip_current):
     from recurrent_selection import grid_batch,query_logits
     from models import RecurrentPointer
     torch.manual_seed(189)
@@ -728,7 +732,7 @@ def test_fixed_clock_query_logits_match_streaming_and_ignore_temporary_queries()
     h=torch.randn(5,4);rows=[dict(episode_id=ep,step=t) for ep,t in [('a',0),('a',5),('a',8),('a',16),('b',8)]]
     c=torch.randn(5,8,3);x=torch.randn(5,4);x[[0,2,3,4]]=h[[0,1,2,4]];mask=torch.ones(5,8,dtype=torch.bool)
     for reset in [False,True]:
-        net=RecurrentPointer(3,4,16,reset).eval();batch=grid_batch(rows,c,x,mask,h,history_rows)
+        net=RecurrentPointer(3,4,16,reset,skip_current).eval();batch=grid_batch(rows,c,x,mask,h,history_rows)
         with torch.inference_mode():
             expected=query_logits(net,batch);stream=[]
             for q,row in enumerate(rows):

@@ -42,7 +42,7 @@ def main(a):
         if ck['spec']['kind']!='grid_gru':continue
         history=load_history(ck['spec']['main_history_path']);raw,_=feature_view(data,geometry=True);norm=ck['normalizer']
         c=torch.tensor((raw-norm['cm'])/norm['cs']);x=torch.tensor((query_context(data,history)-norm['xm'])/norm['xs']);mask=torch.tensor(data['valid'])
-        net=RecurrentPointer(c.shape[-1],x.shape[-1],ck['spec']['width'],ck['spec']['reset_each_frame']).eval();net.load_state_dict(ck['state'])
+        net=RecurrentPointer(c.shape[-1],x.shape[-1],ck['spec']['width'],ck['spec']['reset_each_frame'],ck['spec'].get('skip_current',False)).eval();net.load_state_dict(ck['state'])
         batch=sequence_probability(net,make_batch(data,history,c,x,mask,norm));stream=stream_probability(net,data,history,c,x,mask,norm)
         cached=np.load(a.screen/(path.stem+'_bias0.0_probabilities.npz'))['probability']
         checks={}
