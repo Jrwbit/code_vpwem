@@ -112,3 +112,5 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 `benchmark_growth_consistency.py --root OUTPUT_ROOT --output NEW_DIRECTORY --device cuda` 固定108/24与原主视角因果特征，训练时对相邻同主体且两帧均有正确候选的4820对帧加入类别分布JS；不按检测槽位对齐，包含无目标概率。比较零控制/同帧Dropout强度2/时序强度.5及2 × 原损失/切换4倍 × 种子100/300，16拟合/34记录；未知、无候选、跨划分、间隔>16和主体变化不连边。`benchmark_growth_blend.py --consistency --root OUTPUT_ROOT --output NEW_DIRECTORY` 对时序四家族及同帧两个对照家族各按原始开发F1选成员，25/50/75%固定概率融合，加两个完整冻结配置控制，共20记录。`audit_ranking.py --study consistency --root OUTPUT_ROOT --output NEW_REPORT` 验证四个零控制参数复现、训练帧对隔离及54配置错误分类。推理接口/既有t与t−8因果特征不变，不增加在线平滑或未来画面。类别一致性不保证同类别实例身份稳定。
 
 `diagnose_checkpoint_selection.py --study COMPLETE_STUDY_DIRECTORY --output NEW_REPORT` 事后检查逐轮原始开发日志：同一模型F1胜出轮以外，是否有正确数不更少、抓碗错类≤2、持碗错类0的训练轮。未保存其他轮权重，不能据此宣称重建了替代模型、通过分组/切换门槛或获得新留出成绩。该诊断用于决定后续是否实测与验收目标一致的检查点选择。
+
+`benchmark_checkpoint_replay.py --root OUTPUT_ROOT --output NEW_DIRECTORY --device cuda` 重跑已查看日志中的时序强度2/切换4倍/seed300，保留原F1停止规则，仅增加第13/37轮真实权重/概率快照回调。保存参数、归一化、逐轮原始开发指标及最佳轮复现审计，分别评估两个快照的偏置0/+4，并将第13轮偏置4与原冻结/当前冻结融合各作25/50/75%固定融合；两个完整配置控制合计12记录、1拟合。该轮次由旧开发诊断选出，属于探索复核，不是通用选轮规则或新留出成绩。推理仍用原主视角因果特征；第七组保持封存。
