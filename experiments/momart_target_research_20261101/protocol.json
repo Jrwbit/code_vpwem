@@ -138,5 +138,22 @@
     "examined_now_regression_only": [
       "confirm9"
     ]
+  },
+  "border_training_study": {
+    "scopes": [
+      "all recorded edge targets",
+      "acquire/carry bowl edge targets"
+    ],
+    "fits": 24,
+    "records": 76,
+    "cumulative_records": 1865,
+    "unit_controls_exact": 8,
+    "eligible_new": "border_training_v4/geometry_border_emphasis2.0_transition4_new0.25",
+    "development": "1134->1139 correct; acquire/carry errors2/0 unchanged; switches16 unchanged; class-change count10 unchanged; <=4px edge correct2->1, <=8px24 unchanged",
+    "bowl_scope_new_eligible": false,
+    "confirmation10_opened": false,
+    "promotion": false,
+    "decision": "Preserve original development eligibility; no new confirmation because intended border/core-error benefit is not demonstrated",
+    "scope_limit": "Loss emphasis on real recorded features, not pixel truncation augmentation; one-box policy integration remains incomplete"
   }
 }
