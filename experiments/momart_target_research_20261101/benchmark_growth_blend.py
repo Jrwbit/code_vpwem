@@ -23,9 +23,9 @@ def summary(pred,index,data):
 
 def main(a):
     a.output.mkdir(parents=True,exist_ok=False)
-    research=a.root/'momart_target_research_20261101';history_mode=a.history is not None;ranking_mode=a.ranking;confidence_mode=a.confidence
-    extended_mode=history_mode or ranking_mode or confidence_mode
-    source=research/('growth_confidence_v4_seed100_300' if confidence_mode else 'growth_ranking_v4_seed100_300' if ranking_mode else 'growth_history_v4_seed100_300' if history_mode else 'transition_emphasis_v4_seed100_300')
+    research=a.root/'momart_target_research_20261101';history_mode=a.history is not None;ranking_mode=a.ranking;confidence_mode=a.confidence;consistency_mode=a.consistency
+    extended_mode=history_mode or ranking_mode or confidence_mode or consistency_mode
+    source=research/('growth_consistency_v4_seed100_300' if consistency_mode else 'growth_confidence_v4_seed100_300' if confidence_mode else 'growth_ranking_v4_seed100_300' if ranking_mode else 'growth_history_v4_seed100_300' if history_mode else 'transition_emphasis_v4_seed100_300')
     if json.loads((source/'status.json').read_text())['stage']!='complete':raise ValueError('Source search incomplete')
     holdout=research/('confirm7_corpus' if extended_mode else 'confirm6_corpus')
     if any((holdout/name).exists() for name in ['annotations_all.json','candidate_manifest.json']):raise ValueError('Fresh confirmation already examined')
@@ -46,10 +46,11 @@ def main(a):
     family_names=[s+'_'+loss for s in ['gripper','actions','both'] for loss in ['uniform','transition4']] if history_mode else ['uniform','transition2','transition4','acquire2','combined2']
     if ranking_mode:family_names=[f'ranking{strength}_{loss}' for strength in [.25,1.] for loss in ['uniform','transition4']]
     if confidence_mode:family_names=[f'confidence{factor}_{loss}' for factor in [.5,.25] for loss in ['uniform','transition4']]
+    if consistency_mode:family_names=[f'consistency_{mode}{strength}_{loss}' for mode,strength in [('self',2.),('temporal',.5),('temporal',2.)] for loss in ['uniform','transition4']]
     for family in family_names:
         names=[name for name in original if (family+'_seed' in name if extended_mode else '_'+family+'_bias' in name)]
         families[family]=max(names,key=lambda name:original[name]['raw']['dev']['f1'] if extended_mode else merit(original[name]))
-    write_json(a.output/'frozen_search_protocol.json',dict(method='incumbent + confidence-family probability blends' if confidence_mode else 'incumbent + ranking-family probability blends' if ranking_mode else 'incumbent + history-family probability blends' if history_mode else 'incumbent + weighting-family probability blends',families=families,
+    write_json(a.output/'frozen_search_protocol.json',dict(method='incumbent + consistency/self-control family probability blends' if consistency_mode else 'incumbent + confidence-family probability blends' if confidence_mode else 'incumbent + ranking-family probability blends' if ranking_mode else 'incumbent + history-family probability blends' if history_mode else 'incumbent + weighting-family probability blends',families=families,
         fractions=[.25,.5,.75],thresholds=[0.,.25,.4,.5,.6,.7,.8,.85,.9,.95,.98],margins=[0.,.1,.2],fit_count=0,
         selection='Both original pointer and fixed calibrated incumbent V4 on combined24 and old8/new16 separately',
         holdout=holdout.name+', untouched selector holdout only',holdout_manifest_sha256=hashlib.sha256((holdout/'manifest.json').read_bytes()).hexdigest(),
@@ -91,4 +92,4 @@ def main(a):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);modes=p.add_mutually_exclusive_group();modes.add_argument('--history',type=Path);modes.add_argument('--ranking',action='store_true');modes.add_argument('--confidence',action='store_true');main(p.parse_args())
+    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);modes=p.add_mutually_exclusive_group();modes.add_argument('--history',type=Path);modes.add_argument('--ranking',action='store_true');modes.add_argument('--confidence',action='store_true');modes.add_argument('--consistency',action='store_true');main(p.parse_args())

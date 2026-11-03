@@ -569,7 +569,7 @@ def test_class_consistency_is_slot_invariant_and_includes_null_with_finite_gradi
     assert torch.allclose(loss,torch.tensor(0.),atol=1e-7)
     shifted=torch.tensor([[1.,2.,float('-inf'),4.]],requires_grad=True)
     changed=class_consistency_loss(a,shifted,ca,cb,torch.ones(1))
-    assert 0<float(changed)<.7
+    assert 0<float(changed.detach())<.7
     changed.backward()
     assert torch.isfinite(a.grad).all() and torch.isfinite(shifted.grad).all()
     assert torch.isfinite(class_consistency_loss(a[:0],b[:0],ca[:0],cb[:0],torch.ones(0)))

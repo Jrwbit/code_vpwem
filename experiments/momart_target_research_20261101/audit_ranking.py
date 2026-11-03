@@ -36,7 +36,7 @@ def main(a):
         splits['dev_other']=splits['dev'][~review[splits['dev']]]
     for loss in ['uniform','transition4']:
         for seed in [100,300]:
-            control='ranking0.0' if a.study=='ranking' else 'confidence1.0'
+            control={'ranking':'ranking0.0','confidence':'confidence1.0','consistency':'consistency_none0.0'}[a.study]
             new=source/f'geometry_{control}_{loss}_seed{seed}.pt'
             old=r/'growth_history_v4_seed100_300'/f'geometry_history_none_{loss}_seed{seed}.pt'
             n=torch.load(new,map_location='cpu',weights_only=False);o=torch.load(old,map_location='cpu',weights_only=False)
@@ -49,9 +49,16 @@ def main(a):
         for name,value in registry.items():
             probability=np.load(directory/(name+'_probabilities.npz'))['probability'];pred=apply_calibration(probability,value['calibration'])
             records[directory.name+'/'+name]={key:error_counts(pred,splits[key],data) for key in (['dev','old_dev','new_dev','dev_review','dev_other'] if a.study=='confidence' else ['dev','old_dev','new_dev'])}
-    report=dict(controls=controls,records=records,caveat='Known unchanged proxy labels only. Same-class nonmatching includes poor localization and cannot alone establish an identity error. All class errors include unavailable-target rows; bowl_to_rack includes all roles, not acquisition alone. No confirmation labels loaded.')
+    pair_audit=None
+    if a.study=='consistency':
+        pairs=np.load(source/'training_pairs.npz')['predecessor'];train=set(map(int,splits['train']));right=np.flatnonzero(pairs>=0)
+        assert all(int(i) in train and int(pairs[i]) in train for i in right)
+        assert all(data['rows'][i]['episode_id']==data['rows'][pairs[i]]['episode_id'] and 0<data['rows'][i]['step']-data['rows'][pairs[i]]['step']<=16 for i in right)
+        assert all(data['rows'][i]['label']['target']['instance_id']==data['rows'][pairs[i]]['label']['target']['instance_id'] and data['positive'][i].any() and data['positive'][pairs[i]].any() for i in right)
+        pair_audit=dict(pairs=len(right),episodes=len({data['rows'][i]['episode_id'] for i in right}),classes={str(cls):sum(data['rows'][i]['label']['target']['class_id']==cls for i in right) for cls in range(6)},development_pair_members=0)
+    report=dict(controls=controls,records=records,pair_audit=pair_audit,caveat='Known unchanged proxy labels only. Same-class nonmatching includes poor localization and cannot alone establish an identity error. All class errors include unavailable-target rows; bowl_to_rack includes all roles, not acquisition alone. No confirmation labels loaded.')
     write_json(a.output,report);print(json.dumps(dict(controls=controls,records=len(records)),indent=2))
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--study',choices=['ranking','confidence'],default='ranking');p.add_argument('--root',required=True,type=Path);p.add_argument('--output',required=True,type=Path);main(p.parse_args())
+    p=argparse.ArgumentParser();p.add_argument('--study',choices=['ranking','confidence','consistency'],default='ranking');p.add_argument('--root',required=True,type=Path);p.add_argument('--output',required=True,type=Path);main(p.parse_args())
