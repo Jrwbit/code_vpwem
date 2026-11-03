@@ -30,8 +30,8 @@ def main(a):
         axes[j,0].set_title(row['id']+' | original main RGB\nGreen: offline target visible-mask box',fontsize=10)
         axes[j,1].set_title('Crop '+str(row['crop'])+' | matching slots '+str(record['positive_slots'])+'\nOrange: re-detected matching proposal',fontsize=10)
         evidence.append(dict(base_index=row['base_index'],id=row['id'],crop=row['crop'],positive_slots=record['positive_slots'],original_rgb_sha256=row['source_rgb_sha256'],cropped_rgb_sha256=record['cropped_rgb_sha256']))
-    fig.suptitle('TRAINING-ONLY MAIN-CAMERA CROP REVIEW\nReference masks choose crop/labels only; detector and model features are public.',fontsize=12)
-    fig.subplots_adjust(left=.03,right=.97,bottom=.03,top=.84,hspace=.35,wspace=.08);a.output.parent.mkdir(parents=True,exist_ok=True);fig.savefig(a.output,dpi=120);plt.close(fig)
+    fig.suptitle('TRAINING-ONLY MAIN-CAMERA CROP REVIEW\nReference masks choose crop/labels only; detector and model features are public.',fontsize=11,y=.95,va='top')
+    fig.subplots_adjust(left=.03,right=.97,bottom=.03,top=.80,hspace=.35,wspace=.08);a.output.parent.mkdir(parents=True,exist_ok=True);fig.savefig(a.output,dpi=120);plt.close(fig)
     result=dict(examples=evidence,views=['main'],figure_sha256=hashlib.sha256(a.output.read_bytes()).hexdigest(),archive_sha256=hashlib.sha256(a.archive.read_bytes()).hexdigest(),caveat='Selected pipeline illustrations, not a representative success-rate estimate')
     a.output.with_suffix('.json').write_text(json.dumps(result,indent=2));print(json.dumps(dict(figure_sha256=result['figure_sha256'],examples=len(examples))))
 
