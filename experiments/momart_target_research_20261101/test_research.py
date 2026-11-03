@@ -980,3 +980,21 @@ def test_box_matching_does_not_hide_cross_instance_ambiguity():
         dict(class_id=3,instance_id='rack',box=[0,0,10,10])]
     assert matching_instances(dict(class_id=0,box=[1,0,11,10]),truth)==['bowl_a','bowl_b']
     assert matching_instances(dict(class_id=3,box=[1,0,11,10]),truth)==['rack']
+
+
+def test_bowl_class_auxiliary_reduces_other_class_mass_without_changing_nonbowl_or_missing_targets():
+    import torch
+    from bowl_class_loss import bowl_class_loss
+    logits=torch.tensor([[0.,1.,2.,-1.]]*5,requires_grad=True)
+    labels=torch.tensor([0,1,3,-100,0]);roles=torch.tensor([0,2,4,0,4])
+    classes=torch.tensor([[0,0,3]]*5);valid=torch.ones((5,3),dtype=torch.bool);weights=torch.ones(5)
+    value=bowl_class_loss(logits,labels,roles,classes,weights,valid)
+    expected=-logits.softmax(-1)[[0,4],:2].sum(-1).log().mean()
+    torch.testing.assert_close(value,expected)
+    grad=torch.autograd.grad(value,logits)[0]
+    assert (grad[[0,4],:2]<0).all() and (grad[[0,4],2:]>0).all()
+    assert (grad[1:4]==0).all()
+    empty=bowl_class_loss(logits,torch.full((5,),3),roles,classes,weights,valid)
+    assert empty.item()==0
+    bad=classes.clone();bad[0]=3
+    with pytest.raises(ValueError):bowl_class_loss(logits,labels,roles,bad,weights,valid)

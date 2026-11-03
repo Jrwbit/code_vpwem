@@ -1,5 +1,7 @@
 # MoMaRT 单目标选择实验
 
+`benchmark_bowl_class.py --root OUTPUT_ROOT --output NEW_DIRECTORY --device cuda:0`比较原CE加抓碗/携碗碗类别概率辅助强度0/.25/1，仅已有目标可用训练帧启用，实例CE保留；12拟合/计划62记录，4零控制精确复现和完整三组门槛。输入/推理接口不变，详见`docs/momart_target_research_bowl_class_20261103.md`。
+
 `benchmark_positive_set.py --root OUTPUT_ROOT --output NEW_DIRECTORY --device cuda:0`比较原canonical CE、等价匹配框uniform CE、匹配框总概率marginal损失；既有positive集合、无框null、未知语义不变。12配对拟合/计划62记录，4旧控制逐参数复现，保留三组完整门槛和当前候选保持；仅主视角，推理接口不变。详见`docs/momart_target_research_positive_set_20261103.md`，不把监督口径对齐当作独立意图真值或闭环收益。
 
 持续目标与验收：`protocol.json`、`docs/momart_target_research_goal_20261101.md`。当前不自动替换正式检测器、对象缓存或动作策略；离线选择器分数不代表策略任务成功率。
