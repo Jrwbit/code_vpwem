@@ -632,3 +632,12 @@ def test_retention_freeze_binds_complete_comparator_and_all_dev_groups():
     bad=copy.deepcopy(value);del bad['current_retention']['old_dev']
     with pytest.raises(ValueError,match='all registered'):validate_retention_reference(bad,registered,retention)
     assert [str(p) for p in component_weights(dict(kind='blend',members=[registered['component']]))]==['/tmp/models/selector.pt']
+
+
+def test_paired_error_changes_separate_same_class_instance_errors_from_wrong_class():
+    from compare_confirmation import paired_error_sets
+    rows=[dict(objects=[dict(class_id=0),dict(class_id=cls)]) for cls in [3,3,0,0]]
+    positive=np.zeros((4,8),bool);positive[:,0]=True
+    data=dict(rows=rows,positive=positive,roles=np.array([0,0,4,4]))
+    changes=paired_error_sets(data,np.array([0,1,1,0]),np.array([1,0,8,1]),np.arange(4))
+    assert changes==dict(correct_gained=[0,3],correct_lost=[1],acquire_added=[1],acquire_fixed=[0],carry_added=[],carry_fixed=[])
