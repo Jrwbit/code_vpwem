@@ -76,6 +76,8 @@ contract. Whole-bundle paths are relative and the directory may be moved.
 
 manifest.json records hashes of all copied code, weights and configuration.
 ''')
+    readme=output/'README.md'
+    readme.write_text(readme.read_text().replace('context[280]', 'context['+str(276+len(tasks))+']').replace('the validated four-task\ncontract', 'the frozen '+str(len(tasks))+'-task\ncontract'))
     files={str(p.relative_to(output)):sha(p) for p in output.rglob('*') if p.is_file()}
     manifest=dict(protocol='public_feature_selector_bundle_v1',status='research_candidate_not_promoted',
         original_selection_sha256=sha(selection),tasks=tasks,files=files,

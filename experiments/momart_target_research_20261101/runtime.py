@@ -137,7 +137,8 @@ class SingleBoxSelector:
     @torch.inference_mode()
     def select(self,frame,episode_id,sensor_step):
         if frame.task not in self.tasks:raise ValueError('Task outside validated vocabulary: '+frame.task)
-        if frame.candidates.shape!=(8,139) or frame.valid.shape!=(8,) or frame.context.shape!=(280,):raise ValueError('Expected 8 candidate slots and raw 280D context')
+        expected_context = 256 + 20 + len(self.tasks)
+        if frame.candidates.shape!=(8,139) or frame.valid.shape!=(8,) or frame.context.shape!=(expected_context,):raise ValueError('Expected 8 candidate slots and raw context matching frozen task vocabulary')
         if not np.allclose(frame.context[-len(self.tasks):],np.eye(len(self.tasks))[self.tasks.index(frame.task)]):raise ValueError('Task name and public context one-hot disagree')
         fingerprint=hashlib.sha256()
         for value in vars(frame).values():

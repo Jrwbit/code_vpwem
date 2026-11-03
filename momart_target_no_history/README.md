@@ -41,3 +41,23 @@ Replacement input paths, configuration generator and training entry point are im
 **Formal training has not started.** Full causal target caches are not generated, and the live simulator/selector observation bridge still needs integration. The frozen selector covers only `table_cleanup_to_dishwasher_expert`, `table_setup_from_dishwasher_expert`, `table_setup_from_dresser_expert`, `unload_dishwasher_to_dresser_suboptimal`. The old recipe contains ten sources; startup rejects the other six instead of falling back to old frames/labels or quietly reducing the suite. Complete ten-source replacement needs vocabulary extension and causal replay verification.
 
 The earlier 4.62× benchmark was a main-camera-only shared skeleton, not a measured speedup for either complete multimodal variant.
+
+## Unified ten-source update (2026-11-03)
+
+The user explicitly rejected routing sink to a separate specialist. The current replacement is **one jointly trained five-task MLP64 pointer**, shared across all ten expert/suboptimal sources. `selector.UnifiedTargetSelector` constructs exactly one runtime and maps quality suffixes to the five actual task IDs. No original-model fallback or per-task model head is used. The four-task incumbent is an offline comparator only.
+
+`prepare_sink.sh` reproduces the fixed episode-level sink corpus and the training-only weak labels. `train_unified.py` jointly fits original training data plus new sink training episodes; it selects weights using equal-weight five-task dev macro F1, and a single global calibration using dev only. Newly sampled sink source-valid test episodes are reported only after freezing. The new bundle contains exactly one weight file. Its 732 public-feature queries matched the original checkpoint's probabilities/slots exactly. Existing confirmation10 remains unopened.
+
+`inventory.py` verified all ten read-only perception stores: 654,460 original logical training frames. `prepare_cache.py` reuses only those matching frozen detections/ROI features, batches frozen main-image global features on GPU1, then computes current/t−8 own-robot geometry and unified selection on four CPU workers. Every frame is included, even frames excluded from weak-label supervision. Each source has one writer, a committed prefix, an exclusive lock, and checksummed final arrays. Future globals may exist on disk, but each query only accesses its own current and same-episode t−8 entries.
+
+```bash
+python -m momart_target_no_history.train_unified --root /home/jrw/vpwem_outputs \
+  --output /path/to/new_joint_model --device cuda:0
+python -m momart_target_no_history.prepare_cache --config momart_object_memory/config.yaml \
+  --perception-root /path/to/verified/perception_stores \
+  --selector-bundle /path/to/frozen/five_task_bundle \
+  --urdf /path/to/fetch_gripper.urdf --output /path/to/new/target_cache \
+  --device cuda:0 --batch-size 128 --workers 4
+```
+
+See the latest unified-cache report for measured final completion; the earlier four-source readiness paragraph records the state before this update. Neither these proxy scores nor cache completion establishes policy closed-loop success.
