@@ -19,7 +19,7 @@ def main(a):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    fig,axes=plt.subplots(3,3,figsize=(12,11));records=[]
+    fig,axes=plt.subplots(3,3,figsize=(12,12));records=[]
     with h5py.File(center['source'],'r') as f:
         obs=f['data'][center['demo']]['obs'];length=len(obs['rgb'])
         for ax,delta in zip(axes.flat,range(-32,33,8)):
@@ -37,7 +37,7 @@ def main(a):
             else:texts.append('No aligned evaluation query; raw public main RGB only')
             ax.set_title('\n'.join(texts),fontsize=9);records.append(item)
     fig.suptitle(a.case_id+' | OFFLINE MAIN-VIEW REVIEW\nFuture panels are review material only; weak labels are not human intention truth.',fontsize=13)
-    fig.tight_layout(rect=(0,0,1,.94));a.output.parent.mkdir(parents=True,exist_ok=True);fig.savefig(a.output,dpi=120);plt.close(fig)
+    fig.subplots_adjust(left=.02,right=.98,bottom=.02,top=.88,hspace=.48,wspace=.08);a.output.parent.mkdir(parents=True,exist_ok=True);fig.savefig(a.output,dpi=120);plt.close(fig)
     meta=dict(case=a.case_id,episode=center['episode_id'],panels=records,views=['main'],future_review_only=True,no_labels_changed=True,
         manifest_sha256=hashlib.sha256((research/(a.prefix+'_corpus')/'manifest.json').read_bytes()).hexdigest(),figure_sha256=hashlib.sha256(a.output.read_bytes()).hexdigest())
     a.output.with_suffix('.json').write_text(json.dumps(meta,indent=2));print(json.dumps(dict(case=a.case_id,panels=len(records),figure_sha256=meta['figure_sha256'])))
