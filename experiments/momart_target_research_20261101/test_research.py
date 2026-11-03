@@ -756,3 +756,11 @@ def test_fixed_clock_query_logits_match_streaming_and_ignore_temporary_queries(s
             future=h.clone();future[2]+=10
             other=grid_batch(rows,c,x,mask,future,history_rows)
             torch.testing.assert_close(query_logits(net,other)[[0,1,2,4]],expected[[0,1,2,4]],atol=1e-6,rtol=1e-6)
+
+
+def test_confirmation_history_binds_encoder_clock_tasks_and_manifest():
+    from history_contract import public_history_contract,validate_history_contract
+    meta=dict(protocol='fixed_clock_main_context_v1',grid_stride=8,context_dim=294,tasks=['a','b'],feature_checkpoint_sha256='encoder',urdf_sha256='robot',tf32=False,corpus_manifest_sha256='cohort')
+    frozen=public_history_contract(meta);validate_history_contract(meta,frozen,'cohort')
+    for key,value in [('feature_checkpoint_sha256','other'),('tasks',['b','a']),('grid_stride',4),('tf32',True),('corpus_manifest_sha256','other')]:
+        with pytest.raises(ValueError):validate_history_contract(dict(meta,**{key:value}),frozen,'cohort')

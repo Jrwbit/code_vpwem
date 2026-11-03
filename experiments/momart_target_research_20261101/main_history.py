@@ -11,6 +11,7 @@ from omegaconf import OmegaConf
 from cleandiffuser.nn_condition.multi_image_condition import get_resnet,replace_submodules
 from growth_data import load_growth_data
 from robot_geometry import RobotGeometry
+from history_contract import public_history_contract
 
 
 def observation_schedule(rows,lengths):
@@ -45,8 +46,14 @@ def query_context(data,history):
 def main(a):
     if a.output.exists() or a.output.with_suffix('.json').exists():raise FileExistsError(a.output)
     torch.set_num_threads(2);torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False
-    research=a.root/'momart_target_research_20261101';data=load_growth_data(a.root)
-    reserve=json.loads((research/'confirm8_corpus/manifest.json').read_text());assert not {r['episode_id'] for r in data['rows']}&{r['episode_id'] for r in reserve['episodes']}
+    research=a.root/'momart_target_research_20261101';reference=None
+    if a.corpus is None:
+        data=load_growth_data(a.root)
+        reserve=json.loads((research/'confirm8_corpus/manifest.json').read_text());assert not {r['episode_id'] for r in data['rows']}&{r['episode_id'] for r in reserve['episodes']}
+    else:
+        if a.reference_history is None:raise ValueError('Confirmation history requires frozen training history reference')
+        reference=json.loads(a.reference_history.with_suffix('.json').read_text());public_history_contract(reference)
+        manifest=json.loads((a.corpus/'manifest.json').read_text());data=dict(rows=manifest['records'],tasks=reference['tasks'])
     cfg=OmegaConf.load(a.config).object_memory;files={};lengths={};sensors={};configs={}
     for row in data['rows']:
         source=str(Path(row['source']).resolve())
@@ -84,20 +91,25 @@ def main(a):
         geometry.close()
         for f in files.values():f.close()
     result=dict(context=np.asarray(contexts),rows=rows);shared=query_context(data,result)
-    old=np.c_[data['context'],data['geometry_context']];nonvisual=float(np.max(np.abs(shared[:,256:]-old[:,256:])))
-    if nonvisual>1e-5:raise ValueError('Public proprio/task/robot geometry failed shared-frame parity: '+str(nonvisual))
+    old=np.c_[data['context'],data['geometry_context']] if a.corpus is None else None
+    nonvisual=float(np.max(np.abs(shared[:,256:]-old[:,256:]))) if old is not None else None
+    if nonvisual is not None and nonvisual>1e-5:raise ValueError('Public proprio/task/robot geometry failed shared-frame parity: '+str(nonvisual))
     lookup={(r['episode_id'],r['step']):i for i,r in enumerate(rows)}
     assert all(rgb_sha[lookup[r['episode_id'],r['step']]]==r['sha256'] for r in data['rows'])
-    a.output.parent.mkdir(parents=True,exist_ok=True);np.savez_compressed(a.output,context=result['context'])
+    a.output.parent.mkdir(parents=True,exist_ok=True)
     meta=dict(protocol='fixed_clock_main_context_v1',rows=rows,rgb_sha256=rgb_sha,grid_stride=8,query_only_rows=sum(not r['is_grid'] for r in rows),
         episode_lengths=lengths,tasks=data['tasks'],context_dim=294,feature_checkpoint_sha256=hashlib.sha256(Path(cfg.feature_checkpoint).read_bytes()).hexdigest(),
         urdf_sha256=hashlib.sha256(a.urdf.read_bytes()).hexdigest(),tf32=False,physical_gpu=__import__('os').environ.get('CUDA_VISIBLE_DEVICES'),
-        shared_query_frames=len(shared),shared_nonvisual_max_abs=nonvisual,shared_old_visual_max_abs=float(np.max(np.abs(shared[:,:256]-old[:,:256]))),
+        shared_query_frames=len(shared),shared_nonvisual_max_abs=nonvisual,shared_old_visual_max_abs=float(np.max(np.abs(shared[:,:256]-old[:,:256]))) if old is not None else None,
         contract='Uniform public grid from episode start, all alignment-rejected/unlabelled observations included. Off-grid queries do not advance persistent state. Only main RGB/proprio/measured torso/task, no detector pool/GT objects/future commands; inference must maintain this fixed clock.')
+    if a.corpus is not None:
+        meta['corpus_manifest_sha256']=hashlib.sha256((a.corpus/'manifest.json').read_bytes()).hexdigest()
+        if public_history_contract(meta)!=public_history_contract(reference):raise ValueError('Confirmation exporter differs from frozen training sensor contract')
+    np.savez_compressed(a.output,context=result['context'])
     a.output.with_suffix('.json').write_text(json.dumps(meta,indent=2));print(json.dumps({k:v for k,v in meta.items() if k not in ['rows','rgb_sha256','episode_lengths']},indent=2))
 
 
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for key in ['root','config','urdf','output']:p.add_argument('--'+key,type=Path,required=True)
-    p.add_argument('--device',default='cuda:0');p.add_argument('--batch-size',type=int,default=32);main(p.parse_args())
+    p.add_argument('--corpus',type=Path);p.add_argument('--reference-history',type=Path);p.add_argument('--device',default='cuda:0');p.add_argument('--batch-size',type=int,default=32);main(p.parse_args())

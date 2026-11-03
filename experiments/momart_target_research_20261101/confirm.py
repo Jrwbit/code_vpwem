@@ -138,12 +138,24 @@ def main(a):
         if hashlib.sha256((a.control_selection/'selected.json').read_bytes()).hexdigest()!=selected['control_selection_sha256']:
             raise ValueError('Original control selection differs from frozen comparison')
         frozen['retention']=selected['retention_reference'];frozen['retention_selection_sha256']=selected['retention_selection_sha256']
+    if selected.get('frozen_main_history_contract'):
+        if a.main_history is None:raise ValueError('Frozen recurrent confirmation requires public fixed-clock history')
+        from history_contract import validate_history_contract
+        metadata=json.loads(a.main_history.with_suffix('.json').read_text())
+        manifest_sha=hashlib.sha256((research/(a.prefix+'_corpus')/'manifest.json').read_bytes()).hexdigest()
+        validate_history_contract(metadata,selected['frozen_main_history_contract'],manifest_sha)
+        frozen['main_history']=dict(path=str(a.main_history),archive_sha256=hashlib.sha256(a.main_history.read_bytes()).hexdigest(),
+            metadata_sha256=hashlib.sha256(a.main_history.with_suffix('.json').read_bytes()).hexdigest(),contract=selected['frozen_main_history_contract'])
+    elif a.main_history is not None:raise ValueError('Public history contract was not frozen before confirmation')
     write_json(a.output/'frozen_evaluation_manifest.json',frozen)
     extra=research/('extra_'+a.prefix+'.npz') if a.public_views=='rich' else None
     data=attach_geometry(load_group(research/(a.prefix+'_corpus'),research/(a.prefix+'_features.npz'),research/(a.prefix+'_phases.json'),'confirm',extra),research/('geometry_'+a.prefix+'.npz'))
     if (research/('mask_'+a.prefix+'.npz')).exists():
         from mask_benchmark import attach_masks
         data=attach_masks(data,[research/('mask_'+a.prefix+'.npz')])
+    if a.main_history is not None:
+        from main_history import load_history
+        data['main_history']=load_history(a.main_history)
     index=np.flatnonzero(data['y']>=0);results={}
     corpus_meta=json.loads((research/(a.prefix+'_corpus')/'manifest.json').read_text())
     partitions_by_episode={ep['episode_id']:ep.get('source_partition','valid') for ep in corpus_meta['episodes']}
@@ -187,5 +199,5 @@ if __name__=='__main__':
     p=argparse.ArgumentParser()
     for k in ['root','selection','output']:p.add_argument('--'+k,type=Path,required=True)
     p.add_argument('--control-selection',type=Path);p.add_argument('--prefix',default='confirmation');p.add_argument('--purpose',choices=['confirmation','regression'],default='confirmation')
-    p.add_argument('--public-views',choices=['rich','geometry'],default='rich')
+    p.add_argument('--public-views',choices=['rich','geometry'],default='rich');p.add_argument('--main-history',type=Path)
     main(p.parse_args())

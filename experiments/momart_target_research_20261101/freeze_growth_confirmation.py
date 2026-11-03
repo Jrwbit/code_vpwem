@@ -50,7 +50,20 @@ def main(a):
         payload['retention_selection_sha256']=digest(a.retention)
         paths=set(component_weights(value['component'])+component_weights(control['result']['component'])+component_weights(retention['result']['component']))
         payload['frozen_weight_sha256']={str(path):digest(path) for path in sorted(paths)}
+        import torch
+        from history_contract import public_history_contract
+        histories={}
+        for path in sorted(paths):
+            checkpoint=torch.load(path,map_location='cpu',weights_only=False)
+            if checkpoint.get('spec',{}).get('kind')!='grid_gru':continue
+            history=Path(checkpoint['spec']['main_history_path']);metadata=json.loads(history.with_suffix('.json').read_text())
+            histories[str(history)]=dict(archive_sha256=digest(history),metadata_sha256=digest(history.with_suffix('.json')),contract=public_history_contract(metadata))
+        if histories:
+            contract=next(iter(histories.values()))['contract']
+            if not all(value['contract']==contract for value in histories.values()):raise ValueError('Recurrent members use different public sensor contracts')
+            payload['frozen_main_history_contract']=contract;payload['frozen_training_histories']=histories
     a.output.mkdir(parents=True);(a.output/'selected.json').write_text(json.dumps(payload,indent=2))
+    (a.output/'holdout_manifest.json').write_bytes((a.holdout/'manifest.json').read_bytes())
     print(json.dumps(dict(winner=payload['name'],reserved_episodes=len(reserved),source_partitions=sorted({ep['source_partition'] for ep in corpus['episodes']}),output=str(a.output))))
 
 
