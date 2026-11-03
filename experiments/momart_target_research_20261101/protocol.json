@@ -47,7 +47,8 @@
     "main-view train108 hardest incorrect observed-box ranking, excluding alternate positives and null rivals; paired CE controls and fixed family blends",
     "train108 audited carrier-conflict confidence, factors 1/.5/.25 paired with uniform/transition4 losses and fixed family blends; unchanged main-view inference and full development denominators",
     "train-only stable-subject class-distribution JS consistency, temporal strengths .5/2 versus same-frame dropout strength2 and exact zero controls; null included, public candidate classes pooled without slot matching, no added online inputs",
-    "actual epoch13/37 replay of examined priority-vs-F1 history discrepancy; saved real snapshots, reconstruction audit, unchanged full dev gates and fixed blends with original/current frozen parents"
+    "actual epoch13/37 replay of examined priority-vs-F1 history discrepancy; saved real snapshots, reconstruction audit, unchanged full dev gates and fixed blends with original/current frozen parents",
+    "all actual visited epochs under unchanged training/early-stop trajectory; original V4 plus predeclared current-candidate non-regression on combined/old/new dev, full calibrated gates and fixed original/current parent blends"
   ],
   "deployment": "do not replace production model based only on weak-proxy scores; retain causal inputs, missing-target masks and full-scene observations",
   "acceptance_revision": 2,
@@ -71,5 +72,6 @@
     "original_manifest_sha256": "d84825c66da2ef7800ecac75ceaf5654ff2812cb5312aa7955ca40bfec3f1984"
   },
   "runtime_bundle": "Relocatable public-feature selector only, always labelled research_candidate_not_promoted; bundle parity does not establish reliable intent, raw perception, full task coverage or closed-loop policy success",
-  "active_camera_scope": "Main-view RGB and observed main depth only; no side/wrist feature enrichment for current ranking, selection or review. Historical wrist trials remain archived."
+  "active_camera_scope": "Main-view RGB and observed main depth only; no side/wrist feature enrichment for current ranking, selection or review. Historical wrist trials remain archived.",
+  "full_gate_epoch_retention": "Additional current frozen blend accepted-correct, acquire/carry, stable-class rate, correct/stale changes and role-floor retention on combined24/old8/new16; does not rewrite historical V4 results. Same extra comparison required before any new confirmation claim."
 }

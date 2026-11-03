@@ -116,3 +116,5 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 `benchmark_checkpoint_replay.py --root OUTPUT_ROOT --output NEW_DIRECTORY --device cuda` 重跑已查看日志中的时序强度2/切换4倍/seed300，保留原F1停止规则，仅增加第13/37轮真实权重/概率快照回调。保存参数、归一化、逐轮原始开发指标及最佳轮复现审计，分别评估两个快照的偏置0/+4，并将第13轮偏置4与原冻结/当前冻结融合各作25/50/75%固定融合；两个完整配置控制合计12记录、1拟合。该轮次由旧开发诊断选出，属于探索复核，不是通用选轮规则或新留出成绩。推理仍用原主视角因果特征；第七组保持封存。
 
 `verify_checkpoint_replay.py --root OUTPUT_ROOT --study COMPLETE_REPLAY_DIRECTORY --output NEW_REPORT` 在全部既有公共特征帧上重新加载第13/37轮真实权重和归一化，检查偏置0/+4的概率（1e-5容差）、原始槽和接受槽与GPU归档的一致性；只验证快照序列化与公共特征推理，不是原始感知或闭环收益。
+
+`benchmark_epoch_selection.py --root OUTPUT_ROOT --output NEW_DIRECTORY --device cuda` 保存原时序2/切换4倍/seed300训练停止轨迹内所有实际轮的权重及概率，逐轮偏置0/+4完整校准。除旧指针/原冻结控制V4外，combined24/old8/new16均要求相对当前冻结融合的正确数、抓碗/持碗、稳定类别跳动率、切换正确/滞留和角色召回下限保持。合格先于F1排序；无合格快照时以最高F1仅作失败诊断/固定融合候选，明确记录fallback。再与原/当前冻结配置按25/50/75%融合，不放宽门槛。该轨迹67轮时为134快照配置+2控制+6融合=142记录、1再拟合。`verify_checkpoint_replay.py ... --epochs 13 37 SELECTED_EPOCH` 可对指定实际轮作公共特征序列化重放；默认13/37保持旧用法。新保持门槛不改变旧历史结果，未来确认也须同时保留该比较。

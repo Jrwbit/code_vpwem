@@ -15,7 +15,7 @@ def main(a):
     if a.output.exists():raise FileExistsError(a.output)
     if json.loads((a.study/'status.json').read_text())['stage']!='complete':raise ValueError('Replay study incomplete')
     data=load_growth_data(a.root);registry=json.loads((a.study/'registry.json').read_text());records={}
-    for epoch in [13,37]:
+    for epoch in a.epochs:
         for offset in [0.,4.]:
             name=f'epoch{epoch}_bias{offset}';v=registry[name]
             actual=predict_component(v['component'],data,a.root);expected=np.load(a.study/(name+'_probabilities.npz'))['probability']
@@ -31,4 +31,4 @@ def main(a):
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     for key in ['root','study','output']:p.add_argument('--'+key,type=Path,required=True)
-    main(p.parse_args())
+    p.add_argument('--epochs',type=int,nargs='+',default=[13,37]);main(p.parse_args())
