@@ -56,7 +56,7 @@ def select_cases(groups,seed=20261105):
 
 
 def reviewer_entry(case_id,row,steps):
-    return dict(case_id=case_id,task=row['task'],sheet='sheets/'+case_id+'.png',
+    return dict(case_id=case_id,task=row['task'],sheet='sheets/'+case_id+'.png',views=['main'],
         annotations=[dict(requested_offset=offset,relative_steps=int(step-row['step']),sensor_step=int(step),
             frame_uid=hashlib.sha256(json.dumps([*physical_key(row)[:2],int(step)]).encode()).hexdigest()[:20],
             status='pending',target_class=None,confidence=None,comment='') for offset,step in zip(OFFSETS,steps)])
@@ -83,20 +83,16 @@ def main(a):
             row=case['row'];case_id=f'R{number:03d}';source=str(Path(row['source']).resolve())
             if source not in files:files[source]=h5py.File(source,'r')
             episode=files[source]['data'][row['demo']];n=len(episode['actions']);steps=[max(0,min(n-1,row['step']+o)) for o in OFFSETS]
-            views=['main','wrist'] if a.wrist else ['main'];images={}
-            fig,axes=plt.subplots(len(views),5,figsize=(12,2.7*len(views)),squeeze=False)
-            for vi,view in enumerate(views):
-                key='rgb' if view=='main' else 'rgb_wrist'
-                if key not in episode['obs']:raise ValueError('Requested review camera missing: '+view)
-                images[view]=[np.asarray(episode['obs'][key][step]) for step in steps]
-                for ax,offset,step,rgb in zip(axes[vi],OFFSETS,steps,images[view]):
-                    actual=step-row['step'];suffix=' (clipped)' if actual!=offset else ''
-                    ax.imshow(rgb,interpolation='nearest');ax.axis('off');ax.set_title(view+f' {actual:+d} | step {step}'+suffix,fontsize=8)
+            images=[np.asarray(episode['obs']['rgb'][step]) for step in steps]
+            fig,axes=plt.subplots(1,5,figsize=(12,2.7))
+            for ax,offset,step,rgb in zip(axes,OFFSETS,steps,images):
+                actual=step-row['step'];suffix=' (clipped)' if actual!=offset else ''
+                ax.imshow(rgb,interpolation='nearest');ax.axis('off');ax.set_title(f'main {actual:+d} | step {step}'+suffix,fontsize=8)
             fig.suptitle(case_id+' | '+row['task']+'\nCenter=0; +8/+16 are offline review continuation, NOT inference inputs',fontsize=9)
-            fig.tight_layout(rect=(0,0,1,.88 if a.wrist else .78));path=a.output/'sheets'/(case_id+'.png');fig.savefig(path,dpi=100);plt.close(fig)
-            entry=reviewer_entry(case_id,row,steps);entry['views']=views;entry['sheet_sha256']=hashlib.sha256(path.read_bytes()).hexdigest();entries.append(entry)
+            fig.tight_layout(rect=(0,0,1,.78));path=a.output/'sheets'/(case_id+'.png');fig.savefig(path,dpi=100);plt.close(fig)
+            entry=reviewer_entry(case_id,row,steps);entry['sheet_sha256']=hashlib.sha256(path.read_bytes()).hexdigest();entries.append(entry)
             audit.append(dict(case_id=case_id,**{k:v for k,v in case.items() if k!='row'},source=source,demo=row['demo'],center_step=row['step'],episode_id=row['episode_id'],
-                sensor_steps=steps,rgb_sha256={view:[hashlib.sha256(image.tobytes()).hexdigest() for image in frames] for view,frames in images.items()}))
+                sensor_steps=steps,rgb_sha256={'main':[hashlib.sha256(image.tobytes()).hexdigest() for image in images]}))
     finally:
         for handle in files.values():handle.close()
     (a.output/'review_cases.json').write_text(json.dumps(dict(protocol='blinded_switch_review_v1',status='unreviewed',cases=entries,
@@ -110,7 +106,7 @@ labels or model predictions are drawn or prefilled. Keep audit_only/ closed unti
 independent review is complete. That directory contains the sampling provenance,
 not human ground truth. The task name is public context. Positive offsets show
 recorded continuation for offline adjudication; never feed them to live inference.
-When present, main/wrist rows are simultaneous public camera observations.
+Only the main camera is read and rendered. Side and wrist views are excluded.
 
 Every annotation starts pending. Choose class 0..5, other, none, or uncertain; do not
 force a class when intention cannot be established. First agree whether switching
@@ -124,7 +120,7 @@ frame accuracy benchmark. It excludes confirmation7. Do not report pending or
 agent-inferred labels as independent human intention ground truth.
 ''')
     report=dict(status='unreviewed',cases=len(cases),pending_annotations=len(cases)*5,
-        unique_physical_frames=len({(c['source'],c['demo'],step) for c in audit for step in c['sensor_steps']}),seed=a.seed,views=['main','wrist'] if a.wrist else ['main'],
+        unique_physical_frames=len({(c['source'],c['demo'],step) for c in audit for step in c['sensor_steps']}),seed=a.seed,views=['main'],
         cohorts={name:{kind:sum(c['cohort']==name and c['kind']==kind for c in cases) for kind in ['proxy_change','stable_control']} for name in groups},
         confirmation7_episode_overlap=0,review_sha256=hashlib.sha256((a.output/'review_cases.json').read_bytes()).hexdigest())
     (a.output/'manifest.json').write_text(json.dumps(report,indent=2))
@@ -135,4 +131,4 @@ agent-inferred labels as independent human intention ground truth.
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--seed',type=int,default=20261105);p.add_argument('--wrist',action='store_true');main(p.parse_args())
+    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--seed',type=int,default=20261105);main(p.parse_args())

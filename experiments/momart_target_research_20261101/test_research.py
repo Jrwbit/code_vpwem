@@ -525,6 +525,7 @@ def test_review_sampling_includes_every_change_and_blinds_labels_with_matched_co
     assert len(selected)==2
     assert [x['row']['step'] for x in selected if x['kind']=='proxy_change']==[80]
     entry=reviewer_entry('R001',dict(rows[1]),[0,0,8,16,24])
+    assert entry['views']==['main']
     assert entry['annotations'][0]['relative_steps']==-8
     assert all(x['status']=='pending' and x['target_class'] is None for x in entry['annotations'])
     assert not {'label','proxy_class','kind','cohort','predicted_class'}&set(entry)
