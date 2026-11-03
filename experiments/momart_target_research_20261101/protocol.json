@@ -44,7 +44,8 @@
     "fixed incumbent/weighting-family probability blends with dual-comparator calibration",
     "predicted-proposal-class confidence and top-two-gap rejection calibration",
     "paired train108 causal finger/strictly past command histories, uniform/switch-weighted losses and incumbent blends",
-    "main-view train108 hardest incorrect observed-box ranking, excluding alternate positives and null rivals; paired CE controls and fixed family blends"
+    "main-view train108 hardest incorrect observed-box ranking, excluding alternate positives and null rivals; paired CE controls and fixed family blends",
+    "train108 audited carrier-conflict confidence, factors 1/.5/.25 paired with uniform/transition4 losses and fixed family blends; unchanged main-view inference and full development denominators"
   ],
   "deployment": "do not replace production model based only on weak-proxy scores; retain causal inputs, missing-target masks and full-scene observations",
   "acceptance_revision": 2,
