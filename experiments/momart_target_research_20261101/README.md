@@ -148,3 +148,5 @@ MoMaRT此配置的动作是10维（不启用tuck）：base2、末端IK位姿增�
 训练供数提速：`benchmark_training_io.py`核验等索引I/O，`benchmark_policy_pipeline.py --dataset TRAIN_ZARR --config momart_object_memory/config.yaml --output NEW_DIRECTORY --device cuda:0`实测主视角共享动作骨架更新；后者不是完整单框训练入口。`policy_speed_override.yaml`仅设置4worker，两组科学训练配置确定后共同合并。原始帧批读取与原标量读取字节一致，保持可训练视觉encoder及随机增强；本轮整步.660→.143秒约4.62倍，单数据源短测不等于全实验ETA。详见`docs/momart_policy_training_speed_20261103.md`。
 
 用户确认的旧策略替换入口为momart_target_no_history，两组均保留原腕部等全部策略观测，只有选框器只处理主视角。当前仅四源冻结词表，全十源新框缓存/在线接线未完成，训练入口明确拒绝不支持源；详见docs/momart_nohistory_new_target_replacement_20261103.md。
+
+十源缓存已补齐：单一联合五任务MLP64、同一全局阈值，无任务路由。654460帧全complete、四数组SHA逐源通过、两模式80真实样本其他观测/动作相同、30原始传感器查询valid/类别0差。缓存momart_target_unified_five_task_20261103的target_metadata.json供两组共用；仍未启动动作策略训练/完成环境接线。详见docs/momart_ten_source_unified_target_cache_20261103.md。

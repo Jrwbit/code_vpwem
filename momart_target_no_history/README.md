@@ -38,7 +38,7 @@ Invalid boxes leave the image unchanged and mask both extra tokens. Each observa
 
 Replacement input paths, configuration generator and training entry point are implemented. Both complete original multimodal policies passed CPU forward/backward checks. Tests cover cached/online supplied-box parity, unchanged wrist/depth/proprio/actions, missing boxes, duplicates/tail padding, cache identity and refusal to drop unsupported sources.
 
-**Formal training has not started.** Full causal target caches are not generated, and the live simulator/selector observation bridge still needs integration. The frozen selector covers only `table_cleanup_to_dishwasher_expert`, `table_setup_from_dishwasher_expert`, `table_setup_from_dresser_expert`, `unload_dishwasher_to_dresser_suboptimal`. The old recipe contains ten sources; startup rejects the other six instead of falling back to old frames/labels or quietly reducing the suite. Complete ten-source replacement needs vocabulary extension and causal replay verification.
+**The unified ten-source target cache is complete and verified.** The single shared five-task model produces all 654,460 training frames. The four stored arrays passed per-source SHA256 verification; both policy input modes consumed four real indices/source with every non-main-RGB observation and action unchanged. Thirty raw sensor samples across the ten sources had no validity/class disagreements and minimum selected-box IoU 0.9996468. These are integrity and sampled reproducibility checks, not target accuracy or policy success. Formal action-policy training has not started; the live environment/selector observation bridge still needs integration.
 
 The earlier 4.62× benchmark was a main-camera-only shared skeleton, not a measured speedup for either complete multimodal variant.
 
@@ -60,4 +60,4 @@ python -m momart_target_no_history.prepare_cache --config momart_object_memory/c
   --device cuda:0 --batch-size 128 --workers 4
 ```
 
-See the latest unified-cache report for measured final completion; the earlier four-source readiness paragraph records the state before this update. Neither these proxy scores nor cache completion establishes policy closed-loop success.
+See docs/momart_ten_source_unified_target_cache_20261103.md for final completion and measured limitations. Neither these proxy scores nor cache completion establishes policy closed-loop success.

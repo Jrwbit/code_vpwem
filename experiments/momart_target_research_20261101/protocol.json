@@ -369,10 +369,42 @@
     ],
     "historical_roi_position_structure_preserved": true,
     "old_policy_sources": 10,
-    "frozen_selector_supported_sources": 4,
-    "full_target_cache_prepared": false,
+    "frozen_selector_supported_sources": 10,
+    "full_target_cache_prepared": true,
     "live_environment_bridge_complete": false,
     "formal_training_started": false,
-    "main_only_speed_is_not_final_multimodal_speed": true
+    "main_only_speed_is_not_final_multimodal_speed": true,
+    "selector": "one_shared_five_task_mlp64",
+    "per_task_model_routing": false,
+    "shared_global_calibration": true
+  },
+  "unified_ten_source_target_cache": {
+    "status": "complete_verified",
+    "model": "one_shared_five_task_mlp64_seed100",
+    "bundle_manifest_sha256": "c68b54d8a3c3b544b76f0d47ad14feb015fd360834657b6a64c13eb1619f2f74",
+    "cache_root": "/home/jrw/vpwem_data/momart_target_unified_five_task_20261103",
+    "sources": 10,
+    "frames": 654460,
+    "valid_frames": 564371,
+    "all_four_array_checksums_passed": true,
+    "policy_input_modes_verified": [
+      "box",
+      "box_coordinates_roi"
+    ],
+    "actual_samples_verified": 80,
+    "raw_sensor_samples": 30,
+    "raw_valid_disagreements": 0,
+    "raw_class_disagreements": 0,
+    "raw_min_box_iou": 0.99964682340576,
+    "raw_max_box_abs": 5.733966827392578e-05,
+    "all_frame_online_parity_claimed": false,
+    "source_scientific_note": "Only current/t-8 main sensors and own robot measurements enter inference; offline weak labels used only for fitting/scoring. Original four-task dev correct1134->1125 and acquire/carry errors2/0->4/1 are reported.",
+    "formal_action_policy_training_started": false,
+    "live_environment_bridge_complete": false,
+    "confirm10_opened": false,
+    "source_commits": [
+      "b89cdd4",
+      "804b3d9"
+    ]
   }
 }
