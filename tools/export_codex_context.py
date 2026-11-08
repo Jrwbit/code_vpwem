@@ -28,7 +28,7 @@ def redact(text):
     text = re.sub(r"https?://[^\s<>\"']+", lambda m: re.sub(r"([?&][^=&#]+)=([^&#]*)", r"\1=[REDACTED]", re.sub(r"(https?://)[^/@\s]+:[^/@\s]+@", r"\1[REDACTED]@", m[0])), text)
     text = re.sub(r"\b[A-Za-z0-9+/=_-]{32,}\b", "[REDACTED long identifier]", text)
     text = re.sub(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", "[REDACTED email]", text)
-    return text.strip()
+    return "\n".join(line.rstrip() for line in text.splitlines()).strip()
 
 
 def export(source, output):
